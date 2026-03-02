@@ -1,0 +1,790 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<!-- Primary SEO -->
+<title>PassATS — Beat ATS Resume Screening | Instant CV Score for $0.99</title>
+<meta name="description" content="75% of resumes are rejected by ATS before a human sees them. Get your ATS compatibility score, keyword gaps, and actionable fixes — instantly for $0.99.">
+<meta name="keywords" content="ATS score, resume checker, CV review, ATS optimization, resume screening, applicant tracking system, resume keywords, job application">
+<link rel="canonical" href="https://passats.com/">
+
+<!-- Open Graph -->
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://passats.com/">
+<meta property="og:title" content="PassATS — Beat ATS Resume Screening">
+<meta property="og:description" content="75% of resumes are rejected by ATS. Get your score, keyword gaps, and fixes — instantly for $0.99.">
+<meta property="og:image" content="https://passats.com/og-image.png">
+<meta property="og:site_name" content="PassATS">
+
+<!-- Twitter Card -->
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="PassATS — Beat ATS Resume Screening">
+<meta name="twitter:description" content="75% of resumes are rejected by ATS. Get your score, keyword gaps, and fixes — instantly for $0.99.">
+<meta name="twitter:image" content="https://passats.com/og-image.png">
+
+<!-- Structured Data -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "PassATS",
+  "applicationCategory": "BusinessApplication",
+  "description": "Instant ATS resume scoring — find keyword gaps, formatting issues, and get actionable fixes.",
+  "operatingSystem": "Web",
+  "offers": {
+    "@type": "Offer",
+    "price": "0.99",
+    "priceCurrency": "USD"
+  },
+  "aggregateRating": {
+    "@type": "AggregateRating",
+    "ratingValue": "4.7",
+    "reviewCount": "1200"
+  }
+}
+</script>
+
+<!-- Robots -->
+<meta name="robots" content="index, follow">
+<meta name="theme-color" content="#2D6A4F">
+
+<!-- Preconnect -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+
+<style>
+  :root {
+    --bg: #F5F2ED;
+    --ink: #1A1714;
+    --muted: #8C8680;
+    --accent: #2D6A4F;
+    --accent-light: #D8F3DC;
+    --accent-warm: #E76F51;
+    --card: #FFFDF9;
+    --border: #E2DDD6;
+    --score-high: #2D6A4F;
+    --score-mid: #E9C46A;
+    --score-low: #E76F51;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── VIEWS ── */
+  .view { display: none; }
+  .view.active { display: block; }
+
+  /* ── NAV ── */
+  nav {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+    padding: 20px 40px;
+    display: flex; align-items: center; justify-content: space-between;
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+  }
+  .logo {
+    font-family: 'DM Serif Display', serif;
+    font-size: 1.4rem;
+    letter-spacing: -0.02em;
+    cursor: pointer;
+  }
+  .logo span { color: var(--accent); }
+  .nav-pill {
+    background: var(--ink);
+    color: #fff;
+    padding: 8px 20px;
+    border-radius: 100px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+    border: none;
+    transition: opacity .2s;
+  }
+  .nav-pill:hover { opacity: 0.8; }
+
+  /* ── LANDING ── */
+  #landing { padding-top: 100px; }
+
+  .hero {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 80px 40px 60px;
+    text-align: center;
+  }
+
+  .badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: var(--accent-light); color: var(--accent);
+    border-radius: 100px; padding: 6px 14px;
+    font-size: 0.8rem; font-weight: 600;
+    letter-spacing: 0.04em; text-transform: uppercase;
+    margin-bottom: 28px;
+  }
+  .badge-dot {
+    width: 6px; height: 6px; background: var(--accent);
+    border-radius: 50%; animation: pulse 2s infinite;
+  }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+  h1 {
+    font-family: 'DM Serif Display', serif;
+    font-size: clamp(2.8rem, 6vw, 4.8rem);
+    line-height: 1.08; letter-spacing: -0.03em;
+    margin-bottom: 20px;
+  }
+  h1 em { font-style: italic; color: var(--accent); }
+
+  .subtitle {
+    font-size: 1.15rem; color: var(--muted); line-height: 1.6;
+    max-width: 520px; margin: 0 auto 48px; font-weight: 300;
+  }
+
+  .cta-row {
+    display: flex; align-items: center; justify-content: center;
+    gap: 16px; flex-wrap: wrap; margin-bottom: 60px;
+  }
+
+  .btn-primary {
+    background: var(--accent-warm); color: #fff; border: none;
+    border-radius: 12px; padding: 16px 36px;
+    font-size: 1rem; font-weight: 600;
+    font-family: 'DM Sans', sans-serif; cursor: pointer;
+    transition: transform .15s, box-shadow .15s;
+    box-shadow: 0 4px 20px rgba(231,111,81,0.35);
+  }
+  .btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 28px rgba(231,111,81,0.4);
+  }
+  .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; transform: none; box-shadow: none; }
+
+  .price-tag { font-size: 0.9rem; color: var(--muted); font-weight: 400; }
+  .price-tag strong { color: var(--ink); font-weight: 600; }
+
+  /* ── PREVIEW CARD ── */
+  .preview-wrap {
+    max-width: 700px; margin: 0 auto;
+    padding: 0 40px 80px; position: relative;
+  }
+  .preview-card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 20px; overflow: hidden;
+    box-shadow: 0 20px 60px rgba(26,23,20,0.08);
+  }
+  .preview-header {
+    padding: 20px 24px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .preview-dots { display: flex; gap: 6px; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; }
+  .dot-r { background: #FF6058; } .dot-y { background: #FFBC2E; } .dot-g { background: #29C940; }
+  .preview-title { font-size: 0.8rem; font-weight: 500; color: var(--muted); }
+  .preview-body {
+    padding: 28px 24px;
+    display: grid; grid-template-columns: 1fr 1.8fr; gap: 24px;
+  }
+  .score-circle-wrap {
+    display: flex; flex-direction: column; align-items: center;
+    justify-content: center; padding: 20px;
+    background: var(--bg); border-radius: 14px; gap: 10px;
+  }
+  .score-ring { position: relative; width: 100px; height: 100px; }
+  .score-ring svg { transform: rotate(-90deg); width: 100%; height: 100%; }
+  .score-ring circle { fill: none; stroke-width: 8; stroke-linecap: round; }
+  .ring-bg { stroke: var(--border); }
+  .ring-fg {
+    stroke: var(--accent); stroke-dasharray: 251;
+    stroke-dashoffset: 50; animation: ring-in 1.2s ease forwards;
+  }
+  @keyframes ring-in { from { stroke-dashoffset: 251; } to { stroke-dashoffset: 50; } }
+  .score-number {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    font-family: 'DM Serif Display', serif; font-size: 1.6rem; color: var(--ink);
+  }
+  .score-label { font-size: 0.75rem; color: var(--muted); font-weight: 500; text-align: center; }
+  .score-verdict {
+    font-size: 0.8rem; font-weight: 600; color: var(--accent);
+    background: var(--accent-light); padding: 4px 10px; border-radius: 100px;
+  }
+
+  .metrics { display: flex; flex-direction: column; gap: 14px; }
+  .metric-top {
+    display: flex; justify-content: space-between;
+    margin-bottom: 6px; font-size: 0.8rem; font-weight: 500;
+  }
+  .metric-val { color: var(--muted); }
+  .bar { height: 6px; background: var(--border); border-radius: 100px; overflow: hidden; }
+  .bar-fill {
+    height: 100%; border-radius: 100px;
+    animation: bar-in 1s ease forwards; width: 0;
+  }
+  @keyframes bar-in { to { width: var(--w); } }
+
+  /* ── HOW IT WORKS ── */
+  .how { padding: 60px 40px 80px; max-width: 860px; margin: 0 auto; }
+  .section-label {
+    font-size: 0.75rem; font-weight: 600; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--muted);
+    margin-bottom: 40px; text-align: center;
+  }
+  .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+  .step {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 16px; padding: 28px 24px;
+  }
+  .step-num {
+    font-family: 'DM Serif Display', serif; font-size: 2rem;
+    color: var(--accent-warm); margin-bottom: 14px; opacity: 0.6;
+  }
+  .step h3 { font-size: 1rem; font-weight: 600; margin-bottom: 8px; }
+  .step p { font-size: 0.875rem; color: var(--muted); line-height: 1.6; }
+
+  /* ── FOOTER ── */
+  footer {
+    max-width: 860px; margin: 0 auto;
+    padding: 20px 40px 40px;
+    text-align: center;
+    font-size: 0.78rem;
+    color: var(--muted);
+    border-top: 1px solid var(--border);
+  }
+  footer a { color: var(--muted); text-underline-offset: 3px; }
+
+  /* ── UPLOAD VIEW ── */
+  #upload {
+    padding: 120px 20px 60px; min-height: 100vh;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .upload-card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 24px; padding: 48px 40px; max-width: 480px; width: 100%;
+    box-shadow: 0 20px 60px rgba(26,23,20,0.08); text-align: center;
+  }
+  .upload-card h2 { font-family: 'DM Serif Display', serif; font-size: 1.8rem; margin-bottom: 8px; }
+  .upload-card .sub { font-size: 0.9rem; color: var(--muted); margin-bottom: 32px; }
+
+  .drop-zone {
+    border: 2px dashed var(--border); border-radius: 16px;
+    padding: 48px 24px; cursor: pointer;
+    transition: border-color .2s, background .2s;
+    margin-bottom: 24px; position: relative;
+  }
+  .drop-zone:hover, .drop-zone.drag-over { border-color: var(--accent); background: var(--accent-light); }
+  .drop-zone input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+  .drop-icon { font-size: 2.5rem; margin-bottom: 12px; }
+  .drop-text { font-size: 0.9rem; color: var(--muted); }
+  .drop-text strong { color: var(--ink); }
+
+  .file-selected {
+    background: var(--accent-light); border-radius: 10px;
+    padding: 12px 16px; font-size: 0.85rem;
+    color: var(--accent); font-weight: 500;
+    margin-bottom: 20px; display: none;
+  }
+
+  .analyze-btn {
+    width: 100%; background: var(--accent-warm); color: #fff;
+    border: none; border-radius: 12px; padding: 16px;
+    font-size: 1rem; font-weight: 600;
+    font-family: 'DM Sans', sans-serif; cursor: pointer;
+    transition: transform .15s, box-shadow .15s;
+    box-shadow: 0 4px 20px rgba(231,111,81,0.3);
+  }
+  .analyze-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 28px rgba(231,111,81,0.4); }
+  .analyze-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
+
+  .error-msg {
+    background: #FEE2E2; color: #991B1B; border-radius: 10px;
+    padding: 12px 16px; font-size: 0.85rem; margin-bottom: 20px; display: none;
+  }
+
+  /* ── LOADING ── */
+  #loading {
+    padding: 120px 20px 60px; min-height: 100vh;
+    display: flex; align-items: center; justify-content: center;
+    flex-direction: column; text-align: center; gap: 24px;
+  }
+  .loader-ring {
+    width: 60px; height: 60px;
+    border: 3px solid var(--border); border-top-color: var(--accent);
+    border-radius: 50%; animation: spin 0.9s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loading-steps { font-size: 0.9rem; color: var(--muted); line-height: 2; }
+  .loading-step { opacity: 0.3; transition: opacity .5s; }
+  .loading-step.done { opacity: 1; }
+
+  /* ── DASHBOARD ── */
+  #dashboard { padding-top: 80px; min-height: 100vh; padding-bottom: 60px; }
+  .dash-hero {
+    background: var(--ink); color: #fff; padding: 50px 40px; text-align: center;
+  }
+  .dash-hero h2 { font-family: 'DM Serif Display', serif; font-size: 2rem; margin-bottom: 6px; }
+  .dash-hero p { color: rgba(255,255,255,0.55); font-size: 0.9rem; }
+  .dash-content {
+    max-width: 860px; margin: -30px auto 0; padding: 0 24px; display: grid; gap: 20px;
+  }
+
+  .score-overview {
+    background: var(--card); border: 1px solid var(--border); border-radius: 20px;
+    padding: 36px; display: flex; align-items: center; gap: 40px;
+    box-shadow: 0 4px 20px rgba(26,23,20,0.06);
+  }
+  .big-ring { position: relative; width: 130px; height: 130px; flex-shrink: 0; }
+  .big-ring svg { transform: rotate(-90deg); }
+  .big-ring .score-number { font-size: 2rem; }
+
+  .overview-text h3 { font-family: 'DM Serif Display', serif; font-size: 1.5rem; margin-bottom: 6px; }
+  .overview-text p { font-size: 0.9rem; color: var(--muted); line-height: 1.6; margin-bottom: 16px; }
+
+  .verdict-badge {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 8px 16px; border-radius: 100px; font-size: 0.85rem; font-weight: 600;
+  }
+  .verdict-good { background: var(--accent-light); color: var(--accent); }
+  .verdict-mid { background: #FEF9C3; color: #854D0E; }
+  .verdict-low { background: #FEE2E2; color: #991B1B; }
+
+  .metrics-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .metric-card {
+    background: var(--card); border: 1px solid var(--border); border-radius: 16px;
+    padding: 24px; box-shadow: 0 2px 10px rgba(26,23,20,0.04);
+  }
+  .metric-card .label {
+    font-size: 0.8rem; font-weight: 600; letter-spacing: 0.05em;
+    text-transform: uppercase; color: var(--muted); margin-bottom: 16px;
+  }
+  .metric-card .score-val { font-family: 'DM Serif Display', serif; font-size: 2rem; margin-bottom: 8px; }
+  .mini-bar { height: 6px; background: var(--border); border-radius: 100px; overflow: hidden; margin-bottom: 8px; }
+  .mini-bar-fill { height: 100%; border-radius: 100px; }
+  .metric-note { font-size: 0.78rem; color: var(--muted); line-height: 1.5; }
+
+  .issues-section {
+    background: var(--card); border: 1px solid var(--border); border-radius: 20px;
+    padding: 32px; box-shadow: 0 2px 10px rgba(26,23,20,0.04);
+  }
+  .issues-section h3 { font-family: 'DM Serif Display', serif; font-size: 1.3rem; margin-bottom: 20px; }
+  .issue-item { display: flex; gap: 14px; padding: 14px 0; border-bottom: 1px solid var(--border); }
+  .issue-item:last-child { border-bottom: none; }
+  .issue-icon {
+    width: 32px; height: 32px; border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1rem; flex-shrink: 0; margin-top: 2px;
+  }
+  .icon-warn { background: #FEF9C3; } .icon-err { background: #FEE2E2; } .icon-ok { background: var(--accent-light); }
+  .issue-text strong { display: block; font-size: 0.9rem; font-weight: 600; margin-bottom: 3px; }
+  .issue-text p { font-size: 0.83rem; color: var(--muted); line-height: 1.55; }
+
+  .keywords-section {
+    background: var(--card); border: 1px solid var(--border); border-radius: 20px;
+    padding: 32px; box-shadow: 0 2px 10px rgba(26,23,20,0.04);
+  }
+  .keywords-section h3 { font-family: 'DM Serif Display', serif; font-size: 1.3rem; margin-bottom: 6px; }
+  .keywords-section .sub { font-size: 0.85rem; color: var(--muted); margin-bottom: 20px; }
+  .kw-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+  .kw-tag { padding: 5px 12px; border-radius: 100px; font-size: 0.78rem; font-weight: 500; }
+  .kw-found { background: var(--accent-light); color: var(--accent); }
+  .kw-missing { background: #FEE2E2; color: #991B1B; text-decoration: line-through; }
+
+  .tips-section { background: var(--ink); border-radius: 20px; padding: 32px; color: #fff; }
+  .tips-section h3 { font-family: 'DM Serif Display', serif; font-size: 1.3rem; margin-bottom: 20px; }
+  .tip-item {
+    display: flex; gap: 12px; margin-bottom: 14px;
+    font-size: 0.87rem; line-height: 1.6; color: rgba(255,255,255,0.75);
+  }
+  .tip-num {
+    font-family: 'DM Serif Display', serif; color: var(--accent-warm);
+    font-size: 1.1rem; flex-shrink: 0; margin-top: -1px;
+  }
+
+  .cta-again { text-align: center; padding: 20px; }
+  .cta-again button {
+    background: none; border: 1px solid var(--border); border-radius: 100px;
+    padding: 10px 24px; font-size: 0.85rem;
+    font-family: 'DM Sans', sans-serif; cursor: pointer;
+    color: var(--muted); transition: color .2s, border-color .2s;
+  }
+  .cta-again button:hover { color: var(--ink); border-color: var(--ink); }
+
+  /* RESPONSIVE */
+  @media (max-width: 640px) {
+    nav { padding: 16px 20px; }
+    h1 { font-size: 2.2rem; }
+    .steps { grid-template-columns: 1fr; }
+    .preview-body { grid-template-columns: 1fr; }
+    .metrics-grid { grid-template-columns: 1fr; }
+    .score-overview { flex-direction: column; text-align: center; }
+    .upload-card { padding: 32px 24px; }
+    .hero { padding: 60px 20px 40px; }
+    .how { padding: 40px 20px 60px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="logo" onclick="showView('landing')" role="link" tabindex="0" aria-label="PassATS home">Pass<span>ATS</span></div>
+  <button class="nav-pill" onclick="startCheckout()" aria-label="Get ATS score for $0.99">Get My Score — $0.99</button>
+</nav>
+
+<!-- ═══ LANDING ═══ -->
+<div id="landing" class="view active">
+  <section class="hero">
+    <div class="badge"><div class="badge-dot"></div> ATS-Optimized Scoring</div>
+    <h1>Your CV is getting<br>rejected <em>before</em><br>a human sees it.</h1>
+    <p class="subtitle">
+      75% of resumes are filtered out by ATS software. Find out your score, fix your issues, and get through the door — for less than a coffee.
+    </p>
+    <div class="cta-row">
+      <button class="btn-primary" onclick="startCheckout()" id="heroCtaBtn">Review My CV Now</button>
+      <span class="price-tag">One-time · <strong>$0.99</strong> · Instant results</span>
+    </div>
+  </section>
+
+  <!-- Demo Preview -->
+  <div class="preview-wrap" aria-hidden="true">
+    <div class="preview-card">
+      <div class="preview-header">
+        <div class="preview-dots"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div></div>
+        <span class="preview-title">Your ATS Report — sample</span><span></span>
+      </div>
+      <div class="preview-body">
+        <div class="score-circle-wrap">
+          <div class="score-ring">
+            <svg viewBox="0 0 90 90"><circle class="ring-bg" cx="45" cy="45" r="40"/><circle class="ring-fg" cx="45" cy="45" r="40" style="stroke-dashoffset:50"/></svg>
+            <div class="score-number">78</div>
+          </div>
+          <div class="score-label">ATS Score</div>
+          <div class="score-verdict">Good</div>
+        </div>
+        <div class="metrics">
+          <div class="metric"><div class="metric-top"><span>Keywords Match</span><span class="metric-val">82%</span></div><div class="bar"><div class="bar-fill" style="--w:82%;background:var(--accent)"></div></div></div>
+          <div class="metric"><div class="metric-top"><span>Formatting</span><span class="metric-val">91%</span></div><div class="bar"><div class="bar-fill" style="--w:91%;background:var(--accent)"></div></div></div>
+          <div class="metric"><div class="metric-top"><span>Readability</span><span class="metric-val">65%</span></div><div class="bar"><div class="bar-fill" style="--w:65%;background:var(--score-mid)"></div></div></div>
+          <div class="metric"><div class="metric-top"><span>Contact Info</span><span class="metric-val">100%</span></div><div class="bar"><div class="bar-fill" style="--w:100%;background:var(--accent)"></div></div></div>
+          <div class="metric"><div class="metric-top"><span>File Compatibility</span><span class="metric-val">55%</span></div><div class="bar"><div class="bar-fill" style="--w:55%;background:var(--score-low)"></div></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- How it works -->
+  <section class="how">
+    <p class="section-label">How it works</p>
+    <div class="steps">
+      <div class="step"><div class="step-num">01</div><h3>Pay $0.99</h3><p>One-time, secure Stripe payment. No subscriptions, no accounts, no nonsense.</p></div>
+      <div class="step"><div class="step-num">02</div><h3>Upload your CV</h3><p>Drop your PDF or Word file. We parse it exactly as an ATS would.</p></div>
+      <div class="step"><div class="step-num">03</div><h3>Get your report</h3><p>Score, keyword gaps, formatting issues, and actionable fixes — instantly.</p></div>
+    </div>
+  </section>
+
+  <footer>
+    &copy; 2026 PassATS · <a href="/privacy">Privacy Policy</a> · <a href="/terms">Terms of Service</a>
+  </footer>
+</div>
+
+<!-- ═══ UPLOAD ═══ -->
+<div id="upload" class="view">
+  <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:120px 20px 60px;">
+    <div class="upload-card">
+      <div style="font-size:2rem;margin-bottom:12px;" aria-hidden="true">&#10003;</div>
+      <h2>Payment confirmed!</h2>
+      <p class="sub">Now upload your CV and we'll run it through our ATS engine.</p>
+
+      <div class="drop-zone" id="dropZone">
+        <input type="file" id="fileInput" accept=".pdf,.doc,.docx" onchange="fileSelected(this)" aria-label="Upload your CV file">
+        <div class="drop-icon" aria-hidden="true">&#128196;</div>
+        <div class="drop-text"><strong>Click to upload</strong> or drag &amp; drop</div>
+        <div class="drop-text" style="margin-top:6px;font-size:0.78rem;">PDF, DOC, DOCX — max 5 MB</div>
+      </div>
+
+      <div class="error-msg" id="errorMsg"></div>
+      <div class="file-selected" id="fileSelectedEl"></div>
+
+      <button class="analyze-btn" id="analyzeBtn" onclick="startAnalysis()" disabled>Analyze My CV &rarr;</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ LOADING ═══ -->
+<div id="loading" class="view">
+  <div class="loader-ring" role="status" aria-label="Analyzing your CV"></div>
+  <div>
+    <div style="font-family:'DM Serif Display',serif;font-size:1.4rem;margin-bottom:16px;">Scanning your CV&hellip;</div>
+    <div class="loading-steps">
+      <div class="loading-step" id="ls1">Parsing document structure</div>
+      <div class="loading-step" id="ls2">Running ATS keyword analysis</div>
+      <div class="loading-step" id="ls3">Checking formatting rules</div>
+      <div class="loading-step" id="ls4">Scoring readability &amp; compatibility</div>
+      <div class="loading-step" id="ls5">Generating your report</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ DASHBOARD ═══ -->
+<div id="dashboard" class="view">
+  <div class="dash-hero"><h2>Your ATS Report</h2><p id="dashFileName">Analyzed just now</p></div>
+  <div class="dash-content">
+    <div class="score-overview">
+      <div class="big-ring">
+        <svg width="130" height="130" viewBox="0 0 130 130">
+          <circle cx="65" cy="65" r="55" fill="none" stroke-width="10" stroke="var(--border)"/>
+          <circle id="dashScoreRingFill" cx="65" cy="65" r="55" fill="none" stroke-width="10" stroke="var(--accent)"
+            stroke-linecap="round" stroke-dasharray="345" stroke-dashoffset="345"
+            style="transform:rotate(-90deg);transform-origin:65px 65px;transition:stroke-dashoffset 1s ease"/>
+        </svg>
+        <div id="dashScoreNumber" class="score-number" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-family:'DM Serif Display',serif;font-size:2rem;">&mdash;</div>
+      </div>
+      <div class="overview-text">
+        <h3 id="dashOverviewTitle">Analyzing&hellip;</h3>
+        <p id="dashOverviewRole" style="font-size:0.82rem;color:var(--muted);margin-bottom:16px;"></p>
+        <div id="dashVerdictBadge" class="verdict-badge verdict-mid">&mdash;</div>
+      </div>
+    </div>
+
+    <div class="metrics-grid">
+      <div class="metric-card" id="metric-keywords"><div class="label">Keywords Match</div><div class="score-val">&mdash;</div><div class="mini-bar"><div class="mini-bar-fill" style="width:0%"></div></div><div class="metric-note"></div></div>
+      <div class="metric-card" id="metric-formatting"><div class="label">Formatting</div><div class="score-val">&mdash;</div><div class="mini-bar"><div class="mini-bar-fill" style="width:0%"></div></div><div class="metric-note"></div></div>
+      <div class="metric-card" id="metric-readability"><div class="label">Readability</div><div class="score-val">&mdash;</div><div class="mini-bar"><div class="mini-bar-fill" style="width:0%"></div></div><div class="metric-note"></div></div>
+      <div class="metric-card" id="metric-contactInfo"><div class="label">Contact Info</div><div class="score-val">&mdash;</div><div class="mini-bar"><div class="mini-bar-fill" style="width:0%"></div></div><div class="metric-note"></div></div>
+    </div>
+
+    <div class="issues-section"><h3>Issues Found</h3><div id="dashIssues"></div></div>
+
+    <div class="keywords-section">
+      <h3>Keyword Analysis</h3>
+      <p class="sub" id="dashKeywordsRole">Analyzing your role&hellip;</p>
+      <div class="kw-grid" id="dashKeywords"></div>
+      <p style="font-size:0.78rem;color:var(--muted);margin-top:14px;">&#10003; Found &nbsp; <span style="text-decoration:line-through">Strikethrough</span> = Missing — add these naturally to your CV</p>
+    </div>
+
+    <div class="tips-section"><h3>Top 5 Fixes to Boost Your Score</h3><div id="dashTips"></div></div>
+
+    <div class="cta-again"><button onclick="showView('landing')">&#8592; Analyze another CV</button></div>
+  </div>
+</div>
+
+<script>
+  // ── State ──────────────────────────────────────────────────────────────────
+  let uploadedFile = null;
+  let uploadToken = null; // from Stripe payment verification
+
+  // ── View Router ────────────────────────────────────────────────────────────
+  function showView(id) {
+    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+    window.scrollTo(0, 0);
+  }
+
+  // ── Stripe Checkout ────────────────────────────────────────────────────────
+  async function startCheckout() {
+    const btn = document.getElementById('heroCtaBtn');
+    btn.disabled = true;
+    btn.textContent = 'Redirecting…';
+    try {
+      const res = await fetch('/api/checkout', { method: 'POST' });
+      const data = await res.json();
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        throw new Error(data.error || 'Checkout failed');
+      }
+    } catch (err) {
+      alert('Could not start checkout: ' + err.message);
+      btn.disabled = false;
+      btn.textContent = 'Review My CV Now';
+    }
+  }
+
+  // ── Handle Stripe redirect back ────────────────────────────────────────────
+  async function handlePaymentReturn() {
+    const params = new URLSearchParams(window.location.search);
+    const sessionId = params.get('session_id');
+    if (params.get('cancelled')) {
+      showView('landing');
+      return;
+    }
+    if (!sessionId) return;
+
+    try {
+      const res = await fetch(`/api/verify-payment?session_id=${encodeURIComponent(sessionId)}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Verification failed');
+      uploadToken = data.token;
+      // Clean URL
+      window.history.replaceState({}, '', '/');
+      showView('upload');
+    } catch (err) {
+      alert('Payment verification failed: ' + err.message);
+      showView('landing');
+    }
+  }
+
+  // ── File Handling ──────────────────────────────────────────────────────────
+  const MAX_FILE_SIZE = 5 * 1024 * 1024;
+
+  function fileSelected(input) {
+    const file = input.files[0];
+    if (!file) return;
+    handleFile(file);
+  }
+
+  function handleFile(file) {
+    hideError();
+    if (file.size > MAX_FILE_SIZE) {
+      showError('File too large. Maximum size is 5 MB.');
+      return;
+    }
+    const ext = file.name.split('.').pop().toLowerCase();
+    if (!['pdf', 'doc', 'docx'].includes(ext)) {
+      showError('Unsupported file type. Please upload a PDF, DOC, or DOCX.');
+      return;
+    }
+    uploadedFile = file;
+    document.getElementById('fileSelectedEl').style.display = 'block';
+    document.getElementById('fileSelectedEl').textContent = '\uD83D\uDCCE ' + file.name + ' (' + (file.size / 1024).toFixed(0) + ' KB)';
+    document.getElementById('analyzeBtn').disabled = false;
+  }
+
+  function showError(msg) {
+    const el = document.getElementById('errorMsg');
+    el.textContent = msg;
+    el.style.display = 'block';
+  }
+  function hideError() {
+    document.getElementById('errorMsg').style.display = 'none';
+  }
+
+  // Drag & drop
+  const dz = document.getElementById('dropZone');
+  if (dz) {
+    dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
+    dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+    dz.addEventListener('drop', e => {
+      e.preventDefault();
+      dz.classList.remove('drag-over');
+      if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+    });
+  }
+
+  // ── Analysis ───────────────────────────────────────────────────────────────
+  async function startAnalysis() {
+    if (!uploadedFile || !uploadToken) return;
+
+    showView('loading');
+    resetLoadingSteps();
+    animateLoadingSteps();
+
+    try {
+      const formData = new FormData();
+      formData.append('cv', uploadedFile);
+
+      const res = await fetch('/api/analyze', {
+        method: 'POST',
+        headers: { 'x-passats-token': uploadToken },
+        body: formData
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Analysis failed');
+
+      renderDashboard(data, uploadedFile.name);
+      showView('dashboard');
+    } catch (err) {
+      console.error('Analysis failed:', err);
+      showView('upload');
+      showError('Analysis failed: ' + err.message + '. Please try again.');
+    }
+  }
+
+  function resetLoadingSteps() {
+    ['ls1','ls2','ls3','ls4','ls5'].forEach(id => {
+      document.getElementById(id).classList.remove('done');
+    });
+  }
+
+  function animateLoadingSteps() {
+    ['ls1','ls2','ls3','ls4','ls5'].forEach((id, i) => {
+      setTimeout(() => document.getElementById(id).classList.add('done'), i * 900 + 300);
+    });
+  }
+
+  // ── Render Dashboard ───────────────────────────────────────────────────────
+  function renderDashboard(r, fileName) {
+    document.getElementById('dashFileName').textContent = 'Analyzed just now \u00B7 ' + fileName;
+
+    // Score ring
+    const circumference = 345;
+    const offset = circumference - (r.overallScore / 100) * circumference;
+    document.getElementById('dashScoreRingFill').setAttribute('stroke-dashoffset', offset);
+    document.getElementById('dashScoreNumber').textContent = r.overallScore;
+
+    // Overview
+    document.getElementById('dashOverviewTitle').textContent = r.verdictDetail;
+    document.getElementById('dashOverviewRole').textContent = 'Detected role: ' + r.detectedRole;
+
+    // Verdict badge
+    const badge = document.getElementById('dashVerdictBadge');
+    const vm = { 'Excellent': ['verdict-good','\u2705'], 'Good': ['verdict-good','\uD83D\uDC4D'], 'Needs Work': ['verdict-mid','\u26A0'], 'Poor': ['verdict-low','\uD83D\uDEA8'] };
+    const v = vm[r.verdict] || vm['Needs Work'];
+    badge.className = 'verdict-badge ' + v[0];
+    badge.textContent = v[1] + ' ' + r.verdict;
+
+    // Metrics
+    ['keywords','formatting','readability','contactInfo'].forEach(key => {
+      const m = r.metrics[key];
+      const el = document.getElementById('metric-' + key);
+      if (!el || !m) return;
+      const color = m.score >= 75 ? 'var(--accent)' : m.score >= 50 ? 'var(--score-mid)' : 'var(--score-low)';
+      el.querySelector('.score-val').textContent = m.score + '%';
+      el.querySelector('.score-val').style.color = color;
+      el.querySelector('.mini-bar-fill').style.width = m.score + '%';
+      el.querySelector('.mini-bar-fill').style.background = color;
+      el.querySelector('.metric-note').textContent = m.note;
+    });
+
+    // Issues
+    document.getElementById('dashIssues').innerHTML = (r.issues || []).map(issue => {
+      const iconMap = { critical: '\uD83D\uDEA8', warning: '\u26A0\uFE0F', pass: '\u2713' };
+      const clsMap  = { critical: 'icon-err', warning: 'icon-warn', pass: 'icon-ok' };
+      return `<div class="issue-item"><div class="issue-icon ${clsMap[issue.severity]}">${iconMap[issue.severity]}</div><div class="issue-text"><strong>${esc(issue.title)}</strong><p>${esc(issue.detail)}</p></div></div>`;
+    }).join('');
+
+    // Keywords
+    document.getElementById('dashKeywords').innerHTML =
+      (r.keywordsFound || []).map(k => `<span class="kw-tag kw-found">${esc(k)}</span>`).join('') +
+      (r.keywordsMissing || []).map(k => `<span class="kw-tag kw-missing">${esc(k)}</span>`).join('');
+    document.getElementById('dashKeywordsRole').textContent = 'Based on detected role: ' + r.detectedRole;
+
+    // Tips
+    document.getElementById('dashTips').innerHTML = (r.topFixes || []).map((fix, i) =>
+      `<div class="tip-item"><div class="tip-num">${i + 1}.</div><div>${esc(fix)}</div></div>`
+    ).join('');
+  }
+
+  function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+  // ── Init ───────────────────────────────────────────────────────────────────
+  (function init() {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('session_id')) {
+      handlePaymentReturn();
+    } else {
+      showView('landing');
+    }
+  })();
+</script>
+
+</body>
+</html>
