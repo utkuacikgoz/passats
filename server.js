@@ -16,16 +16,24 @@ if (!DEV_MODE) {
   const required = ['STRIPE_SECRET_KEY', 'STRIPE_WEBHOOK_SECRET', 'STRIPE_PRICE_ID', 'ANTHROPIC_API_KEY'];
   const missing = required.filter(k => !process.env[k]);
   if (missing.length) {
-    console.error(`Missing required env vars: ${missing.join(', ')}\nCopy .env.example to .env and fill in your keys.`);
-    process.exit(1);
+    console.error(`Missing required env vars: ${missing.join(', ')}`);
+    // On Vercel, don't process.exit — it kills the serverless function entirely.
+    // Instead, fall back to DEV_MODE so at least the site loads.
+    if (process.env.VERCEL) {
+      console.error('Falling back to DEV_MODE on Vercel (set env vars for production)');
+    } else {
+      console.error('Copy .env.example to .env and fill in your keys.');
+      process.exit(1);
+    }
   }
 } else {
   console.log('⚠️  DEV MODE — payments and analysis are mocked');
 }
 
 const app = express();
-const stripe = DEV_MODE ? null : Stripe(process.env.STRIPE_SECRET_KEY);
-const anthropic = DEV_MODE ? null : new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+const MOCK_MODE = DEV_MODE || (process.env.VERCEL && !process.env.STRIPE_SECRET_KEY);
+const stripe = MOCK_MODE ? null : Stripe(process.env.STRIPE_SECRET_KEY);
+const anthropic = MOCK_MODE ? null : new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 const PORT = process.env.PORT || 3000;
 const BASE_URL = process.env.BASE_URL || `http://localhost:${PORT}`;
 
@@ -109,7 +117,7 @@ const upload = multer({
 
 // ── Stripe: Create Checkout Session ───────────────────────────────────────────
 app.post('/api/checkout', async (req, res) => {
-  if (DEV_MODE) {
+  if (MOCK_MODE) {
     // Skip Stripe — redirect directly to success with a fake session ID
     const fakeSessionId = 'dev_' + crypto.randomBytes(12).toString('hex');
     const token = crypto.randomBytes(24).toString('hex');
@@ -171,7 +179,7 @@ app.get('/api/verify-payment', async (req, res) => {
   const { session_id } = req.query;
   if (!session_id) return res.status(400).json({ error: 'Missing session_id' });
 
-  if (DEV_MODE) {
+  if (MOCK_MODE) {
     // Look up the token we stored during checkout
     const token = sessions.get('dev_session:' + session_id);
     if (token) return res.json({ token });
@@ -207,8 +215,8 @@ app.get('/api/verify-payment', async (req, res) => {
   }
 });
 
-// ── Dev mode: auto-provision a token (no checkout needed) ─────────────────────
-if (DEV_MODE) {
+// ── Dev/mock mode: auto-provision a token (no checkout needed) ────────────────
+if (MOCK_MODE) {
   app.get('/api/dev-token', (req, res) => {
     const token = crypto.randomBytes(24).toString('hex');
     sessions.set(token, { stripeSessionId: 'dev', used: false, createdAt: Date.now() });
@@ -223,7 +231,7 @@ app.post('/api/analyze', upload.single('cv'), async (req, res) => {
 
   const session = sessions.get(token);
   if (!session) return res.status(401).json({ error: 'Invalid token' });
-  if (!DEV_MODE && session.used) return res.status(403).json({ error: 'Token already used' });
+  if (!MOCK_MODE && session.used) return res.status(403).json({ error: 'Token already used' });
 
   if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
 
@@ -233,8 +241,8 @@ app.post('/api/analyze', upload.single('cv'), async (req, res) => {
   try {
     // Extract text from the document
     let text;
-    if (DEV_MODE) {
-      // In dev mode, accept any file and use dummy text if extraction fails
+    if (MOCK_MODE) {
+      // In mock mode, accept any file and use dummy text if extraction fails
       try { text = await extractText(req.file); } catch { text = 'Mock CV text for dev mode testing — this simulates extracted resume content for the analysis pipeline.'; }
     } else {
       text = await extractText(req.file);
@@ -284,7 +292,7 @@ async function extractText(file) {
 
 // ── Claude API ────────────────────────────────────────────────────────────────
 async function callClaude(cvText) {
-  if (DEV_MODE) {
+  if (MOCK_MODE) {
     // Return realistic mock data so the full UI can be tested
     await new Promise(r => setTimeout(r, 1500)); // simulate latency
     return {
