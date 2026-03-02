@@ -370,14 +370,21 @@ app.get('*', (_req, res) => {
 });
 
 // ── Cleanup expired sessions ──────────────────────────────────────────────────
-setInterval(() => {
-  const now = Date.now();
-  for (const [token, data] of sessions) {
-    if (now - data.createdAt > SESSION_TTL) sessions.delete(token);
-  }
-}, 5 * 60 * 1000);
+if (!process.env.VERCEL) {
+  setInterval(() => {
+    const now = Date.now();
+    for (const [token, data] of sessions) {
+      if (now - data.createdAt > SESSION_TTL) sessions.delete(token);
+    }
+  }, 5 * 60 * 1000);
+}
 
 // ── Start ─────────────────────────────────────────────────────────────────────
-app.listen(PORT, () => {
-  console.log(`PassATS running at ${BASE_URL}`);
-});
+if (process.env.VERCEL) {
+  // Vercel serverless — export the Express app, don't listen
+  module.exports = app;
+} else {
+  app.listen(PORT, () => {
+    console.log(`PassATS running at ${BASE_URL}`);
+  });
+}
