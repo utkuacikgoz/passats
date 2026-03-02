@@ -207,6 +207,15 @@ app.get('/api/verify-payment', async (req, res) => {
   }
 });
 
+// ── Dev mode: auto-provision a token (no checkout needed) ─────────────────────
+if (DEV_MODE) {
+  app.get('/api/dev-token', (req, res) => {
+    const token = crypto.randomBytes(24).toString('hex');
+    sessions.set(token, { stripeSessionId: 'dev', used: false, createdAt: Date.now() });
+    res.json({ token });
+  });
+}
+
 // ── Analyze CV ────────────────────────────────────────────────────────────────
 app.post('/api/analyze', upload.single('cv'), async (req, res) => {
   const token = req.headers['x-passats-token'];
@@ -214,7 +223,7 @@ app.post('/api/analyze', upload.single('cv'), async (req, res) => {
 
   const session = sessions.get(token);
   if (!session) return res.status(401).json({ error: 'Invalid token' });
-  if (session.used) return res.status(403).json({ error: 'Token already used' });
+  if (!DEV_MODE && session.used) return res.status(403).json({ error: 'Token already used' });
 
   if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
 
