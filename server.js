@@ -32,8 +32,19 @@ if (!DEV_MODE) {
 
 const app = express();
 const MOCK_MODE = DEV_MODE || (process.env.VERCEL && !process.env.STRIPE_SECRET_KEY);
-const stripe = MOCK_MODE ? null : Stripe(process.env.STRIPE_SECRET_KEY);
-const anthropic = MOCK_MODE ? null : new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+
+let stripe = null;
+let anthropic = null;
+let initError = null;
+
+try {
+  stripe = MOCK_MODE ? null : Stripe(process.env.STRIPE_SECRET_KEY);
+  anthropic = MOCK_MODE ? null : new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+} catch (err) {
+  initError = err.message;
+  console.error('SDK init error:', err.message);
+}
+
 const PORT = process.env.PORT || 3000;
 const BASE_URL = process.env.BASE_URL || `http://localhost:${PORT}`;
 
@@ -101,6 +112,26 @@ app.use(express.static(path.join(__dirname, 'public'), {
   }
 }));
 
+// ── Health check (for debugging Vercel) ───────────────────────────────────────
+app.get('/api/health', (req, res) => {
+  res.json({
+    status: 'ok',
+    mockMode: MOCK_MODE,
+    devMode: DEV_MODE,
+    hasStripe: !!stripe,
+    hasAnthropic: !!anthropic,
+    initError: initError,
+    env: {
+      STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY ? '***set***' : 'MISSING',
+      STRIPE_WEBHOOK_SECRET: process.env.STRIPE_WEBHOOK_SECRET ? '***set***' : 'MISSING',
+      STRIPE_PRICE_ID: process.env.STRIPE_PRICE_ID ? '***set***' : 'MISSING',
+      ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY ? '***set***' : 'MISSING',
+      BASE_URL: process.env.BASE_URL || 'NOT SET',
+      VERCEL: process.env.VERCEL || 'false',
+    }
+  });
+});
+
 // File upload config
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -140,8 +171,8 @@ app.post('/api/checkout', async (req, res) => {
     });
     res.json({ url: session.url });
   } catch (err) {
-    console.error('Checkout error:', err.message);
-    res.status(500).json({ error: 'Failed to create checkout session' });
+    console.error('Checkout error:', err.message, err.type, err.code, err.statusCode);
+    res.status(500).json({ error: 'Failed to create checkout session', detail: err.message });
   }
 });
 
