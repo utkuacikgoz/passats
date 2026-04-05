@@ -32,6 +32,17 @@ const JWT_SECRET = DEV_MODE
   ? crypto.randomBytes(32).toString('hex')
   : process.env.JWT_SECRET;
 
+// Optional: previous secret for graceful rotation — set JWT_SECRET_PREV during rollover
+const JWT_SECRET_PREV = (!DEV_MODE && process.env.JWT_SECRET_PREV) || null;
+
+// Verify JWT with rotation support — tries current secret, falls back to previous
+function verifyJwt(token) {
+  try { return jwt.verify(token, JWT_SECRET); } catch (err) {
+    if (JWT_SECRET_PREV) return jwt.verify(token, JWT_SECRET_PREV);
+    throw err;
+  }
+}
+
 // Trust Vercel's proxy layer so req.ip is the real client IP
 app.set('trust proxy', 1);
 
@@ -107,10 +118,16 @@ app.use((req, res, next) => {
   next();
 });
 
+// No-cache on API responses — prevent browsers/proxies from caching tokens/data
+app.use('/api', (_req, res, next) => {
+  res.setHeader('Cache-Control', 'no-store, private');
+  next();
+});
+
 // Gzip compression
 app.use(compression());
 
-app.use(express.json());
+app.use(express.json({ limit: '50kb' }));
 
 // Static assets with cache headers
 app.use(express.static(path.join(__dirname, 'public'), {
@@ -144,7 +161,7 @@ app.get('/api/health', (req, res) => {
 // ── File upload config ────────────────────────────────────────────────────────
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 5 * 1024 * 1024 },
+  limits: { fileSize: 5 * 1024 * 1024, fieldSize: 20000, fields: 5 },
   fileFilter: (_req, file, cb) => {
     const allowed = [
       'application/pdf',
@@ -295,7 +312,7 @@ app.get('/api/verify-payment', async (req, res) => {
     let token = checkoutSession.metadata?.passats_token;
     if (token) {
       try {
-        jwt.verify(token, JWT_SECRET);
+        verifyJwt(token);
         return res.json({ token });
       } catch {
         // Token expired or invalid — create new one below
@@ -332,19 +349,26 @@ if (DEV_MODE) {
   });
 }
 
-// ── Analyze CV ────────────────────────────────────────────────────────────────
-app.post('/api/analyze', upload.single('cv'), async (req, res) => {
-  const reqId = req.requestId;
+// ── Pre-multer auth — origin + rate limit + JWT verify before file upload ─────
+function analyzeAuth(req, res, next) {
+  if (!checkOrigin(req, res)) return;
+  if (isRateLimited('analyze:' + req.ip, 10, 60000)) {
+    return res.status(429).json({ error: 'Too many requests. Try again in a minute.' });
+  }
   const tokenHeader = req.headers['x-passats-token'];
   if (!tokenHeader) return res.status(401).json({ error: 'Missing token' });
-
-  // Verify JWT
-  let tokenPayload;
   try {
-    tokenPayload = jwt.verify(tokenHeader, JWT_SECRET);
+    req.tokenPayload = verifyJwt(tokenHeader);
+    next();
   } catch {
     return res.status(401).json({ error: 'Invalid or expired token' });
   }
+}
+
+// ── Analyze CV ────────────────────────────────────────────────────────────────
+app.post('/api/analyze', analyzeAuth, upload.single('cv'), async (req, res) => {
+  const reqId = req.requestId;
+  const tokenPayload = req.tokenPayload;
 
   // Dev mode: check in-memory
   if (DEV_MODE) {
@@ -362,7 +386,13 @@ app.post('/api/analyze', upload.single('cv'), async (req, res) => {
   }
 
   // Atomic single-use via Redis SET NX on jti — after all pre-validation gates
-  const claimed = await claimToken(tokenPayload.jti);
+  let claimed;
+  try {
+    claimed = await claimToken(tokenPayload.jti);
+  } catch (err) {
+    console.error(`[${reqId}] Redis claimToken failed:`, err.message);
+    return res.status(503).json({ error: `Service temporarily unavailable. Quote ref ${reqId}.` });
+  }
   if (!claimed) {
     console.warn(`[${reqId}] Token replay blocked: jti=${tokenPayload.jti}`);
     return res.status(403).json({ error: 'Token already used' });
@@ -377,6 +407,12 @@ app.post('/api/analyze', upload.single('cv'), async (req, res) => {
     }
 
     if (!text || text.trim().length < 50) {
+      // Image-based PDF / insufficient text — release token (not adversarial, user mistake)
+      if (redis && tokenPayload.jti) {
+        await redis.del(`passats:jti:${tokenPayload.jti}`).catch(delErr => {
+          console.error(`[${reqId}] CRITICAL: Redis del failed — token permanently burned for jti=${tokenPayload.jti}:`, delErr.message);
+        });
+      }
       console.warn(`[${reqId}] Insufficient text extracted: ${(text || '').length} chars`);
       return res.status(422).json({ error: `Could not extract enough text. Please upload a text-based PDF or DOCX. If this persists, quote ref ${reqId}.` });
     }
@@ -388,11 +424,28 @@ app.post('/api/analyze', upload.single('cv'), async (req, res) => {
     console.log(`[${reqId}] Analysis complete: score=${result.overallScore}`);
     res.json(result);
   } catch (err) {
-    // Only revert on clearly non-adversarial failures (API/network errors)
+    // Password-protected PDF — release token (user mistake, not adversarial)
+    if (err.message === 'PDF_PASSWORD_PROTECTED') {
+      if (redis && tokenPayload.jti) {
+        await redis.del(`passats:jti:${tokenPayload.jti}`).catch(() => {});
+      }
+      return res.status(422).json({ error: `This PDF is password-protected. Please remove the password and re-upload. Quote ref ${reqId}.` });
+    }
+
+    // Track retries per jti — burn permanently after 3 to prevent timeout/error abuse
     if (redis && tokenPayload.jti) {
-      await redis.del(`passats:jti:${tokenPayload.jti}`).catch(delErr => {
-        console.error(`[${reqId}] CRITICAL: Redis del failed — token permanently burned for jti=${tokenPayload.jti}:`, delErr.message);
-      });
+      const retryKey = `passats:retry:${tokenPayload.jti}`;
+      const retries = await redis.incr(retryKey).catch(() => 999);
+      if (retries <= 3) {
+        await redis.expire(retryKey, 1800).catch(() => {});
+        await redis.del(`passats:jti:${tokenPayload.jti}`).catch(delErr => {
+          console.error(`[${reqId}] CRITICAL: Redis del failed — token permanently burned for jti=${tokenPayload.jti}:`, delErr.message);
+        });
+        console.error(`[${reqId}] Analysis error (retry ${retries}/3):`, err.message);
+        return res.status(500).json({ error: `Analysis failed. Please try again (${retries}/3). If this persists, quote ref ${reqId}.` });
+      }
+      console.error(`[${reqId}] Analysis error — retries exhausted, token burned:`, err.message);
+      return res.status(500).json({ error: `Analysis failed. Maximum retries exceeded. Quote ref ${reqId}.` });
     }
     console.error(`[${reqId}] Analysis error:`, err.message);
     res.status(500).json({ error: `Analysis failed. Please try again. If this persists, quote ref ${reqId}.` });
@@ -408,8 +461,15 @@ async function extractText(file) {
   const parse = (async () => {
     const mime = file.mimetype;
     if (mime === 'application/pdf') {
-      const data = await pdfParse(file.buffer);
-      return data.text;
+      try {
+        const data = await pdfParse(file.buffer);
+        return data.text;
+      } catch (err) {
+        if (err.message && /password|encrypted/i.test(err.message)) {
+          throw new Error('PDF_PASSWORD_PROTECTED');
+        }
+        throw err;
+      }
     }
     if (mime === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
         mime === 'application/msword') {
@@ -508,6 +568,10 @@ Score calibration guide:
 - A clean one-column CV with all standard sections, quantified bullets, and relevant keywords scores around 85.
 - A perfect ATS-optimized CV with tailored keywords, clean formatting, and strong metrics scores 90+.`;
 
+  // Slice at newline boundary to avoid truncating mid-bullet
+  const maxLen = 40000;
+  const cvSlice = cvText.length <= maxLen ? cvText : cvText.slice(0, (cvText.lastIndexOf('\n', maxLen) + 1) || maxLen);
+
   const userPrompt = `Analyze this CV/resume as an ATS system would.${jdContext}
 
 Use the ats_report tool to return your analysis. Be honest and specific.
@@ -515,7 +579,7 @@ Use the ats_report tool to return your analysis. Be honest and specific.
 Here is the CV text:
 
 ---
-${cvText.slice(0, 40000)}
+${cvSlice}
 ---`;
 
   const message = await anthropic.messages.create({
