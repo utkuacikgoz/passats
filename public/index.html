@@ -602,12 +602,13 @@
     <div class="badge"><div class="badge-dot"></div> Free ATS Score Check</div>
     <h1>You're not unqualified.<br>You're getting filtered<br>by a <em>robot.</em></h1>
     <p class="subtitle">
-      50 applications, zero callbacks. It's not you — it's the ATS filter rejecting your resume before a human ever sees it. Find out why in 60 seconds.
+      50 applications, zero callbacks. It's not you, it's ATS. Find out why in 60 seconds.
     </p>
     <div class="cta-row">
       <button class="btn-primary" onclick="startCheckout()" id="heroCtaBtn">Score My Resume — $0.99</button>
       <span class="price-tag">Instant results · <strong>$0.99</strong> · No signup</span>
     </div>
+    <div class="error-msg" id="landingError" style="max-width:480px;margin:0 auto;"></div>
   </section>
 
   <!-- Value proposition — keyword-rich crawlable content -->
@@ -808,7 +809,7 @@
         throw new Error(data.error || 'Checkout failed');
       }
     } catch (err) {
-      alert('Could not start checkout: ' + err.message);
+      showLandingError('Could not start checkout: ' + err.message);
       btn.disabled = false;
       btn.textContent = 'Score My Resume \u2014 $0.99';
     }
@@ -833,7 +834,7 @@
       window.history.replaceState({}, '', '/');
       showView('upload');
     } catch (err) {
-      alert('Payment verification failed: ' + err.message);
+      showLandingError('Payment verification failed: ' + err.message);
       showView('landing');
     }
   }
@@ -871,6 +872,12 @@
   }
   function hideError() {
     document.getElementById('errorMsg').style.display = 'none';
+  }
+  function showLandingError(msg) {
+    const el = document.getElementById('landingError');
+    el.textContent = msg;
+    el.style.display = 'block';
+    setTimeout(() => { el.style.display = 'none'; }, 8000);
   }
 
   // Drag & drop

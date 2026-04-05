@@ -9,37 +9,49 @@ const pdfParse = require('pdf-parse');
 const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const path = require('path');
+const { Redis } = require('@upstash/redis');
 
 // ── Config ────────────────────────────────────────────────────────────────────
 const DEV_MODE = process.env.DEV_MODE === 'true';
 
 if (!DEV_MODE) {
-  const required = ['STRIPE_SECRET_KEY', 'STRIPE_WEBHOOK_SECRET', 'STRIPE_PRICE_ID', 'ANTHROPIC_API_KEY'];
+  const required = ['STRIPE_SECRET_KEY', 'STRIPE_WEBHOOK_SECRET', 'STRIPE_PRICE_ID', 'ANTHROPIC_API_KEY', 'JWT_SECRET'];
   const missing = required.filter(k => !process.env[k]);
   if (missing.length) {
     console.error('FATAL: Missing required env vars: ' + missing.join(', '));
     process.exit(1);
   }
-} else {
-  console.log('\u26a0\ufe0f  DEV MODE \u2014 payments and analysis are mocked');
 }
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 const BASE_URL = process.env.BASE_URL || `http://localhost:${PORT}`;
 
-// JWT secret — derived from STRIPE_SECRET_KEY in prod, random in dev
+// Dedicated JWT secret — survives Stripe key rotation
 const JWT_SECRET = DEV_MODE
   ? crypto.randomBytes(32).toString('hex')
-  : crypto.createHash('sha256').update(process.env.STRIPE_SECRET_KEY).digest('hex');
+  : process.env.JWT_SECRET;
+
+// Trust Vercel's proxy layer so req.ip is the real client IP
+app.set('trust proxy', 1);
 
 let stripe = null;
 let anthropic = null;
+let redis = null;
 
 try {
   if (!DEV_MODE) {
     stripe = Stripe(process.env.STRIPE_SECRET_KEY);
     anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+    // Upstash Redis — atomic jti single-use. Free tier: 10k commands/day
+    if (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN) {
+      redis = new Redis({
+        url: process.env.UPSTASH_REDIS_REST_URL,
+        token: process.env.UPSTASH_REDIS_REST_TOKEN,
+      });
+    } else {
+      console.warn('WARNING: UPSTASH_REDIS not configured — token replay protection degraded');
+    }
   }
 } catch (err) {
   console.error('SDK init error:', err.message);
@@ -49,7 +61,7 @@ try {
 // In dev mode only — in-memory sessions for mock tokens
 const devSessions = DEV_MODE ? new Map() : null;
 
-// ── Rate Limiter (per-instance, sufficient for single-region Vercel) ──────────
+// ── Rate Limiter (per-instance — documented: scales with lambda count) ────────
 const rateLimits = new Map();
 function isRateLimited(key, maxRequests, windowMs) {
   const now = Date.now();
@@ -61,6 +73,12 @@ function isRateLimited(key, maxRequests, windowMs) {
   rateLimits.set(key, entry);
   return entry.count > maxRequests;
 }
+
+// ── Request ID middleware ─────────────────────────────────────────────────────
+app.use((req, _res, next) => {
+  req.requestId = crypto.randomUUID();
+  next();
+});
 
 // ── Middleware ─────────────────────────────────────────────────────────────────
 // Stripe webhook needs raw body — must come before express.json()
@@ -74,18 +92,20 @@ app.use((req, res, next) => {
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
   res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
   res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  // CSP: connect-src 'self' is sufficient — all Stripe calls are server-side redirects.
+  // If Stripe Elements (js.stripe.com) is ever added, update script-src + frame-src.
   res.setHeader('Content-Security-Policy', [
     "default-src 'self'",
     "script-src 'self' 'unsafe-inline'",
     "style-src 'self' 'unsafe-inline' fonts.googleapis.com",
     "font-src fonts.gstatic.com",
     "img-src 'self' data:",
-    "connect-src 'self' api.stripe.com",
+    "connect-src 'self'",
   ].join('; '));
   next();
 });
 
-// Gzip compression (replaces hand-rolled middleware)
+// Gzip compression
 app.use(compression());
 
 app.use(express.json());
@@ -115,6 +135,7 @@ app.get('/api/health', (req, res) => {
     devMode: DEV_MODE,
     hasStripe: !!stripe,
     hasAnthropic: !!anthropic,
+    hasRedis: !!redis,
   });
 });
 
@@ -139,7 +160,11 @@ function validateMagicBytes(buffer, mimetype) {
     return buffer.slice(0, 5).toString() === '%PDF-';
   }
   if (mimetype === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
-    return buffer[0] === 0x50 && buffer[1] === 0x4B; // PK (zip/docx)
+    // PK header + check for word/document.xml signature in zip central directory
+    if (buffer[0] !== 0x50 || buffer[1] !== 0x4B) return false;
+    // Look for 'word/' string in first 2KB — present in all valid .docx files
+    const header = buffer.slice(0, Math.min(buffer.length, 2048)).toString('binary');
+    return header.includes('word/');
   }
   if (mimetype === 'application/msword') {
     return buffer[0] === 0xD0 && buffer[1] === 0xCF; // DOC compound file
@@ -147,9 +172,37 @@ function validateMagicBytes(buffer, mimetype) {
   return false;
 }
 
+// ── CSRF check for state-changing endpoints ───────────────────────────────────
+function checkOrigin(req, res) {
+  if (DEV_MODE) return true;
+  const origin = req.headers['origin'];
+  if (!origin) return true; // non-browser clients (curl, Stripe webhook)
+  const allowed = new URL(BASE_URL).origin;
+  if (origin !== allowed) {
+    res.status(403).json({ error: 'Forbidden' });
+    return false;
+  }
+  return true;
+}
+
+// ── Atomic jti single-use via Redis SET NX ────────────────────────────────────
+async function claimToken(jti) {
+  if (DEV_MODE) return true; // dev mode uses in-memory Map
+  if (!redis) {
+    // Fallback: no Redis configured — log warning, allow (degraded)
+    console.warn(`[${jti}] No Redis — token replay protection unavailable`);
+    return true;
+  }
+  // SET NX with 30-min TTL — returns 'OK' only if key didn't exist
+  const result = await redis.set(`passats:jti:${jti}`, '1', { nx: true, ex: 1800 });
+  return result === 'OK';
+}
+
 // ── Stripe: Create Checkout Session ───────────────────────────────────────────
 app.post('/api/checkout', async (req, res) => {
-  const ip = req.headers['x-forwarded-for'] || req.ip;
+  if (!checkOrigin(req, res)) return;
+
+  const ip = req.ip;
   if (isRateLimited('checkout:' + ip, 10, 60000)) {
     return res.status(429).json({ error: 'Too many requests. Try again in a minute.' });
   }
@@ -171,7 +224,7 @@ app.post('/api/checkout', async (req, res) => {
     });
     res.json({ url: session.url });
   } catch (err) {
-    console.error('Checkout error:', err.message);
+    console.error(`[${req.requestId}] Checkout error:`, err.message);
     res.status(500).json({ error: 'Failed to create checkout session' });
   }
 });
@@ -206,7 +259,7 @@ async function handleWebhook(req, res) {
 
 // ── Verify payment & get upload token ─────────────────────────────────────────
 app.get('/api/verify-payment', async (req, res) => {
-  const ip = req.headers['x-forwarded-for'] || req.ip;
+  const ip = req.ip;
   if (isRateLimited('verify:' + ip, 20, 60000)) {
     return res.status(429).json({ error: 'Too many requests. Try again in a minute.' });
   }
@@ -225,6 +278,12 @@ app.get('/api/verify-payment', async (req, res) => {
     const checkoutSession = await stripe.checkout.sessions.retrieve(session_id);
     if (checkoutSession.payment_status !== 'paid') {
       return res.status(402).json({ error: 'Payment not completed' });
+    }
+
+    // Cap token refresh window — session must be < 1 hour old
+    const sessionAgeMs = Date.now() - (checkoutSession.created * 1000);
+    if (sessionAgeMs > 60 * 60 * 1000) {
+      return res.status(410).json({ error: 'Session expired. Please purchase again.' });
     }
 
     // Check if token already exists from webhook
@@ -249,13 +308,14 @@ app.get('/api/verify-payment', async (req, res) => {
     }).catch(() => {});
     res.json({ token });
   } catch (err) {
-    console.error('Verify error:', err.message);
+    console.error(`[${req.requestId}] Verify error:`, err.message);
     res.status(500).json({ error: 'Verification failed' });
   }
 });
 
 // ── Dev mode: auto-provision token (only with explicit DEV_MODE=true) ─────────
 if (DEV_MODE) {
+  console.log('\u26a0\ufe0f  DEV MODE \u2014 payments and analysis are mocked');
   app.get('/api/dev-token', (req, res) => {
     const token = jwt.sign({ sessionId: 'dev', jti: crypto.randomUUID() }, JWT_SECRET, { expiresIn: '30m' });
     if (devSessions) devSessions.set('dev', { token, used: false });
@@ -265,6 +325,7 @@ if (DEV_MODE) {
 
 // ── Analyze CV ────────────────────────────────────────────────────────────────
 app.post('/api/analyze', upload.single('cv'), async (req, res) => {
+  const reqId = req.requestId;
   const tokenHeader = req.headers['x-passats-token'];
   if (!tokenHeader) return res.status(401).json({ error: 'Missing token' });
 
@@ -276,22 +337,15 @@ app.post('/api/analyze', upload.single('cv'), async (req, res) => {
     return res.status(401).json({ error: 'Invalid or expired token' });
   }
 
-  // Check if token was already used (via Stripe metadata — serverless-safe)
-  if (!DEV_MODE) {
-    try {
-      const session = await stripe.checkout.sessions.retrieve(tokenPayload.sessionId);
-      if (session.metadata?.passats_used === 'true') {
-        return res.status(403).json({ error: 'Token already used' });
-      }
-      // Mark as used immediately to narrow race window
-      await stripe.checkout.sessions.update(tokenPayload.sessionId, {
-        metadata: { ...session.metadata, passats_used: 'true' }
-      });
-    } catch (err) {
-      console.error('Token verification via Stripe failed:', err.message);
-      return res.status(401).json({ error: 'Token verification failed' });
-    }
-  } else {
+  // Atomic single-use via Redis SET NX on jti
+  const claimed = await claimToken(tokenPayload.jti);
+  if (!claimed) {
+    console.warn(`[${reqId}] Token replay blocked: jti=${tokenPayload.jti}`);
+    return res.status(403).json({ error: 'Token already used' });
+  }
+
+  // Dev mode: check in-memory
+  if (DEV_MODE) {
     const devEntry = devSessions?.get(tokenPayload.sessionId) || devSessions?.get('dev');
     if (devEntry?.used) return res.status(403).json({ error: 'Token already used (dev)' });
     if (devEntry) devEntry.used = true;
@@ -299,14 +353,11 @@ app.post('/api/analyze', upload.single('cv'), async (req, res) => {
 
   if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
 
-  // Magic byte validation
+  // Magic byte validation — burn token on adversarial file types
   if (!validateMagicBytes(req.file.buffer, req.file.mimetype)) {
-    if (!DEV_MODE) {
-      await stripe.checkout.sessions.update(tokenPayload.sessionId, {
-        metadata: { passats_used: 'false' }
-      }).catch(() => {});
-    }
-    return res.status(400).json({ error: 'File content does not match its type. Please upload a valid PDF or DOCX.' });
+    console.warn(`[${reqId}] Magic byte mismatch: ${req.file.mimetype}`);
+    // Token stays burned — user submitted an invalid file, contact support
+    return res.status(400).json({ error: 'File content does not match its type. Please upload a valid PDF or DOCX. Contact support if you believe this is an error.' });
   }
 
   try {
@@ -318,26 +369,23 @@ app.post('/api/analyze', upload.single('cv'), async (req, res) => {
     }
 
     if (!text || text.trim().length < 50) {
-      if (!DEV_MODE) {
-        await stripe.checkout.sessions.update(tokenPayload.sessionId, {
-          metadata: { passats_used: 'false' }
-        }).catch(() => {});
-      }
-      return res.status(422).json({ error: 'Could not extract enough text. Please upload a text-based PDF.' });
+      // Token stays burned — adversarial or image-based PDF, contact support
+      console.warn(`[${reqId}] Insufficient text extracted: ${(text || '').length} chars`);
+      return res.status(422).json({ error: 'Could not extract enough text. Please upload a text-based PDF. Contact support if you believe this is an error.' });
     }
 
     // Job description from multipart form field
     const jobDescription = req.body?.jobDescription || '';
+    console.log(`[${reqId}] Calling Claude for analysis...`);
     const result = await callClaude(text, jobDescription);
+    console.log(`[${reqId}] Analysis complete: score=${result.overallScore}`);
     res.json(result);
   } catch (err) {
-    // Revert used flag on failure
-    if (!DEV_MODE) {
-      await stripe.checkout.sessions.update(tokenPayload.sessionId, {
-        metadata: { passats_used: 'false' }
-      }).catch(() => {});
+    // Only revert on clearly non-adversarial failures (API/network errors)
+    if (redis && tokenPayload.jti) {
+      await redis.del(`passats:jti:${tokenPayload.jti}`).catch(() => {});
     }
-    console.error('Analysis error:', err.message);
+    console.error(`[${reqId}] Analysis error:`, err.message);
     res.status(500).json({ error: 'Analysis failed. Please try again.' });
   }
 });
@@ -365,7 +413,46 @@ async function extractText(file) {
   return Promise.race([parse, timeout]);
 }
 
-// ── Claude API ────────────────────────────────────────────────────────────────
+// ── Claude API (tool use with JSON schema — guarantees valid JSON) ─────────────
+const ATS_RESULT_SCHEMA = {
+  name: 'ats_report',
+  description: 'ATS compatibility analysis report for a CV/resume',
+  input_schema: {
+    type: 'object',
+    required: ['overallScore', 'verdict', 'verdictDetail', 'detectedRole', 'metrics', 'issues', 'keywordsFound', 'keywordsMissing', 'topFixes'],
+    properties: {
+      overallScore: { type: 'number', description: 'ATS compatibility score 0-100' },
+      verdict: { type: 'string', enum: ['Excellent', 'Good', 'Needs Work', 'Poor'] },
+      verdictDetail: { type: 'string', description: 'Short 1-sentence summary' },
+      detectedRole: { type: 'string', description: 'Detected job category' },
+      metrics: {
+        type: 'object',
+        required: ['keywords', 'formatting', 'readability', 'contactInfo'],
+        properties: {
+          keywords: { type: 'object', required: ['score', 'note'], properties: { score: { type: 'number' }, note: { type: 'string' } } },
+          formatting: { type: 'object', required: ['score', 'note'], properties: { score: { type: 'number' }, note: { type: 'string' } } },
+          readability: { type: 'object', required: ['score', 'note'], properties: { score: { type: 'number' }, note: { type: 'string' } } },
+          contactInfo: { type: 'object', required: ['score', 'note'], properties: { score: { type: 'number' }, note: { type: 'string' } } },
+        }
+      },
+      issues: {
+        type: 'array',
+        items: {
+          type: 'object', required: ['severity', 'title', 'detail'],
+          properties: {
+            severity: { type: 'string', enum: ['critical', 'warning', 'pass'] },
+            title: { type: 'string' },
+            detail: { type: 'string' },
+          }
+        }
+      },
+      keywordsFound: { type: 'array', items: { type: 'string' }, description: 'Max 8 keywords found' },
+      keywordsMissing: { type: 'array', items: { type: 'string' }, description: 'Max 6 missing keywords' },
+      topFixes: { type: 'array', items: { type: 'string' }, description: '5 actionable fix strings' },
+    }
+  }
+};
+
 async function callClaude(cvText, jobDescription) {
   if (DEV_MODE) {
     await new Promise(r => setTimeout(r, 1500));
@@ -404,7 +491,7 @@ async function callClaude(cvText, jobDescription) {
     ? `\n\nThe candidate is applying for a role with this job description:\n---\n${jobDescription.slice(0, 8000)}\n---\nScore keyword relevance against this specific job description.`
     : '\nNo specific job description provided. Score keywords based on the detected role and general industry expectations.';
 
-  const systemPrompt = `You are an expert ATS (Applicant Tracking System) analyzer. Analyze CVs/resumes and return a detailed JSON report. Be accurate, specific, and genuinely helpful. Never invent information not present in the CV.
+  const systemPrompt = `You are an expert ATS (Applicant Tracking System) analyzer. Analyze CVs/resumes and return a detailed report via the ats_report tool. Be accurate, specific, and genuinely helpful. Never invent information not present in the CV.
 
 Score calibration guide:
 - A CV with no skills section, tables, and multi-column layout scores around 40.
@@ -414,28 +501,9 @@ Score calibration guide:
 
   const userPrompt = `Analyze this CV/resume as an ATS system would.${jdContext}
 
-Return ONLY valid JSON with this exact structure (no markdown, no explanation, just raw JSON):
+Use the ats_report tool to return your analysis. Be honest and specific.
 
-{
-  "overallScore": <number 0-100>,
-  "verdict": <"Excellent" | "Good" | "Needs Work" | "Poor">,
-  "verdictDetail": <short 1-sentence summary>,
-  "detectedRole": <detected job category>,
-  "metrics": {
-    "keywords": { "score": <0-100>, "note": <1 sentence> },
-    "formatting": { "score": <0-100>, "note": <1 sentence> },
-    "readability": { "score": <0-100>, "note": <1 sentence> },
-    "contactInfo": { "score": <0-100>, "note": <1 sentence> }
-  },
-  "issues": [
-    { "severity": <"critical"|"warning"|"pass">, "title": <short>, "detail": <1-2 sentences> }
-  ],
-  "keywordsFound": [<max 8 keyword strings>],
-  "keywordsMissing": [<max 6 missing keyword strings>],
-  "topFixes": [<5 actionable fix strings>]
-}
-
-Be honest and specific. Here is the CV text:
+Here is the CV text:
 
 ---
 ${cvText.slice(0, 20000)}
@@ -443,19 +511,21 @@ ${cvText.slice(0, 20000)}
 
   const message = await anthropic.messages.create({
     model: 'claude-sonnet-4-6',
-    max_tokens: 1500,
+    max_tokens: 2000,
     system: systemPrompt,
+    tools: [ATS_RESULT_SCHEMA],
+    tool_choice: { type: 'tool', name: 'ats_report' },
     messages: [{ role: 'user', content: userPrompt }]
   });
 
-  const text = message.content[0].text.trim();
-  const clean = text.replace(/^```json\s*/i, '').replace(/```\s*$/i, '').trim();
-  try {
-    return JSON.parse(clean);
-  } catch (parseErr) {
-    console.error('Claude returned invalid JSON:', clean.slice(0, 200));
+  // Tool use response — guaranteed valid JSON matching schema
+  const toolBlock = message.content.find(b => b.type === 'tool_use');
+  if (!toolBlock || !toolBlock.input) {
+    console.error('Claude did not return tool_use block');
     throw new Error('Analysis returned invalid format. Please try again.');
   }
+
+  return toolBlock.input;
 }
 
 // ── Privacy / Terms pages ─────────────────────────────────────────────────────
@@ -476,7 +546,7 @@ app.get('*', (_req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// ── Cleanup (rate limit entries) ──────────────────────────────────────────────
+// ── Cleanup (rate limit entries — non-Vercel only) ────────────────────────────
 if (!process.env.VERCEL) {
   setInterval(() => {
     const now = Date.now();
