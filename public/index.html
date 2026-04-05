@@ -74,7 +74,7 @@
       "name": "Why am I applying to jobs and hearing nothing back?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "Probably because a robot rejected you. 75% of resumes never reach a human reviewer. The ATS scans for specific keywords, checks formatting compatibility, and makes a pass/fail decision in milliseconds. If your resume uses tables, columns, graphics, or creative headers, the system literally can't read half of it."
+        "text": "Probably because a robot rejected you. Most resumes never reach a human reviewer. The ATS scans for specific keywords, checks formatting compatibility, and makes a pass/fail decision in milliseconds. If your resume uses tables, columns, graphics, or creative headers, the system literally can't read half of it."
       }
     },
     {
@@ -591,7 +591,7 @@
 <!-- NAV -->
 <nav>
   <div class="logo" onclick="showView('landing')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();showView('landing')}" role="link" tabindex="0" aria-label="PassATS home">Pass<span>ATS</span></div>
-  <button class="nav-pill" onclick="startCheckout()" aria-label="Check your ATS resume score">Check My Score — $0.99</button>
+  <button class="nav-pill" onclick="startCheckout()" aria-label="Score your resume for ATS compatibility">Score My Resume — $0.99</button>
 </nav>
 </header>
 
@@ -602,10 +602,10 @@
     <div class="badge"><div class="badge-dot"></div> Free ATS Score Check</div>
     <h1>You're not unqualified.<br>You're getting filtered<br>by a <em>robot.</em></h1>
     <p class="subtitle">
-      You send 50 applications. Hear nothing. It's not you, it's the ATS rejecting your resume before a human ever reads it. Find out why in 60 seconds.
+      50 applications, zero callbacks. It's not you — it's the ATS filter rejecting your resume before a human ever sees it. Find out why in 60 seconds.
     </p>
     <div class="cta-row">
-      <button class="btn-primary" onclick="startCheckout()" id="heroCtaBtn">Check My Resume &rarr;</button>
+      <button class="btn-primary" onclick="startCheckout()" id="heroCtaBtn">Score My Resume — $0.99</button>
       <span class="price-tag">Instant results · <strong>$0.99</strong> · No signup</span>
     </div>
   </section>
@@ -614,7 +614,7 @@
   <section class="value-section">
     <h2 class="value-heading">The job market isn't broken. The filter is.</h2>
     <p class="value-text">
-      Here's the truth nobody tells you: <strong>75% of resumes are rejected by ATS before a recruiter sees them.</strong> Not because you're underqualified. Because a machine read your beautifully designed PDF and couldn't parse the columns. Or your skills section used "Project Management" when the system was scanning for "PMP." That's it. That's why you're not getting callbacks.
+      Here's the truth nobody tells you: <strong>most resumes never reach a human reviewer.</strong> Not because you're underqualified. Because a machine read your beautifully designed PDF and couldn't parse the columns. Or your skills section used "Project Management" when the system was scanning for "PMP." That's it. That's why you're not getting callbacks.
     </p>
     <p class="value-text">
       Every Fortune 500. Every startup using Greenhouse, Lever, or Workday. They all run your resume through <strong>applicant tracking system software</strong> that makes a pass/fail decision in milliseconds. Fancy templates from Canva? Invisible to ATS. Two-column layouts? Half your experience gets skipped. Header with your name in a text box? The system literally doesn't know who you are.
@@ -675,7 +675,7 @@
       </details>
       <details class="faq-item">
         <summary>Why am I applying to jobs and hearing nothing back?</summary>
-        <p>Probably because a robot rejected you. 75% of resumes never reach a human reviewer. The ATS scans for specific keywords, checks formatting compatibility, and makes a pass/fail decision in milliseconds. If your resume uses tables, columns, graphics, or creative headers, the system literally can't read half of it. You're getting filtered out before anyone sees your experience.</p>
+        <p>Probably because a robot rejected you. Most resumes never reach a human reviewer. The ATS scans for specific keywords, checks formatting compatibility, and makes a pass/fail decision in milliseconds. If your resume uses tables, columns, graphics, or creative headers, the system literally can't read half of it. You're getting filtered out before anyone sees your experience.</p>
       </details>
       <details class="faq-item">
         <summary>What file formats work?</summary>
@@ -711,7 +711,12 @@
       <div class="error-msg" id="errorMsg"></div>
       <div class="file-selected" id="fileSelectedEl"></div>
 
-      <button class="analyze-btn" id="analyzeBtn" onclick="startAnalysis()" disabled>Analyze My CV &rarr;</button>
+      <details style="text-align:left;margin-bottom:20px;">
+        <summary style="font-size:0.85rem;font-weight:500;cursor:pointer;color:var(--accent);">+ Paste a job description (optional, 5× better results)</summary>
+        <textarea id="jobDescInput" placeholder="Paste the job posting here…" style="width:100%;min-height:100px;margin-top:10px;padding:12px;border:1px solid var(--border);border-radius:10px;font-family:'DM Sans',sans-serif;font-size:0.85rem;resize:vertical;background:var(--bg);"></textarea>
+      </details>
+
+      <button class="analyze-btn" id="analyzeBtn" onclick="startAnalysis()" disabled>Score My Resume — $0.99</button>
     </div>
 </div>
 
@@ -769,7 +774,10 @@
 
     <div class="tips-section"><h3>Top 5 Fixes to Boost Your Score</h3><div id="dashTips"></div></div>
 
-    <div class="cta-again"><button onclick="showView('landing')">&#8592; Analyze another CV</button></div>
+    <div class="cta-again">
+      <button onclick="showView('landing')">&larr; Analyze another resume</button>
+      <p style="font-size:0.78rem;color:var(--muted);margin-top:8px;">Each analysis is a separate one-time payment.</p>
+    </div>
   </div>
 </div>
 </main>
@@ -802,7 +810,7 @@
     } catch (err) {
       alert('Could not start checkout: ' + err.message);
       btn.disabled = false;
-      btn.textContent = 'Check My Resume \u2192';
+      btn.textContent = 'Score My Resume \u2014 $0.99';
     }
   }
 
@@ -890,11 +898,16 @@
 
     showView('loading');
     resetLoadingSteps();
+    const loadingStarted = Date.now();
     animateLoadingSteps();
 
     try {
       const formData = new FormData();
       formData.append('cv', uploadedFile);
+      const jdInput = document.getElementById('jobDescInput');
+      if (jdInput && jdInput.value.trim()) {
+        formData.append('jobDescription', jdInput.value.trim());
+      }
 
       console.log('Sending analysis request…');
       const res = await fetch('/api/analyze', {
@@ -907,6 +920,13 @@
       console.log('Analysis response:', res.status, data);
       if (!res.ok) throw new Error(data.error || 'Analysis failed');
 
+      // Cap fake loading — show dashboard once all steps shown & API done
+      const elapsed = Date.now() - loadingStarted;
+      const minLoadingTime = 2500; // enough for steps to animate
+      if (elapsed < minLoadingTime) {
+        await new Promise(r => setTimeout(r, minLoadingTime - elapsed));
+      }
+
       renderDashboard(data, uploadedFile.name);
       showView('dashboard');
     } catch (err) {
@@ -916,7 +936,7 @@
     } finally {
       const btn = document.getElementById('analyzeBtn');
       btn.disabled = false;
-      btn.textContent = 'Analyze My CV \u2192';
+      btn.textContent = 'Score My Resume \u2014 $0.99';
     }
   }
 
@@ -992,8 +1012,8 @@
     const params = new URLSearchParams(window.location.search);
     if (params.get('session_id')) {
       await handlePaymentReturn();
-    } else {
-      // In dev mode, server exposes /api/dev-token — skip checkout entirely
+    } else if (params.get('dev') === '1') {
+      // Only attempt dev-token with explicit ?dev=1 flag
       try {
         const devRes = await fetch('/api/dev-token');
         if (devRes.ok) {
@@ -1004,6 +1024,8 @@
           return;
         }
       } catch {}
+      showView('landing');
+    } else {
       showView('landing');
     }
   })();

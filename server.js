@@ -1,13 +1,14 @@
 require('dotenv').config();
 const express = require('express');
+const compression = require('compression');
 const multer = require('multer');
 const Stripe = require('stripe');
 const Anthropic = require('@anthropic-ai/sdk');
 const mammoth = require('mammoth');
 const pdfParse = require('pdf-parse');
 const crypto = require('crypto');
+const jwt = require('jsonwebtoken');
 const path = require('path');
-const fs = require('fs');
 
 // ── Config ────────────────────────────────────────────────────────────────────
 const DEV_MODE = process.env.DEV_MODE === 'true';
@@ -16,41 +17,50 @@ if (!DEV_MODE) {
   const required = ['STRIPE_SECRET_KEY', 'STRIPE_WEBHOOK_SECRET', 'STRIPE_PRICE_ID', 'ANTHROPIC_API_KEY'];
   const missing = required.filter(k => !process.env[k]);
   if (missing.length) {
-    console.error(`Missing required env vars: ${missing.join(', ')}`);
-    // On Vercel, don't process.exit — it kills the serverless function entirely.
-    // Instead, fall back to DEV_MODE so at least the site loads.
-    if (process.env.VERCEL) {
-      console.error('Falling back to DEV_MODE on Vercel (set env vars for production)');
-    } else {
-      console.error('Copy .env.example to .env and fill in your keys.');
-      process.exit(1);
-    }
+    console.error('FATAL: Missing required env vars: ' + missing.join(', '));
+    process.exit(1);
   }
 } else {
-  console.log('⚠️  DEV MODE — payments and analysis are mocked');
+  console.log('\u26a0\ufe0f  DEV MODE \u2014 payments and analysis are mocked');
 }
 
 const app = express();
-const MOCK_MODE = DEV_MODE || (process.env.VERCEL && !process.env.STRIPE_SECRET_KEY);
-
-let stripe = null;
-let anthropic = null;
-let initError = null;
-
-try {
-  stripe = MOCK_MODE ? null : Stripe(process.env.STRIPE_SECRET_KEY);
-  anthropic = MOCK_MODE ? null : new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-} catch (err) {
-  initError = err.message;
-  console.error('SDK init error:', err.message);
-}
-
 const PORT = process.env.PORT || 3000;
 const BASE_URL = process.env.BASE_URL || `http://localhost:${PORT}`;
 
-// In-memory session store (swap for Redis in production at scale)
-const sessions = new Map();
-const SESSION_TTL = 30 * 60 * 1000; // 30 minutes
+// JWT secret — derived from STRIPE_SECRET_KEY in prod, random in dev
+const JWT_SECRET = DEV_MODE
+  ? crypto.randomBytes(32).toString('hex')
+  : crypto.createHash('sha256').update(process.env.STRIPE_SECRET_KEY).digest('hex');
+
+let stripe = null;
+let anthropic = null;
+
+try {
+  if (!DEV_MODE) {
+    stripe = Stripe(process.env.STRIPE_SECRET_KEY);
+    anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+  }
+} catch (err) {
+  console.error('SDK init error:', err.message);
+  process.exit(1);
+}
+
+// In dev mode only — in-memory sessions for mock tokens
+const devSessions = DEV_MODE ? new Map() : null;
+
+// ── Rate Limiter (per-instance, sufficient for single-region Vercel) ──────────
+const rateLimits = new Map();
+function isRateLimited(key, maxRequests, windowMs) {
+  const now = Date.now();
+  let entry = rateLimits.get(key);
+  if (!entry || now > entry.resetAt) {
+    entry = { count: 0, resetAt: now + windowMs };
+  }
+  entry.count++;
+  rateLimits.set(key, entry);
+  return entry.count > maxRequests;
+}
 
 // ── Middleware ─────────────────────────────────────────────────────────────────
 // Stripe webhook needs raw body — must come before express.json()
@@ -58,84 +68,60 @@ app.post('/api/webhook', express.raw({ type: 'application/json' }), handleWebhoo
 
 // Security & SEO headers
 app.use((req, res, next) => {
-  // Security headers (Google page experience signals)
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('X-Frame-Options', 'DENY');
   res.setHeader('X-XSS-Protection', '1; mode=block');
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
   res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
-  // HSTS — uncomment once you have HTTPS in production
-  // res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  res.setHeader('Content-Security-Policy', [
+    "default-src 'self'",
+    "script-src 'self' 'unsafe-inline'",
+    "style-src 'self' 'unsafe-inline' fonts.googleapis.com",
+    "font-src fonts.gstatic.com",
+    "img-src 'self' data:",
+    "connect-src 'self' api.stripe.com",
+  ].join('; '));
   next();
 });
 
-// Gzip compression — reduces HTML/CSS/JS by ~70%, improves LCP
-app.use((req, res, next) => {
-  const zlib = require('zlib');
-  const accept = req.headers['accept-encoding'] || '';
-  if (!accept.includes('gzip')) return next();
-
-  const origSend = res.send.bind(res);
-  res.send = function(body) {
-    // Only compress text-based responses
-    const ct = res.getHeader('content-type') || '';
-    if (typeof body === 'string' || (Buffer.isBuffer(body) && /text|json|javascript|xml|svg/.test(ct))) {
-      res.setHeader('Content-Encoding', 'gzip');
-      res.removeHeader('Content-Length');
-      zlib.gzip(body, (err, compressed) => {
-        if (err) return origSend(body);
-        origSend(compressed);
-      });
-    } else {
-      origSend(body);
-    }
-  };
-  next();
-});
+// Gzip compression (replaces hand-rolled middleware)
+app.use(compression());
 
 app.use(express.json());
 
 // Static assets with cache headers
 app.use(express.static(path.join(__dirname, 'public'), {
-  maxAge: '7d',               // Cache static assets for 7 days
-  etag: true,                  // Enable ETag for conditional requests
+  maxAge: '7d',
+  etag: true,
   lastModified: true,
   setHeaders: (res, filePath) => {
-    // HTML should revalidate (no stale content)
     if (filePath.endsWith('.html')) {
       res.setHeader('Cache-Control', 'no-cache');
     }
-    // Immutable assets (favicon, OG image) cache aggressively
     if (/\.(png|jpg|svg|ico|woff2?)$/.test(filePath)) {
-      res.setHeader('Cache-Control', 'public, max-age=2592000, immutable'); // 30 days
+      res.setHeader('Cache-Control', 'public, max-age=2592000, immutable');
     }
   }
 }));
 
-// ── Health check (for debugging Vercel) ───────────────────────────────────────
+// ── Health check (gated behind secret header) ─────────────────────────────────
 app.get('/api/health', (req, res) => {
+  if (req.headers['x-health-secret'] !== process.env.HEALTH_SECRET) {
+    return res.status(404).json({ error: 'Not found' });
+  }
   res.json({
     status: 'ok',
-    mockMode: MOCK_MODE,
     devMode: DEV_MODE,
     hasStripe: !!stripe,
     hasAnthropic: !!anthropic,
-    initError: initError,
-    env: {
-      STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY ? '***set***' : 'MISSING',
-      STRIPE_WEBHOOK_SECRET: process.env.STRIPE_WEBHOOK_SECRET ? '***set***' : 'MISSING',
-      STRIPE_PRICE_ID: process.env.STRIPE_PRICE_ID ? '***set***' : 'MISSING',
-      ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY ? '***set***' : 'MISSING',
-      BASE_URL: process.env.BASE_URL || 'NOT SET',
-      VERCEL: process.env.VERCEL || 'false',
-    }
   });
 });
 
-// File upload config
+// ── File upload config ────────────────────────────────────────────────────────
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+  limits: { fileSize: 5 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
     const allowed = [
       'application/pdf',
@@ -146,38 +132,54 @@ const upload = multer({
   }
 });
 
+// Magic-byte validation — don't trust client mimetype alone
+function validateMagicBytes(buffer, mimetype) {
+  if (buffer.length < 4) return false;
+  if (mimetype === 'application/pdf') {
+    return buffer.slice(0, 5).toString() === '%PDF-';
+  }
+  if (mimetype === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
+    return buffer[0] === 0x50 && buffer[1] === 0x4B; // PK (zip/docx)
+  }
+  if (mimetype === 'application/msword') {
+    return buffer[0] === 0xD0 && buffer[1] === 0xCF; // DOC compound file
+  }
+  return false;
+}
+
 // ── Stripe: Create Checkout Session ───────────────────────────────────────────
 app.post('/api/checkout', async (req, res) => {
-  if (MOCK_MODE) {
-    // Skip Stripe — redirect directly to success with a fake session ID
+  const ip = req.headers['x-forwarded-for'] || req.ip;
+  if (isRateLimited('checkout:' + ip, 10, 60000)) {
+    return res.status(429).json({ error: 'Too many requests. Try again in a minute.' });
+  }
+
+  if (DEV_MODE) {
     const fakeSessionId = 'dev_' + crypto.randomBytes(12).toString('hex');
-    const token = crypto.randomBytes(24).toString('hex');
-    sessions.set(token, { stripeSessionId: fakeSessionId, used: false, createdAt: Date.now() });
-    // Store token for verify-payment lookup
-    sessions.set('dev_session:' + fakeSessionId, token);
+    const token = jwt.sign({ sessionId: fakeSessionId, jti: crypto.randomUUID() }, JWT_SECRET, { expiresIn: '30m' });
+    if (devSessions) devSessions.set(fakeSessionId, { token, used: false });
     return res.json({ url: `${BASE_URL}/success?session_id=${fakeSessionId}` });
   }
 
   try {
     const session = await stripe.checkout.sessions.create({
       mode: 'payment',
-      line_items: [{
-        price: process.env.STRIPE_PRICE_ID,
-        quantity: 1
-      }],
+      line_items: [{ price: process.env.STRIPE_PRICE_ID, quantity: 1 }],
       success_url: `${BASE_URL}/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${BASE_URL}/?cancelled=1`,
-      expires_at: Math.floor(Date.now() / 1000) + 30 * 60, // 30 min
+      expires_at: Math.floor(Date.now() / 1000) + 30 * 60,
     });
     res.json({ url: session.url });
   } catch (err) {
-    console.error('Checkout error:', err.message, err.type, err.code, err.statusCode);
-    res.status(500).json({ error: 'Failed to create checkout session', detail: err.message });
+    console.error('Checkout error:', err.message);
+    res.status(500).json({ error: 'Failed to create checkout session' });
   }
 });
 
 // ── Stripe Webhook ────────────────────────────────────────────────────────────
 async function handleWebhook(req, res) {
+  if (DEV_MODE) return res.json({ received: true });
+
   const sig = req.headers['stripe-signature'];
   let event;
   try {
@@ -189,17 +191,14 @@ async function handleWebhook(req, res) {
 
   if (event.type === 'checkout.session.completed') {
     const checkoutSession = event.data.object;
-    // Create a usage token tied to this payment
-    const token = crypto.randomBytes(24).toString('hex');
-    sessions.set(token, {
-      stripeSessionId: checkoutSession.id,
-      used: false,
-      createdAt: Date.now()
-    });
-    // Store token in Stripe metadata so the success page can retrieve it
+    const token = jwt.sign(
+      { sessionId: checkoutSession.id, jti: crypto.randomUUID() },
+      JWT_SECRET,
+      { expiresIn: '30m' }
+    );
     await stripe.checkout.sessions.update(checkoutSession.id, {
       metadata: { passats_token: token }
-    }).catch(() => {}); // best-effort
+    }).catch(() => {});
   }
 
   res.json({ received: true });
@@ -207,16 +206,18 @@ async function handleWebhook(req, res) {
 
 // ── Verify payment & get upload token ─────────────────────────────────────────
 app.get('/api/verify-payment', async (req, res) => {
+  const ip = req.headers['x-forwarded-for'] || req.ip;
+  if (isRateLimited('verify:' + ip, 20, 60000)) {
+    return res.status(429).json({ error: 'Too many requests. Try again in a minute.' });
+  }
+
   const { session_id } = req.query;
   if (!session_id) return res.status(400).json({ error: 'Missing session_id' });
 
-  if (MOCK_MODE) {
-    // Look up the token we stored during checkout
-    const token = sessions.get('dev_session:' + session_id);
-    if (token) return res.json({ token });
-    // Fallback: create a new token
-    const newToken = crypto.randomBytes(24).toString('hex');
-    sessions.set(newToken, { stripeSessionId: session_id, used: false, createdAt: Date.now() });
+  if (DEV_MODE) {
+    const devEntry = devSessions ? devSessions.get(session_id) : null;
+    if (devEntry && devEntry.token) return res.json({ token: devEntry.token });
+    const newToken = jwt.sign({ sessionId: session_id, jti: crypto.randomUUID() }, JWT_SECRET, { expiresIn: '30m' });
     return res.json({ token: newToken });
   }
 
@@ -228,17 +229,24 @@ app.get('/api/verify-payment', async (req, res) => {
 
     // Check if token already exists from webhook
     let token = checkoutSession.metadata?.passats_token;
-    if (token && sessions.has(token)) {
-      return res.json({ token });
+    if (token) {
+      try {
+        jwt.verify(token, JWT_SECRET);
+        return res.json({ token });
+      } catch {
+        // Token expired or invalid — create new one below
+      }
     }
 
-    // Fallback: webhook may not have fired yet — create token directly
-    token = crypto.randomBytes(24).toString('hex');
-    sessions.set(token, {
-      stripeSessionId: checkoutSession.id,
-      used: false,
-      createdAt: Date.now()
-    });
+    // Webhook may not have fired yet — create token directly
+    token = jwt.sign(
+      { sessionId: checkoutSession.id, jti: crypto.randomUUID() },
+      JWT_SECRET,
+      { expiresIn: '30m' }
+    );
+    await stripe.checkout.sessions.update(checkoutSession.id, {
+      metadata: { passats_token: token }
+    }).catch(() => {});
     res.json({ token });
   } catch (err) {
     console.error('Verify error:', err.message);
@@ -246,86 +254,121 @@ app.get('/api/verify-payment', async (req, res) => {
   }
 });
 
-// ── Dev/mock mode: auto-provision a token (no checkout needed) ────────────────
-if (MOCK_MODE) {
+// ── Dev mode: auto-provision token (only with explicit DEV_MODE=true) ─────────
+if (DEV_MODE) {
   app.get('/api/dev-token', (req, res) => {
-    const token = crypto.randomBytes(24).toString('hex');
-    sessions.set(token, { stripeSessionId: 'dev', used: false, createdAt: Date.now() });
+    const token = jwt.sign({ sessionId: 'dev', jti: crypto.randomUUID() }, JWT_SECRET, { expiresIn: '30m' });
+    if (devSessions) devSessions.set('dev', { token, used: false });
     res.json({ token });
   });
 }
 
 // ── Analyze CV ────────────────────────────────────────────────────────────────
 app.post('/api/analyze', upload.single('cv'), async (req, res) => {
-  const token = req.headers['x-passats-token'];
-  if (!token) return res.status(401).json({ error: 'Missing token' });
+  const tokenHeader = req.headers['x-passats-token'];
+  if (!tokenHeader) return res.status(401).json({ error: 'Missing token' });
 
-  const session = sessions.get(token);
-  if (!session) return res.status(401).json({ error: 'Invalid token' });
-  if (!MOCK_MODE && session.used) return res.status(403).json({ error: 'Token already used' });
+  // Verify JWT
+  let tokenPayload;
+  try {
+    tokenPayload = jwt.verify(tokenHeader, JWT_SECRET);
+  } catch {
+    return res.status(401).json({ error: 'Invalid or expired token' });
+  }
+
+  // Check if token was already used (via Stripe metadata — serverless-safe)
+  if (!DEV_MODE) {
+    try {
+      const session = await stripe.checkout.sessions.retrieve(tokenPayload.sessionId);
+      if (session.metadata?.passats_used === 'true') {
+        return res.status(403).json({ error: 'Token already used' });
+      }
+      // Mark as used immediately to narrow race window
+      await stripe.checkout.sessions.update(tokenPayload.sessionId, {
+        metadata: { ...session.metadata, passats_used: 'true' }
+      });
+    } catch (err) {
+      console.error('Token verification via Stripe failed:', err.message);
+      return res.status(401).json({ error: 'Token verification failed' });
+    }
+  } else {
+    const devEntry = devSessions?.get(tokenPayload.sessionId) || devSessions?.get('dev');
+    if (devEntry?.used) return res.status(403).json({ error: 'Token already used (dev)' });
+    if (devEntry) devEntry.used = true;
+  }
 
   if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
 
-  // Mark token as used immediately to prevent concurrent abuse
-  session.used = true;
+  // Magic byte validation
+  if (!validateMagicBytes(req.file.buffer, req.file.mimetype)) {
+    if (!DEV_MODE) {
+      await stripe.checkout.sessions.update(tokenPayload.sessionId, {
+        metadata: { passats_used: 'false' }
+      }).catch(() => {});
+    }
+    return res.status(400).json({ error: 'File content does not match its type. Please upload a valid PDF or DOCX.' });
+  }
 
   try {
-    // Extract text from the document
     let text;
-    if (MOCK_MODE) {
-      // In mock mode, accept any file and use dummy text if extraction fails
-      try { text = await extractText(req.file); } catch { text = 'Mock CV text for dev mode testing — this simulates extracted resume content for the analysis pipeline.'; }
+    if (DEV_MODE) {
+      try { text = await extractText(req.file); } catch { text = 'Mock CV text for dev mode testing.'; }
     } else {
       text = await extractText(req.file);
     }
 
     if (!text || text.trim().length < 50) {
-      session.used = false; // allow retry
-      return res.status(422).json({ error: 'Could not extract enough text from the document. Please upload a PDF.' });
+      if (!DEV_MODE) {
+        await stripe.checkout.sessions.update(tokenPayload.sessionId, {
+          metadata: { passats_used: 'false' }
+        }).catch(() => {});
+      }
+      return res.status(422).json({ error: 'Could not extract enough text. Please upload a text-based PDF.' });
     }
 
-    // Call Claude
-    const result = await callClaude(text);
+    // Job description from multipart form field
+    const jobDescription = req.body?.jobDescription || '';
+    const result = await callClaude(text, jobDescription);
     res.json(result);
   } catch (err) {
-    session.used = false; // allow retry on failure
+    // Revert used flag on failure
+    if (!DEV_MODE) {
+      await stripe.checkout.sessions.update(tokenPayload.sessionId, {
+        metadata: { passats_used: 'false' }
+      }).catch(() => {});
+    }
     console.error('Analysis error:', err.message);
     res.status(500).json({ error: 'Analysis failed. Please try again.' });
   }
 });
 
-// ── Text extraction ───────────────────────────────────────────────────────────
+// ── Text extraction with 15s timeout ──────────────────────────────────────────
 async function extractText(file) {
-  const mime = file.mimetype;
+  const timeout = new Promise((_, reject) =>
+    setTimeout(() => reject(new Error('Document parsing timed out')), 15000)
+  );
 
-  if (mime === 'application/pdf') {
-    const data = await pdfParse(file.buffer);
-    return data.text;
-  }
-
-  if (mime === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
-    const result = await mammoth.extractRawText({ buffer: file.buffer });
-    return result.value;
-  }
-
-  if (mime === 'application/msword') {
-    // .doc files — mammoth handles some, but not all
-    try {
+  const parse = (async () => {
+    const mime = file.mimetype;
+    if (mime === 'application/pdf') {
+      const data = await pdfParse(file.buffer);
+      return data.text;
+    }
+    if (mime === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
+        mime === 'application/msword') {
       const result = await mammoth.extractRawText({ buffer: file.buffer });
       return result.value;
-    } catch {
-      throw new Error('Legacy .doc format not fully supported. Please convert to PDF or .docx.');
     }
-  }
+    throw new Error('Unsupported file type');
+  })();
 
-  throw new Error('Unsupported file type');
+  return Promise.race([parse, timeout]);
 }
 
 // ── Claude API ────────────────────────────────────────────────────────────────
-async function callClaude(cvText) {
-  if (MOCK_MODE) {
-    // Return realistic mock data so the full UI can be tested
-    await new Promise(r => setTimeout(r, 1500)); // simulate latency
+async function callClaude(cvText, jobDescription) {
+  if (DEV_MODE) {
+    await new Promise(r => setTimeout(r, 1500));
     return {
       overallScore: 72,
       verdict: "Needs Work",
@@ -338,12 +381,12 @@ async function callClaude(cvText) {
         contactInfo: { score: 90, note: "Email and phone detected. Add LinkedIn URL." }
       },
       issues: [
-        { severity: "critical", title: "No ATS-friendly section headers", detail: "Use standard headers like 'Work Experience', 'Education', 'Skills' instead of creative alternatives." },
-        { severity: "critical", title: "Missing keywords", detail: "Add role-specific keywords like 'CI/CD', 'agile', 'REST API' in your experience bullets." },
-        { severity: "warning", title: "Date format inconsistent", detail: "Mix of 'Jan 2023' and '01/2023'. Pick one format and stick with it." },
+        { severity: "critical", title: "No ATS-friendly section headers", detail: "Use standard headers like 'Work Experience', 'Education', 'Skills'." },
+        { severity: "critical", title: "Missing keywords", detail: "Add role-specific keywords like 'CI/CD', 'agile', 'REST API'." },
+        { severity: "warning", title: "Date format inconsistent", detail: "Mix of 'Jan 2023' and '01/2023'. Pick one format." },
         { severity: "warning", title: "No measurable achievements", detail: "Quantify impact: 'Reduced deploy time by 40%' beats 'Improved deployment process'." },
         { severity: "pass", title: "Contact information present", detail: "Email and phone number are clearly visible at the top." },
-        { severity: "pass", title: "Single page length", detail: "CV fits on one page — optimal for ATS and recruiters." }
+        { severity: "pass", title: "Single page length", detail: "CV fits on one page \u2014 optimal for ATS and recruiters." }
       ],
       keywordsFound: ["JavaScript", "React", "Node.js", "Git", "SQL", "TypeScript"],
       keywordsMissing: ["CI/CD", "Agile/Scrum", "REST API", "Docker", "AWS", "Testing"],
@@ -352,14 +395,26 @@ async function callClaude(cvText) {
         "Replace creative headers with standard ones (Work Experience, Education, Skills)",
         "Quantify at least 3 achievements with numbers or percentages",
         "Add LinkedIn profile URL to contact section",
-        "Use consistent date format throughout (e.g., 'Jan 2023 – Present')"
+        "Use consistent date format throughout (e.g., 'Jan 2023 \u2013 Present')"
       ]
     };
   }
 
-  const systemPrompt = `You are an expert ATS (Applicant Tracking System) analyzer. Analyze CVs/resumes and return a detailed JSON report. Be accurate, specific, and genuinely helpful. Never invent information not present in the CV.`;
+  const jdContext = jobDescription && jobDescription.trim()
+    ? `\n\nThe candidate is applying for a role with this job description:\n---\n${jobDescription.slice(0, 8000)}\n---\nScore keyword relevance against this specific job description.`
+    : '\nNo specific job description provided. Score keywords based on the detected role and general industry expectations.';
 
-  const userPrompt = `Analyze this CV/resume as an ATS system would. Return ONLY valid JSON with this exact structure (no markdown, no explanation, just raw JSON):
+  const systemPrompt = `You are an expert ATS (Applicant Tracking System) analyzer. Analyze CVs/resumes and return a detailed JSON report. Be accurate, specific, and genuinely helpful. Never invent information not present in the CV.
+
+Score calibration guide:
+- A CV with no skills section, tables, and multi-column layout scores around 40.
+- A CV with standard sections but generic bullets and some formatting issues scores around 60.
+- A clean one-column CV with all standard sections, quantified bullets, and relevant keywords scores around 85.
+- A perfect ATS-optimized CV with tailored keywords, clean formatting, and strong metrics scores 90+.`;
+
+  const userPrompt = `Analyze this CV/resume as an ATS system would.${jdContext}
+
+Return ONLY valid JSON with this exact structure (no markdown, no explanation, just raw JSON):
 
 {
   "overallScore": <number 0-100>,
@@ -383,11 +438,11 @@ async function callClaude(cvText) {
 Be honest and specific. Here is the CV text:
 
 ---
-${cvText.slice(0, 12000)}
+${cvText.slice(0, 20000)}
 ---`;
 
   const message = await anthropic.messages.create({
-    model: 'claude-sonnet-4-20250514',
+    model: 'claude-sonnet-4-6',
     max_tokens: 1500,
     system: systemPrompt,
     messages: [{ role: 'user', content: userPrompt }]
@@ -395,8 +450,21 @@ ${cvText.slice(0, 12000)}
 
   const text = message.content[0].text.trim();
   const clean = text.replace(/^```json\s*/i, '').replace(/```\s*$/i, '').trim();
-  return JSON.parse(clean);
+  try {
+    return JSON.parse(clean);
+  } catch (parseErr) {
+    console.error('Claude returned invalid JSON:', clean.slice(0, 200));
+    throw new Error('Analysis returned invalid format. Please try again.');
+  }
 }
+
+// ── Privacy / Terms pages ─────────────────────────────────────────────────────
+app.get('/privacy', (_req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'privacy.html'));
+});
+app.get('/terms', (_req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'terms.html'));
+});
 
 // ── Success redirect page ─────────────────────────────────────────────────────
 app.get('/success', (_req, res) => {
@@ -408,22 +476,19 @@ app.get('*', (_req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// ── Cleanup expired sessions ──────────────────────────────────────────────────
+// ── Cleanup (rate limit entries) ──────────────────────────────────────────────
 if (!process.env.VERCEL) {
   setInterval(() => {
     const now = Date.now();
-    for (const [token, data] of sessions) {
-      if (now - data.createdAt > SESSION_TTL) sessions.delete(token);
+    for (const [key, entry] of rateLimits) {
+      if (now > entry.resetAt) rateLimits.delete(key);
     }
-  }, 5 * 60 * 1000);
+  }, 60000);
 }
 
 // ── Start ─────────────────────────────────────────────────────────────────────
 if (process.env.VERCEL) {
-  // Vercel serverless — export the Express app, don't listen
   module.exports = app;
 } else {
-  app.listen(PORT, () => {
-    console.log(`PassATS running at ${BASE_URL}`);
-  });
+  app.listen(PORT, () => console.log(`PassATS running at ${BASE_URL}`));
 }
