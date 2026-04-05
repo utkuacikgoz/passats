@@ -15,7 +15,7 @@ const { Redis } = require('@upstash/redis');
 const DEV_MODE = process.env.DEV_MODE === 'true';
 
 if (!DEV_MODE) {
-  const required = ['STRIPE_SECRET_KEY', 'STRIPE_WEBHOOK_SECRET', 'STRIPE_PRICE_ID', 'ANTHROPIC_API_KEY', 'JWT_SECRET'];
+  const required = ['STRIPE_SECRET_KEY', 'STRIPE_WEBHOOK_SECRET', 'STRIPE_PRICE_ID', 'ANTHROPIC_API_KEY', 'JWT_SECRET', 'UPSTASH_REDIS_REST_URL', 'UPSTASH_REDIS_REST_TOKEN'];
   const missing = required.filter(k => !process.env[k]);
   if (missing.length) {
     console.error('FATAL: Missing required env vars: ' + missing.join(', '));
@@ -43,15 +43,11 @@ try {
   if (!DEV_MODE) {
     stripe = Stripe(process.env.STRIPE_SECRET_KEY);
     anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-    // Upstash Redis — atomic jti single-use. Free tier: 10k commands/day
-    if (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN) {
-      redis = new Redis({
-        url: process.env.UPSTASH_REDIS_REST_URL,
-        token: process.env.UPSTASH_REDIS_REST_TOKEN,
-      });
-    } else {
-      console.warn('WARNING: UPSTASH_REDIS not configured — token replay protection degraded');
-    }
+    // Upstash Redis — atomic jti single-use. Required for token replay protection.
+    redis = new Redis({
+      url: process.env.UPSTASH_REDIS_REST_URL,
+      token: process.env.UPSTASH_REDIS_REST_TOKEN,
+    });
   }
 } catch (err) {
   console.error('SDK init error:', err.message);
@@ -65,6 +61,11 @@ const devSessions = DEV_MODE ? new Map() : null;
 const rateLimits = new Map();
 function isRateLimited(key, maxRequests, windowMs) {
   const now = Date.now();
+  // Cap map size to prevent unbounded growth on Vercel lambdas
+  if (rateLimits.size > 10000) {
+    const oldest = rateLimits.keys().next().value;
+    rateLimits.delete(oldest);
+  }
   let entry = rateLimits.get(key);
   if (!entry || now > entry.resetAt) {
     entry = { count: 0, resetAt: now + windowMs };
@@ -81,8 +82,9 @@ app.use((req, _res, next) => {
 });
 
 // ── Middleware ─────────────────────────────────────────────────────────────────
-// Stripe webhook needs raw body — must come before express.json()
-app.post('/api/webhook', express.raw({ type: 'application/json' }), handleWebhook);
+// Stripe webhook needs raw body — registered before express.json() and security headers.
+// Intentional: webhook is machine-to-machine (Stripe-signed), CSP/HSTS not needed.
+app.post('/api/webhook', express.raw({ type: 'application/json', limit: '1mb' }), handleWebhook);
 
 // Security & SEO headers
 app.use((req, res, next) => {
@@ -176,7 +178,11 @@ function validateMagicBytes(buffer, mimetype) {
 function checkOrigin(req, res) {
   if (DEV_MODE) return true;
   const origin = req.headers['origin'];
-  if (!origin) return true; // non-browser clients (curl, Stripe webhook)
+  // All modern browsers send Origin on POST — reject if absent
+  if (!origin) {
+    res.status(403).json({ error: 'Forbidden' });
+    return false;
+  }
   const allowed = new URL(BASE_URL).origin;
   if (origin !== allowed) {
     res.status(403).json({ error: 'Forbidden' });
@@ -188,11 +194,6 @@ function checkOrigin(req, res) {
 // ── Atomic jti single-use via Redis SET NX ────────────────────────────────────
 async function claimToken(jti) {
   if (DEV_MODE) return true; // dev mode uses in-memory Map
-  if (!redis) {
-    // Fallback: no Redis configured — log warning, allow (degraded)
-    console.warn(`[${jti}] No Redis — token replay protection unavailable`);
-    return true;
-  }
   // SET NX with 30-min TTL — returns 'OK' only if key didn't exist
   const result = await redis.set(`passats:jti:${jti}`, '1', { nx: true, ex: 1800 });
   return result === 'OK';
@@ -244,6 +245,10 @@ async function handleWebhook(req, res) {
 
   if (event.type === 'checkout.session.completed') {
     const checkoutSession = event.data.object;
+    // Idempotency: if webhook re-fires (Stripe retries on 5xx), don't overwrite existing token
+    if (checkoutSession.metadata?.passats_token) {
+      return res.json({ received: true });
+    }
     const token = jwt.sign(
       { sessionId: checkoutSession.id, jti: crypto.randomUUID() },
       JWT_SECRET,
@@ -315,6 +320,10 @@ app.get('/api/verify-payment', async (req, res) => {
 
 // ── Dev mode: auto-provision token (only with explicit DEV_MODE=true) ─────────
 if (DEV_MODE) {
+  if (process.env.VERCEL) {
+    console.error('FATAL: DEV_MODE=true is not allowed on Vercel. Aborting.');
+    process.exit(1);
+  }
   console.log('\u26a0\ufe0f  DEV MODE \u2014 payments and analysis are mocked');
   app.get('/api/dev-token', (req, res) => {
     const token = jwt.sign({ sessionId: 'dev', jti: crypto.randomUUID() }, JWT_SECRET, { expiresIn: '30m' });
@@ -337,13 +346,6 @@ app.post('/api/analyze', upload.single('cv'), async (req, res) => {
     return res.status(401).json({ error: 'Invalid or expired token' });
   }
 
-  // Atomic single-use via Redis SET NX on jti
-  const claimed = await claimToken(tokenPayload.jti);
-  if (!claimed) {
-    console.warn(`[${reqId}] Token replay blocked: jti=${tokenPayload.jti}`);
-    return res.status(403).json({ error: 'Token already used' });
-  }
-
   // Dev mode: check in-memory
   if (DEV_MODE) {
     const devEntry = devSessions?.get(tokenPayload.sessionId) || devSessions?.get('dev');
@@ -353,11 +355,17 @@ app.post('/api/analyze', upload.single('cv'), async (req, res) => {
 
   if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
 
-  // Magic byte validation — burn token on adversarial file types
+  // Magic byte validation — reject before claiming token so user isn't burned on bad file
   if (!validateMagicBytes(req.file.buffer, req.file.mimetype)) {
     console.warn(`[${reqId}] Magic byte mismatch: ${req.file.mimetype}`);
-    // Token stays burned — user submitted an invalid file, contact support
-    return res.status(400).json({ error: 'File content does not match its type. Please upload a valid PDF or DOCX. Contact support if you believe this is an error.' });
+    return res.status(400).json({ error: 'File content does not match its type. Please upload a valid PDF or DOCX.' });
+  }
+
+  // Atomic single-use via Redis SET NX on jti — after all pre-validation gates
+  const claimed = await claimToken(tokenPayload.jti);
+  if (!claimed) {
+    console.warn(`[${reqId}] Token replay blocked: jti=${tokenPayload.jti}`);
+    return res.status(403).json({ error: 'Token already used' });
   }
 
   try {
@@ -369,9 +377,8 @@ app.post('/api/analyze', upload.single('cv'), async (req, res) => {
     }
 
     if (!text || text.trim().length < 50) {
-      // Token stays burned — adversarial or image-based PDF, contact support
       console.warn(`[${reqId}] Insufficient text extracted: ${(text || '').length} chars`);
-      return res.status(422).json({ error: 'Could not extract enough text. Please upload a text-based PDF. Contact support if you believe this is an error.' });
+      return res.status(422).json({ error: `Could not extract enough text. Please upload a text-based PDF or DOCX. If this persists, quote ref ${reqId}.` });
     }
 
     // Job description from multipart form field
@@ -383,10 +390,12 @@ app.post('/api/analyze', upload.single('cv'), async (req, res) => {
   } catch (err) {
     // Only revert on clearly non-adversarial failures (API/network errors)
     if (redis && tokenPayload.jti) {
-      await redis.del(`passats:jti:${tokenPayload.jti}`).catch(() => {});
+      await redis.del(`passats:jti:${tokenPayload.jti}`).catch(delErr => {
+        console.error(`[${reqId}] CRITICAL: Redis del failed — token permanently burned for jti=${tokenPayload.jti}:`, delErr.message);
+      });
     }
     console.error(`[${reqId}] Analysis error:`, err.message);
-    res.status(500).json({ error: 'Analysis failed. Please try again.' });
+    res.status(500).json({ error: `Analysis failed. Please try again. If this persists, quote ref ${reqId}.` });
   }
 });
 
@@ -446,9 +455,9 @@ const ATS_RESULT_SCHEMA = {
           }
         }
       },
-      keywordsFound: { type: 'array', items: { type: 'string' }, description: 'Max 8 keywords found' },
-      keywordsMissing: { type: 'array', items: { type: 'string' }, description: 'Max 6 missing keywords' },
-      topFixes: { type: 'array', items: { type: 'string' }, description: '5 actionable fix strings' },
+      keywordsFound: { type: 'array', items: { type: 'string' }, maxItems: 8, description: 'Max 8 keywords found' },
+      keywordsMissing: { type: 'array', items: { type: 'string' }, maxItems: 6, description: 'Max 6 missing keywords' },
+      topFixes: { type: 'array', items: { type: 'string' }, maxItems: 5, description: '5 actionable fix strings' },
     }
   }
 };
@@ -506,7 +515,7 @@ Use the ats_report tool to return your analysis. Be honest and specific.
 Here is the CV text:
 
 ---
-${cvText.slice(0, 20000)}
+${cvText.slice(0, 40000)}
 ---`;
 
   const message = await anthropic.messages.create({
