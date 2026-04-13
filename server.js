@@ -1,11 +1,11 @@
-require('dotenv').config();
+require('dotenv').config({ quiet: true });
 const express = require('express');
 const compression = require('compression');
 const multer = require('multer');
 const Stripe = require('stripe');
 const Anthropic = require('@anthropic-ai/sdk');
 const mammoth = require('mammoth');
-const pdfParse = require('pdf-parse');
+const { PDFParse } = require('pdf-parse');
 const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const path = require('path');
@@ -52,7 +52,7 @@ let redis = null;
 
 try {
   if (!DEV_MODE) {
-    stripe = Stripe(process.env.STRIPE_SECRET_KEY);
+    stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
     anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
     // Upstash Redis — atomic jti single-use. Required for token replay protection.
     redis = new Redis({
@@ -401,7 +401,10 @@ app.post('/api/analyze', analyzeAuth, upload.single('cv'), async (req, res) => {
   try {
     let text;
     if (DEV_MODE) {
-      try { text = await extractText(req.file); } catch { text = 'Mock CV text for dev mode testing.'; }
+      try { text = await extractText(req.file); } catch { /* fall through */ }
+      if (!text || text.trim().length < 50) {
+        text = 'John Doe — Software Engineer with 5 years experience in JavaScript, React, Node.js, SQL, Git. Built scalable APIs and led CI/CD adoption.';
+      }
     } else {
       text = await extractText(req.file);
     }
@@ -461,14 +464,18 @@ async function extractText(file) {
   const parse = (async () => {
     const mime = file.mimetype;
     if (mime === 'application/pdf') {
+      let parser;
       try {
-        const data = await pdfParse(file.buffer);
+        parser = new PDFParse({ data: file.buffer });
+        const data = await parser.getText();
         return data.text;
       } catch (err) {
         if (err.message && /password|encrypted/i.test(err.message)) {
           throw new Error('PDF_PASSWORD_PROTECTED');
         }
         throw err;
+      } finally {
+        if (parser) await parser.destroy().catch(() => {});
       }
     }
     if (mime === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
@@ -648,23 +655,27 @@ app.get('/success', (_req, res) => {
 });
 
 // ── SPA fallback ──────────────────────────────────────────────────────────────
-app.get('*', (_req, res) => {
+app.get('{*path}', (_req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 // ── Cleanup (rate limit entries — non-Vercel only) ────────────────────────────
 if (!process.env.VERCEL) {
-  setInterval(() => {
+  const cleanupTimer = setInterval(() => {
     const now = Date.now();
     for (const [key, entry] of rateLimits) {
       if (now > entry.resetAt) rateLimits.delete(key);
     }
   }, 60000);
+  cleanupTimer.unref(); // Don't keep process alive for cleanup
 }
 
 // ── Start ─────────────────────────────────────────────────────────────────────
 if (process.env.VERCEL) {
   module.exports = app;
-} else {
+} else if (require.main === module) {
   app.listen(PORT, () => console.log(`PassATS running at ${BASE_URL}`));
+} else {
+  // Required as a module (e.g. tests)
+  module.exports = app;
 }
