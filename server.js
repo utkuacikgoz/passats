@@ -581,10 +581,11 @@ async function callClaude(cvText, jobDescription) {
 
 ABSOLUTE RULES — violating these makes the analysis worthless:
 1. Every issue title and detail MUST reference specific text, section names, or bullet points from the CV. "Your CV lacks metrics" is banned. "3 of 4 bullets in your Revolut section use abstract verbs (led, drove, managed) with no numbers" is correct.
-2. Every topFix MUST follow exactly: "[ACTION] in [SECTION NAME]: [CONCRETE EXAMPLE FROM THE CV]. Expected score impact: +[N] points."
+2. Every topFix MUST follow exactly: "[ACTION] in [SECTION NAME]: [CONCRETE EXAMPLE FROM THE CV]. Expected score impact: +[N] points." The example MUST be reworded real content from the CV — never invent numbers, percentages, or outcomes that are not in the CV.
 3. Never suggest keywords that are not standard for the detected role. A Product Owner CV should NOT have "Cybersecurity" or "Machine Learning" as missing keywords unless those are in a job description.
-4. Always return exactly 5 topFixes. Always return at least 5 issues.
-5. Never invent content not in the CV. Never give generic advice.
+4. Always return exactly 5 topFixes. Always return at least 5 issues. At least 1 issue must be critical if any penalty applies.
+5. Never invent content not in the CV. Never give generic advice. CVs do not have CTAs, calls-to-action, or marketing copy — do not suggest adding them.
+6. Severity rules: critical = directly causes ATS rejection or major score penalty; warning = hurts score but won't cause rejection; pass = done correctly.
 
 SCORING — ALL SCORES ARE INTEGERS 0-100 (e.g. 67, never 0.67):
 overallScore = round(keywords*0.35 + formatting*0.30 + readability*0.15 + contactInfo*0.20)

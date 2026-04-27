@@ -524,6 +524,7 @@
   .tip-num {
     font-family: 'DM Serif Display', serif; color: var(--accent-warm);
     font-size: 1.1rem; flex-shrink: 0; margin-top: -1px;
+    width: 20px; text-align: right;
   }
 
   .cta-again { text-align: center; padding: 20px; }
@@ -697,8 +698,8 @@
 <div id="upload" class="view">
     <div class="upload-card">
       <div style="font-size:2rem;margin-bottom:12px;" aria-hidden="true">&#10003;</div>
-      <h2>Payment confirmed!</h2>
-      <p class="sub">Now upload your CV and we'll run it through our ATS engine.</p>
+      <h2>You're in. Let's see what the robots think.</h2>
+      <p class="sub">Upload your CV below. We'll run it through the same kind of parser that's been ghosting you.</p>
 
       <div class="drop-zone" id="dropZone">
         <input type="file" id="fileInput" accept=".pdf,.doc,.docx" onchange="fileSelected(this)" aria-label="Upload your CV file">
@@ -723,20 +724,20 @@
 <div id="loading" class="view">
   <div class="loader-ring" role="status" aria-label="Analyzing your CV"></div>
   <div>
-    <div style="font-family:'DM Serif Display',serif;font-size:1.4rem;margin-bottom:16px;">Scanning your CV&hellip;</div>
+    <div style="font-family:'DM Serif Display',serif;font-size:1.4rem;margin-bottom:16px;">The robots are reading your CV&hellip;</div>
     <div class="loading-steps">
-      <div class="loading-step" id="ls1">Parsing document structure</div>
-      <div class="loading-step" id="ls2">Running ATS keyword analysis</div>
-      <div class="loading-step" id="ls3">Checking formatting rules</div>
-      <div class="loading-step" id="ls4">Scoring readability &amp; compatibility</div>
-      <div class="loading-step" id="ls5">Generating your report</div>
+      <div class="loading-step" id="ls1">Extracting text from your document</div>
+      <div class="loading-step" id="ls2">Scanning for keywords an ATS would look for</div>
+      <div class="loading-step" id="ls3">Checking if the formatting survives parsing</div>
+      <div class="loading-step" id="ls4">Scoring against ATS compatibility rules</div>
+      <div class="loading-step" id="ls5">Writing your honest report</div>
     </div>
   </div>
 </div>
 
 <!-- ═══ DASHBOARD ═══ -->
 <div id="dashboard" class="view">
-  <div class="dash-hero"><h2>Your ATS Report</h2><p id="dashFileName">Analyzed just now</p></div>
+  <div class="dash-hero"><h2>Here's what the robots see.</h2><p id="dashFileName">Analyzed just now</p></div>
   <div class="dash-content">
     <div class="score-overview">
       <div class="big-ring">
@@ -762,20 +763,20 @@
       <div class="metric-card" id="metric-contactInfo"><div class="label">Contact Info</div><div class="score-val">&mdash;</div><div class="mini-bar"><div class="mini-bar-fill" style="width:0%"></div></div><div class="metric-note"></div></div>
     </div>
 
-    <div class="issues-section"><h3>Issues Found</h3><div id="dashIssues"></div></div>
+    <div class="issues-section"><h3>What's hurting you</h3><div id="dashIssues"></div></div>
 
     <div class="keywords-section">
       <h3>Keyword Analysis</h3>
       <p class="sub" id="dashKeywordsRole">Analyzing your role&hellip;</p>
       <div class="kw-grid" id="dashKeywords"></div>
-      <p style="font-size:0.78rem;color:var(--muted);margin-top:14px;">&#10003; Found &nbsp; <span style="text-decoration:line-through">Strikethrough</span> = Missing — add these naturally to your CV</p>
+      <p style="font-size:0.78rem;color:var(--muted);margin-top:14px;">&#10003; Already there &nbsp;&middot;&nbsp; <span style="text-decoration:line-through">Strikethrough</span> = the ATS is looking for these and not finding them</p>
     </div>
 
-    <div class="tips-section"><h3>Top 5 Fixes to Boost Your Score</h3><div id="dashTips"></div></div>
+    <div class="tips-section"><h3>Fix these. In this order.</h3><div id="dashTips"></div></div>
 
     <div class="cta-again">
-      <button onclick="showView('landing')">&larr; Analyze another resume</button>
-      <p style="font-size:0.78rem;color:var(--muted);margin-top:8px;">Each analysis is a separate one-time payment.</p>
+      <button onclick="showView('landing')">&larr; Try a different version</button>
+      <p style="font-size:0.78rem;color:var(--muted);margin-top:8px;">Made changes? Run it again. Each scan is a separate $2.99.</p>
     </div>
   </div>
 </div>
@@ -973,10 +974,15 @@
 
     // Verdict badge
     const badge = document.getElementById('dashVerdictBadge');
-    const vm = { 'Excellent': ['verdict-good','\u2705'], 'Good': ['verdict-good','\uD83D\uDC4D'], 'Needs Work': ['verdict-mid','\u26A0'], 'Poor': ['verdict-low','\uD83D\uDEA8'] };
+    const vm = {
+      'Excellent': ['verdict-good', '✅ Excellent — most ATS systems will pass this'],
+      'Good':      ['verdict-good', '👍 Good — a few tweaks and you\'re there'],
+      'Needs Work':['verdict-mid',  '⚠️ Needs Work — a robot would struggle with this'],
+      'Poor':      ['verdict-low',  '🚨 Poor — this CV is likely getting auto-rejected']
+    };
     const v = vm[r.verdict] || vm['Needs Work'];
     badge.className = 'verdict-badge ' + v[0];
-    badge.textContent = v[1] + ' ' + r.verdict;
+    badge.textContent = v[1];
 
     // Metrics
     ['keywords','formatting','readability','contactInfo'].forEach(key => {
