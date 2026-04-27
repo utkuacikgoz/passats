@@ -490,8 +490,19 @@ async function extractText(file) {
     }
     if (mime === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
         mime === 'application/msword') {
-      const result = await mammoth.extractRawText({ buffer: file.buffer });
-      return result.value;
+      // convertToHtml preserves hyperlink hrefs; extractRawText silently drops them.
+      // We inline link URLs so the LLM can see personal website / portfolio / LinkedIn URLs.
+      const result = await mammoth.convertToHtml({ buffer: file.buffer });
+      const text = result.value
+        .replace(/<a\s[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi, (_, href, content) => {
+          const inner = content.replace(/<[^>]+>/g, '').trim();
+          // Only append URL if it's different from the display text (avoid duplication)
+          return inner && inner !== href ? `${inner} (${href})` : href;
+        })
+        .replace(/<[^>]+>/g, ' ')
+        .replace(/\s{2,}/g, ' ')
+        .trim();
+      return text;
     }
     throw new Error('Unsupported file type');
   })();
@@ -594,7 +605,7 @@ PENALTIES — apply each that is true, show your working:
 -20 if multi-column layout or tables detected (pipe chars, irregular whitespace)
 -15 if no dedicated Skills section exists
 -15 if 3+ consecutive bullets lack any quantified metric
--10 if date formats are inconsistent across sections
+-10 if date formats are inconsistent across sections (e.g. mixing "Jan 2023" with "01/2023", or using "-" in some places and "–" in others). NOTE: using "Present" for a current role is correct and standard — do not flag it as inconsistent with past end dates like "April 2025".
 -10 if no LinkedIn URL AND no personal website/portfolio URL in contact section
 -10 for each paragraph of abstract buzzwords without measurable outcomes (drove, championed, spearheaded, leveraged)
 
