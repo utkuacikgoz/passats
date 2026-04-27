@@ -3,9 +3,9 @@ const express = require('express');
 const compression = require('compression');
 const multer = require('multer');
 const Stripe = require('stripe');
-const Anthropic = require('@anthropic-ai/sdk');
+const Groq = require('groq-sdk');
 const mammoth = require('mammoth');
-const PDFParse = require('pdf-parse');
+const PDFParse = require('pdf-parse/lib/pdf-parse.js');
 const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const path = require('path');
@@ -15,7 +15,7 @@ const { Redis } = require('@upstash/redis');
 const DEV_MODE = process.env.DEV_MODE === 'true';
 
 if (!DEV_MODE) {
-  const required = ['STRIPE_SECRET_KEY', 'STRIPE_WEBHOOK_SECRET', 'STRIPE_PRICE_ID', 'ANTHROPIC_API_KEY', 'JWT_SECRET', 'UPSTASH_REDIS_REST_URL', 'UPSTASH_REDIS_REST_TOKEN'];
+  const required = ['STRIPE_SECRET_KEY', 'STRIPE_WEBHOOK_SECRET', 'STRIPE_PRICE_ID', 'GROQ_API_KEY', 'JWT_SECRET', 'UPSTASH_REDIS_REST_URL', 'UPSTASH_REDIS_REST_TOKEN'];
   const missing = required.filter(k => !process.env[k]);
   if (missing.length) {
     console.error('FATAL: Missing required env vars: ' + missing.join(', '));
@@ -47,13 +47,13 @@ function verifyJwt(token) {
 app.set('trust proxy', 1);
 
 let stripe = null;
-let anthropic = null;
+let groq = null;
 let redis = null;
 
 try {
   if (!DEV_MODE) {
     stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
-    anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+    groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
     // Upstash Redis — atomic jti single-use. Required for token replay protection.
     redis = new Redis({
       url: process.env.UPSTASH_REDIS_REST_URL,
@@ -153,7 +153,7 @@ app.get('/api/health', (req, res) => {
     status: 'ok',
     devMode: DEV_MODE,
     hasStripe: !!stripe,
-    hasAnthropic: !!anthropic,
+    hasGroq: !!groq,
     hasRedis: !!redis,
   });
 });
@@ -610,7 +610,7 @@ Be specific enough that the user can act in 30 minutes. Be honest enough that th
 
   const userPrompt = `Analyze this CV/resume as an ATS system would.${jdContext}
 
-Use the ats_report tool to return your analysis. Be honest and specific.
+Use the ats_report function to return your analysis. Be honest and specific.
 
 Here is the CV text:
 
@@ -618,23 +618,40 @@ Here is the CV text:
 ${cvSlice}
 ---`;
 
-  const message = await anthropic.messages.create({
-    model: 'claude-sonnet-4-6',
+  const response = await groq.chat.completions.create({
+    model: 'llama-3.3-70b-versatile',
     max_tokens: 2000,
-    system: systemPrompt,
-    tools: [ATS_RESULT_SCHEMA],
-    tool_choice: { type: 'tool', name: 'ats_report' },
-    messages: [{ role: 'user', content: userPrompt }]
+    temperature: 0.1,
+    messages: [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userPrompt }
+    ],
+    tools: [{
+      type: 'function',
+      function: {
+        name: ATS_RESULT_SCHEMA.name,
+        description: ATS_RESULT_SCHEMA.description,
+        parameters: ATS_RESULT_SCHEMA.input_schema,
+      }
+    }],
+    tool_choice: { type: 'function', function: { name: 'ats_report' } },
   });
 
-  // Tool use response — guaranteed valid JSON matching schema
-  const toolBlock = message.content.find(b => b.type === 'tool_use');
-  if (!toolBlock || !toolBlock.input) {
-    console.error('Claude did not return tool_use block');
+  const toolCall = response.choices?.[0]?.message?.tool_calls?.[0];
+  if (!toolCall || !toolCall.function?.arguments) {
+    console.error('Groq did not return a tool call');
     throw new Error('Analysis returned invalid format. Please try again.');
   }
 
-  return toolBlock.input;
+  let result;
+  try {
+    result = JSON.parse(toolCall.function.arguments);
+  } catch {
+    console.error('Groq tool call arguments were not valid JSON');
+    throw new Error('Analysis returned invalid format. Please try again.');
+  }
+
+  return result;
 }
 
 // ── Privacy / Terms pages ─────────────────────────────────────────────────────
