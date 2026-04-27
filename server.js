@@ -349,6 +349,21 @@ if (DEV_MODE) {
   });
 }
 
+// ── Owner test token — bypass payment in production for smoke testing ─────────
+// Gate: TEST_SECRET header must match TEST_SECRET env var. Never set in DEV_MODE.
+app.get('/api/test-token', (req, res) => {
+  const secret = process.env.TEST_SECRET;
+  if (!secret || req.headers['x-test-secret'] !== secret) {
+    return res.status(404).json({ error: 'Not found' });
+  }
+  const token = jwt.sign(
+    { sessionId: 'test_' + crypto.randomUUID(), jti: crypto.randomUUID() },
+    JWT_SECRET,
+    { expiresIn: '30m' }
+  );
+  res.json({ token });
+});
+
 // ── Pre-multer auth — origin + rate limit + JWT verify before file upload ─────
 function analyzeAuth(req, res, next) {
   if (!checkOrigin(req, res)) return;
