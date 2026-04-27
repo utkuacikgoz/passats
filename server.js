@@ -350,7 +350,6 @@ if (DEV_MODE) {
 }
 
 // ── Owner test token — bypass payment in production for smoke testing ─────────
-// Gate: TEST_SECRET header must match TEST_SECRET env var. Never set in DEV_MODE.
 app.get('/api/test-token', (req, res) => {
   const secret = process.env.TEST_SECRET;
   if (!secret || req.headers['x-test-secret'] !== secret) {
