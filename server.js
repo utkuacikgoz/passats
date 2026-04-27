@@ -464,18 +464,14 @@ async function extractText(file) {
   const parse = (async () => {
     const mime = file.mimetype;
     if (mime === 'application/pdf') {
-      let parser;
       try {
-        parser = new PDFParse({ data: file.buffer });
-        const data = await parser.getText();
+        const data = await PDFParse(file.buffer);
         return data.text;
       } catch (err) {
         if (err.message && /password|encrypted/i.test(err.message)) {
           throw new Error('PDF_PASSWORD_PROTECTED');
         }
         throw err;
-      } finally {
-        if (parser) await parser.destroy().catch(() => {});
       }
     }
     if (mime === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
