@@ -507,7 +507,7 @@ const ATS_RESULT_SCHEMA = {
     type: 'object',
     required: ['overallScore', 'verdict', 'verdictDetail', 'detectedRole', 'metrics', 'issues', 'keywordsFound', 'keywordsMissing', 'topFixes'],
     properties: {
-      overallScore: { type: 'number', description: 'ATS compatibility score 0-100' },
+      overallScore: { type: 'number', minimum: 0, maximum: 100, description: 'ATS compatibility score, integer between 0 and 100 (e.g. 67, NOT 0.67)' },
       verdict: { type: 'string', enum: ['Excellent', 'Good', 'Needs Work', 'Poor'] },
       verdictDetail: { type: 'string', description: 'Short 1-sentence summary' },
       detectedRole: { type: 'string', description: 'Detected job category' },
@@ -515,10 +515,10 @@ const ATS_RESULT_SCHEMA = {
         type: 'object',
         required: ['keywords', 'formatting', 'readability', 'contactInfo'],
         properties: {
-          keywords: { type: 'object', required: ['score', 'note'], properties: { score: { type: 'number' }, note: { type: 'string' } } },
-          formatting: { type: 'object', required: ['score', 'note'], properties: { score: { type: 'number' }, note: { type: 'string' } } },
-          readability: { type: 'object', required: ['score', 'note'], properties: { score: { type: 'number' }, note: { type: 'string' } } },
-          contactInfo: { type: 'object', required: ['score', 'note'], properties: { score: { type: 'number' }, note: { type: 'string' } } },
+          keywords: { type: 'object', required: ['score', 'note'], properties: { score: { type: 'number', minimum: 0, maximum: 100, description: 'Integer 0-100, e.g. 72' }, note: { type: 'string' } } },
+          formatting: { type: 'object', required: ['score', 'note'], properties: { score: { type: 'number', minimum: 0, maximum: 100, description: 'Integer 0-100, e.g. 72' }, note: { type: 'string' } } },
+          readability: { type: 'object', required: ['score', 'note'], properties: { score: { type: 'number', minimum: 0, maximum: 100, description: 'Integer 0-100, e.g. 72' }, note: { type: 'string' } } },
+          contactInfo: { type: 'object', required: ['score', 'note'], properties: { score: { type: 'number', minimum: 0, maximum: 100, description: 'Integer 0-100, e.g. 72' }, note: { type: 'string' } } },
         }
       },
       issues: {
@@ -588,6 +588,7 @@ CRITICAL RULES:
 6. Separate issues into fixable-with-editing vs fixable-only-with-more-experience. The user should know what to do in the next 30 minutes.
 
 SCORING METHODOLOGY (be deterministic — same CV = same score):
+ALL SCORES MUST BE INTEGERS FROM 0 TO 100. Never use decimals or fractions (write 72, not 0.72).
 overallScore = keywords*0.35 + formatting*0.30 + readability*0.15 + contactInfo*0.20
 
 Penalties (apply explicitly):
@@ -663,6 +664,17 @@ ${cvSlice}
   } catch {
     console.error('Groq tool call arguments were not valid JSON');
     throw new Error('Analysis returned invalid format. Please try again.');
+  }
+
+  // Normalize scores: if Groq returned 0-1 decimals instead of 0-100, fix them
+  const normalizeScore = s => (typeof s === 'number' && s > 0 && s <= 1) ? Math.round(s * 100) : Math.round(s);
+  if (result.overallScore !== undefined) result.overallScore = normalizeScore(result.overallScore);
+  if (result.metrics) {
+    for (const key of ['keywords', 'formatting', 'readability', 'contactInfo']) {
+      if (result.metrics[key]?.score !== undefined) {
+        result.metrics[key].score = normalizeScore(result.metrics[key].score);
+      }
+    }
   }
 
   return result;
