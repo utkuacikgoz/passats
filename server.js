@@ -1,11 +1,14 @@
 require('dotenv').config({ quiet: true });
 const express = require('express');
 const compression = require('compression');
+const fs = require('fs/promises');
 const multer = require('multer');
+const os = require('os');
 const Stripe = require('stripe');
-const Groq = require('groq-sdk');
+const { GoogleGenAI } = require('@google/genai');
 const mammoth = require('mammoth');
 const PDFParse = require('pdf-parse/lib/pdf-parse.js');
+const { PostHog } = require('posthog-node');
 const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const path = require('path');
@@ -15,7 +18,7 @@ const { Redis } = require('@upstash/redis');
 const DEV_MODE = process.env.DEV_MODE === 'true';
 
 if (!DEV_MODE) {
-  const required = ['STRIPE_SECRET_KEY', 'STRIPE_WEBHOOK_SECRET', 'STRIPE_PRICE_ID', 'GROQ_API_KEY', 'JWT_SECRET', 'UPSTASH_REDIS_REST_URL', 'UPSTASH_REDIS_REST_TOKEN'];
+  const required = ['STRIPE_SECRET_KEY', 'STRIPE_WEBHOOK_SECRET', 'STRIPE_PRICE_ID', 'GEMINI_API_KEY', 'JWT_SECRET', 'UPSTASH_REDIS_REST_URL', 'UPSTASH_REDIS_REST_TOKEN'];
   const missing = required.filter(k => !process.env[k]);
   if (missing.length) {
     console.error('FATAL: Missing required env vars: ' + missing.join(', '));
@@ -26,6 +29,16 @@ if (!DEV_MODE) {
 const app = express();
 const PORT = process.env.PORT || 3000;
 const BASE_URL = process.env.BASE_URL || `http://localhost:${PORT}`;
+const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-3.1-flash-lite';
+const POSTHOG_HOST = process.env.POSTHOG_HOST || 'https://us.i.posthog.com';
+const APP_SCRIPT_CSP_HASH = 'sha256-Wro7QYWxaTlnewoY7ukw4+jRDF7cEF6pWV3ziEdhZ3k=';
+const TEST_ALLOWED_IPS = new Set(
+  (process.env.TEST_ALLOWED_IPS || '')
+    .split(',')
+    .map(ip => ip.trim())
+    .filter(Boolean)
+    .map(normalizeIp)
+);
 
 // Dedicated JWT secret — survives Stripe key rotation
 const JWT_SECRET = DEV_MODE
@@ -43,17 +56,34 @@ function verifyJwt(token) {
   }
 }
 
+function normalizeIp(ip) {
+  if (!ip) return '';
+  return ip.replace(/^::ffff:/, '').trim();
+}
+
+function isAllowedTestIp(ip) {
+  return TEST_ALLOWED_IPS.has(normalizeIp(ip));
+}
+
 // Trust Vercel's proxy layer so req.ip is the real client IP
 app.set('trust proxy', 1);
 
 let stripe = null;
-let groq = null;
+let gemini = null;
+let posthog = null;
 let redis = null;
 
 try {
+  if (process.env.POSTHOG_API_KEY) {
+    posthog = new PostHog(process.env.POSTHOG_API_KEY, {
+      host: POSTHOG_HOST,
+      flushAt: 1,
+      flushInterval: 0,
+    });
+  }
   if (!DEV_MODE) {
     stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
-    groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+    gemini = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
     // Upstash Redis — atomic jti single-use. Required for token replay protection.
     redis = new Redis({
       url: process.env.UPSTASH_REDIS_REST_URL,
@@ -68,11 +98,57 @@ try {
 // In dev mode only — in-memory sessions for mock tokens
 const devSessions = DEV_MODE ? new Map() : null;
 
-// ── Rate Limiter (per-instance — documented: scales with lambda count) ────────
+// ── Logging & telemetry ───────────────────────────────────────────────────────
+function log(level, event, fields = {}) {
+  const payload = {
+    timestamp: new Date().toISOString(),
+    level,
+    event,
+    ...fields,
+  };
+  const line = JSON.stringify(payload);
+  if (level === 'error') console.error(line);
+  else if (level === 'warn') console.warn(line);
+  else console.log(line);
+}
+
+function capturePosthog(event, properties = {}, distinctId = 'server') {
+  if (!posthog || DEV_MODE) return;
+  try {
+    posthog.capture({
+      distinctId,
+      event,
+      properties,
+    });
+  } catch (err) {
+    log('warn', 'posthog.capture_failed', { message: err.message });
+  }
+}
+
+function logError(event, err, fields = {}) {
+  const properties = {
+    ...fields,
+    message: err?.message || String(err),
+    name: err?.name,
+  };
+  log('error', event, properties);
+  capturePosthog('server_error', { errorEvent: event, ...properties }, properties.requestId || 'server');
+}
+
+// ── Rate Limiter (Redis-backed in production, in-memory in dev) ──────────────
 const rateLimits = new Map();
-function isRateLimited(key, maxRequests, windowMs) {
+async function isRateLimited(key, maxRequests, windowMs) {
+  if (!DEV_MODE && redis) {
+    const redisKey = `passats:ratelimit:${key}`;
+    const count = await redis.incr(redisKey);
+    if (count === 1) {
+      await redis.expire(redisKey, Math.ceil(windowMs / 1000));
+    }
+    return count > maxRequests;
+  }
+
   const now = Date.now();
-  // Cap map size to prevent unbounded growth on Vercel lambdas
+  // Dev/test fallback only.
   if (rateLimits.size > 10000) {
     const oldest = rateLimits.keys().next().value;
     rateLimits.delete(oldest);
@@ -84,6 +160,20 @@ function isRateLimited(key, maxRequests, windowMs) {
   entry.count++;
   rateLimits.set(key, entry);
   return entry.count > maxRequests;
+}
+
+async function enforceRateLimit(req, res, key, maxRequests, windowMs) {
+  try {
+    if (await isRateLimited(key, maxRequests, windowMs)) {
+      res.status(429).json({ error: 'Too many requests. Try again in a minute.' });
+      return false;
+    }
+    return true;
+  } catch (err) {
+    logError('ratelimit.error', err, { requestId: req.requestId, rateLimitKey: key });
+    res.status(503).json({ error: `Service temporarily unavailable. Quote ref ${req.requestId}.` });
+    return false;
+  }
 }
 
 // ── Request ID middleware ─────────────────────────────────────────────────────
@@ -109,11 +199,14 @@ app.use((req, res, next) => {
   // If Stripe Elements (js.stripe.com) is ever added, update script-src + frame-src.
   res.setHeader('Content-Security-Policy', [
     "default-src 'self'",
-    "script-src 'self' 'unsafe-inline'",
+    `script-src 'self' ${APP_SCRIPT_CSP_HASH}`,
     "style-src 'self' 'unsafe-inline' fonts.googleapis.com",
     "font-src fonts.gstatic.com",
     "img-src 'self' data:",
     "connect-src 'self'",
+    "object-src 'none'",
+    "base-uri 'self'",
+    "frame-ancestors 'none'",
   ].join('; '));
   next();
 });
@@ -153,14 +246,22 @@ app.get('/api/health', (req, res) => {
     status: 'ok',
     devMode: DEV_MODE,
     hasStripe: !!stripe,
-    hasGroq: !!groq,
+    hasGemini: !!gemini,
+    hasPostHog: !!posthog,
     hasRedis: !!redis,
+    llmModel: DEV_MODE ? 'mock' : GEMINI_MODEL,
   });
 });
 
 // ── File upload config ────────────────────────────────────────────────────────
 const upload = multer({
-  storage: multer.memoryStorage(),
+  storage: multer.diskStorage({
+    destination: (_req, _file, cb) => cb(null, os.tmpdir()),
+    filename: (_req, file, cb) => {
+      const suffix = `${Date.now()}-${crypto.randomUUID()}${path.extname(file.originalname || '')}`;
+      cb(null, `passats-${suffix}`);
+    },
+  }),
   limits: { fileSize: 5 * 1024 * 1024, fieldSize: 20000, fields: 5 },
   fileFilter: (_req, file, cb) => {
     const allowed = [
@@ -171,6 +272,21 @@ const upload = multer({
     cb(null, allowed.includes(file.mimetype));
   }
 });
+
+async function readUploadedFileBuffer(file) {
+  if (!file) throw new Error('Missing uploaded file');
+  if (file.buffer) return file.buffer;
+  if (!file._cachedBuffer) {
+    file._cachedBuffer = await fs.readFile(file.path);
+  }
+  return file._cachedBuffer;
+}
+
+async function cleanupUploadedFile(file) {
+  if (!file?.path) return;
+  await fs.unlink(file.path).catch(() => {});
+  delete file._cachedBuffer;
+}
 
 // Magic-byte validation — don't trust client mimetype alone
 function validateMagicBytes(buffer, mimetype) {
@@ -221,9 +337,7 @@ app.post('/api/checkout', async (req, res) => {
   if (!checkOrigin(req, res)) return;
 
   const ip = req.ip;
-  if (isRateLimited('checkout:' + ip, 10, 60000)) {
-    return res.status(429).json({ error: 'Too many requests. Try again in a minute.' });
-  }
+  if (!await enforceRateLimit(req, res, 'checkout:' + ip, 10, 60000)) return;
 
   if (DEV_MODE) {
     const fakeSessionId = 'dev_' + crypto.randomBytes(12).toString('hex');
@@ -242,7 +356,7 @@ app.post('/api/checkout', async (req, res) => {
     });
     res.json({ url: session.url });
   } catch (err) {
-    console.error(`[${req.requestId}] Checkout error:`, err.message);
+    logError('checkout.error', err, { requestId: req.requestId, ip });
     res.status(500).json({ error: 'Failed to create checkout session' });
   }
 });
@@ -256,7 +370,7 @@ async function handleWebhook(req, res) {
   try {
     event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET);
   } catch (err) {
-    console.error('Webhook signature failed:', err.message);
+    logError('webhook.signature_failed', err);
     return res.status(400).send('Webhook Error');
   }
 
@@ -282,9 +396,7 @@ async function handleWebhook(req, res) {
 // ── Verify payment & get upload token ─────────────────────────────────────────
 app.get('/api/verify-payment', async (req, res) => {
   const ip = req.ip;
-  if (isRateLimited('verify:' + ip, 20, 60000)) {
-    return res.status(429).json({ error: 'Too many requests. Try again in a minute.' });
-  }
+  if (!await enforceRateLimit(req, res, 'verify:' + ip, 20, 60000)) return;
 
   const { session_id } = req.query;
   if (!session_id) return res.status(400).json({ error: 'Missing session_id' });
@@ -330,7 +442,7 @@ app.get('/api/verify-payment', async (req, res) => {
     }).catch(() => {});
     res.json({ token });
   } catch (err) {
-    console.error(`[${req.requestId}] Verify error:`, err.message);
+    logError('verify.error', err, { requestId: req.requestId, ip, sessionId: req.query.session_id });
     res.status(500).json({ error: 'Verification failed' });
   }
 });
@@ -350,11 +462,12 @@ if (DEV_MODE) {
 }
 
 // ── Owner test token — bypass payment in production for smoke testing ─────────
-app.get('/api/test-token', (req, res) => {
+app.get('/api/test-token', async (req, res) => {
   const secret = process.env.TEST_SECRET;
-  if (!secret || req.headers['x-test-secret'] !== secret) {
+  if (!secret || TEST_ALLOWED_IPS.size === 0 || req.headers['x-test-secret'] !== secret || !isAllowedTestIp(req.ip)) {
     return res.status(404).json({ error: 'Not found' });
   }
+  if (!await enforceRateLimit(req, res, 'test-token:' + normalizeIp(req.ip), 5, 60000)) return;
   const token = jwt.sign(
     { sessionId: 'test_' + crypto.randomUUID(), jti: crypto.randomUUID() },
     JWT_SECRET,
@@ -364,11 +477,9 @@ app.get('/api/test-token', (req, res) => {
 });
 
 // ── Pre-multer auth — origin + rate limit + JWT verify before file upload ─────
-function analyzeAuth(req, res, next) {
+async function analyzeAuth(req, res, next) {
   if (!checkOrigin(req, res)) return;
-  if (isRateLimited('analyze:' + req.ip, 10, 60000)) {
-    return res.status(429).json({ error: 'Too many requests. Try again in a minute.' });
-  }
+  if (!await enforceRateLimit(req, res, 'analyze:' + req.ip, 10, 60000)) return;
   const tokenHeader = req.headers['x-passats-token'];
   if (!tokenHeader) return res.status(401).json({ error: 'Missing token' });
   try {
@@ -384,35 +495,37 @@ app.post('/api/analyze', analyzeAuth, upload.single('cv'), async (req, res) => {
   const reqId = req.requestId;
   const tokenPayload = req.tokenPayload;
 
-  // Dev mode: check in-memory
-  if (DEV_MODE) {
-    const devEntry = devSessions?.get(tokenPayload.sessionId) || devSessions?.get('dev');
-    if (devEntry?.used) return res.status(403).json({ error: 'Token already used (dev)' });
-    if (devEntry) devEntry.used = true;
-  }
-
-  if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
-
-  // Magic byte validation — reject before claiming token so user isn't burned on bad file
-  if (!validateMagicBytes(req.file.buffer, req.file.mimetype)) {
-    console.warn(`[${reqId}] Magic byte mismatch: ${req.file.mimetype}`);
-    return res.status(400).json({ error: 'File content does not match its type. Please upload a valid PDF or DOCX.' });
-  }
-
-  // Atomic single-use via Redis SET NX on jti — after all pre-validation gates
-  let claimed;
   try {
-    claimed = await claimToken(tokenPayload.jti);
-  } catch (err) {
-    console.error(`[${reqId}] Redis claimToken failed:`, err.message);
-    return res.status(503).json({ error: `Service temporarily unavailable. Quote ref ${reqId}.` });
-  }
-  if (!claimed) {
-    console.warn(`[${reqId}] Token replay blocked: jti=${tokenPayload.jti}`);
-    return res.status(403).json({ error: 'Token already used' });
-  }
+    // Dev mode: check in-memory
+    if (DEV_MODE) {
+      const devEntry = devSessions?.get(tokenPayload.sessionId) || devSessions?.get('dev');
+      if (devEntry?.used) return res.status(403).json({ error: 'Token already used (dev)' });
+      if (devEntry) devEntry.used = true;
+    }
 
-  try {
+    if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+
+    const uploadedBuffer = await readUploadedFileBuffer(req.file);
+
+    // Magic byte validation — reject before claiming token so user isn't burned on bad file
+    if (!validateMagicBytes(uploadedBuffer, req.file.mimetype)) {
+      log('warn', 'upload.magic_byte_mismatch', { requestId: reqId, mimeType: req.file.mimetype });
+      return res.status(400).json({ error: 'File content does not match its type. Please upload a valid PDF or DOCX.' });
+    }
+
+    // Atomic single-use via Redis SET NX on jti — after all pre-validation gates
+    let claimed;
+    try {
+      claimed = await claimToken(tokenPayload.jti);
+    } catch (err) {
+      logError('redis.claim_token_failed', err, { requestId: reqId, jti: tokenPayload.jti });
+      return res.status(503).json({ error: `Service temporarily unavailable. Quote ref ${reqId}.` });
+    }
+    if (!claimed) {
+      log('warn', 'token.replay_blocked', { requestId: reqId, jti: tokenPayload.jti });
+      return res.status(403).json({ error: 'Token already used' });
+    }
+
     let text;
     if (DEV_MODE) {
       try { text = await extractText(req.file); } catch { /* fall through */ }
@@ -427,18 +540,18 @@ app.post('/api/analyze', analyzeAuth, upload.single('cv'), async (req, res) => {
       // Image-based PDF / insufficient text — release token (not adversarial, user mistake)
       if (redis && tokenPayload.jti) {
         await redis.del(`passats:jti:${tokenPayload.jti}`).catch(delErr => {
-          console.error(`[${reqId}] CRITICAL: Redis del failed — token permanently burned for jti=${tokenPayload.jti}:`, delErr.message);
+          logError('redis.release_token_failed', delErr, { requestId: reqId, jti: tokenPayload.jti });
         });
       }
-      console.warn(`[${reqId}] Insufficient text extracted: ${(text || '').length} chars`);
+      log('warn', 'analyze.insufficient_text', { requestId: reqId, textLength: (text || '').length });
       return res.status(422).json({ error: `Could not extract enough text. Please upload a text-based PDF or DOCX. If this persists, quote ref ${reqId}.` });
     }
 
     // Job description from multipart form field
     const jobDescription = req.body?.jobDescription || '';
-    console.log(`[${reqId}] Calling Claude for analysis...`);
-    const result = await callClaude(text, jobDescription);
-    console.log(`[${reqId}] Analysis complete: score=${result.overallScore}`);
+    log('info', 'analyze.started', { requestId: reqId, model: GEMINI_MODEL, hasJobDescription: !!jobDescription });
+    const result = await callGemini(text, jobDescription);
+    log('info', 'analyze.completed', { requestId: reqId, overallScore: result.overallScore, model: GEMINI_MODEL });
     res.json(result);
   } catch (err) {
     // Password-protected PDF — release token (user mistake, not adversarial)
@@ -456,30 +569,34 @@ app.post('/api/analyze', analyzeAuth, upload.single('cv'), async (req, res) => {
       if (retries <= 3) {
         await redis.expire(retryKey, 1800).catch(() => {});
         await redis.del(`passats:jti:${tokenPayload.jti}`).catch(delErr => {
-          console.error(`[${reqId}] CRITICAL: Redis del failed — token permanently burned for jti=${tokenPayload.jti}:`, delErr.message);
+          logError('redis.release_token_failed', delErr, { requestId: reqId, jti: tokenPayload.jti });
         });
-        console.error(`[${reqId}] Analysis error (retry ${retries}/3):`, err.message);
+        logError('analyze.retryable_error', err, { requestId: reqId, retries, jti: tokenPayload.jti, model: GEMINI_MODEL });
         return res.status(500).json({ error: `Analysis failed. Please try again (${retries}/3). If this persists, quote ref ${reqId}.` });
       }
-      console.error(`[${reqId}] Analysis error — retries exhausted, token burned:`, err.message);
+      logError('analyze.retries_exhausted', err, { requestId: reqId, retries, jti: tokenPayload.jti, model: GEMINI_MODEL });
       return res.status(500).json({ error: `Analysis failed. Maximum retries exceeded. Quote ref ${reqId}.` });
     }
-    console.error(`[${reqId}] Analysis error:`, err.message);
+    logError('analyze.error', err, { requestId: reqId, model: GEMINI_MODEL });
     res.status(500).json({ error: `Analysis failed. Please try again. If this persists, quote ref ${reqId}.` });
+  } finally {
+    await cleanupUploadedFile(req.file);
   }
 });
 
 // ── Text extraction with 15s timeout ──────────────────────────────────────────
 async function extractText(file) {
-  const timeout = new Promise((_, reject) =>
-    setTimeout(() => reject(new Error('Document parsing timed out')), 15000)
-  );
+  let timeoutId;
+  const timeout = new Promise((_, reject) => {
+    timeoutId = setTimeout(() => reject(new Error('Document parsing timed out')), 15000);
+  });
 
   const parse = (async () => {
     const mime = file.mimetype;
+    const buffer = await readUploadedFileBuffer(file);
     if (mime === 'application/pdf') {
       try {
-        const data = await PDFParse(file.buffer);
+        const data = await PDFParse(buffer);
         return data.text;
       } catch (err) {
         if (err.message && /password|encrypted/i.test(err.message)) {
@@ -492,7 +609,7 @@ async function extractText(file) {
         mime === 'application/msword') {
       // convertToHtml preserves hyperlink hrefs; extractRawText silently drops them.
       // We inline link URLs so the LLM can see personal website / portfolio / LinkedIn URLs.
-      const result = await mammoth.convertToHtml({ buffer: file.buffer });
+      const result = await mammoth.convertToHtml({ buffer });
       const text = result.value
         .replace(/<a\s[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi, (_, href, content) => {
           const inner = content.replace(/<[^>]+>/g, '').trim();
@@ -507,10 +624,10 @@ async function extractText(file) {
     throw new Error('Unsupported file type');
   })();
 
-  return Promise.race([parse, timeout]);
+  return Promise.race([parse, timeout]).finally(() => clearTimeout(timeoutId));
 }
 
-// ── Claude API (tool use with JSON schema — guarantees valid JSON) ─────────────
+// ── Gemini API (structured JSON output) ───────────────────────────────────────
 const ATS_RESULT_SCHEMA = {
   name: 'ats_report',
   description: 'ATS compatibility analysis report for a CV/resume',
@@ -550,7 +667,7 @@ const ATS_RESULT_SCHEMA = {
   }
 };
 
-async function callClaude(cvText, jobDescription) {
+async function callGemini(cvText, jobDescription) {
   if (DEV_MODE) {
     await new Promise(r => setTimeout(r, 1500));
     return {
@@ -641,7 +758,7 @@ Be honest enough that the user trusts you. Be specific enough they can act in 30
 
   const userPrompt = `Analyze this CV/resume as an ATS system would.${jdContext}
 
-Use the ats_report function to return your analysis. Be honest and specific.
+Return a JSON object that matches the provided schema exactly. Be honest and specific.
 
 Here is the CV text:
 
@@ -649,40 +766,45 @@ Here is the CV text:
 ${cvSlice}
 ---`;
 
-  const response = await groq.chat.completions.create({
-    model: 'llama-3.3-70b-versatile',
-    max_tokens: 2000,
-    temperature: 0.1,
-    messages: [
-      { role: 'system', content: systemPrompt },
-      { role: 'user', content: userPrompt }
-    ],
-    tools: [{
-      type: 'function',
-      function: {
-        name: ATS_RESULT_SCHEMA.name,
-        description: ATS_RESULT_SCHEMA.description,
-        parameters: ATS_RESULT_SCHEMA.input_schema,
-      }
-    }],
-    tool_choice: { type: 'function', function: { name: 'ats_report' } },
-  });
+  const abortController = new AbortController();
+  const timeoutId = setTimeout(() => abortController.abort(), 25000);
 
-  const toolCall = response.choices?.[0]?.message?.tool_calls?.[0];
-  if (!toolCall || !toolCall.function?.arguments) {
-    console.error('Groq did not return a tool call');
+  let response;
+  try {
+    response = await gemini.models.generateContent({
+      model: GEMINI_MODEL,
+      contents: userPrompt,
+      config: {
+        abortSignal: abortController.signal,
+        systemInstruction: systemPrompt,
+        maxOutputTokens: 2000,
+        responseMimeType: 'application/json',
+        responseJsonSchema: ATS_RESULT_SCHEMA.input_schema,
+      },
+    });
+  } catch (err) {
+    if (err?.name === 'AbortError') {
+      throw new Error('LLM_TIMEOUT');
+    }
+    throw err;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+
+  if (!response.text) {
+    log('error', 'gemini.empty_response', { model: GEMINI_MODEL });
     throw new Error('Analysis returned invalid format. Please try again.');
   }
 
   let result;
   try {
-    result = JSON.parse(toolCall.function.arguments);
+    result = JSON.parse(response.text);
   } catch {
-    console.error('Groq tool call arguments were not valid JSON');
+    log('error', 'gemini.invalid_json', { model: GEMINI_MODEL });
     throw new Error('Analysis returned invalid format. Please try again.');
   }
 
-  // Normalize scores: if Groq returned 0-1 decimals instead of 0-100, fix them
+  // Normalize scores if the model returns 0-1 decimals instead of 0-100.
   const normalizeScore = s => (typeof s === 'number' && s > 0 && s <= 1) ? Math.round(s * 100) : Math.round(s);
   if (result.overallScore !== undefined) result.overallScore = normalizeScore(result.overallScore);
   if (result.metrics) {
@@ -714,8 +836,8 @@ app.get('{*path}', (_req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// ── Cleanup (rate limit entries — non-Vercel only) ────────────────────────────
-if (!process.env.VERCEL) {
+// ── Cleanup (dev/test fallback rate-limit entries only) ───────────────────────
+if (DEV_MODE && !process.env.VERCEL) {
   const cleanupTimer = setInterval(() => {
     const now = Date.now();
     for (const [key, entry] of rateLimits) {
