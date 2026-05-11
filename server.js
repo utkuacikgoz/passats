@@ -318,16 +318,27 @@ function validateMagicBytes(buffer, mimetype) {
 }
 
 // ── CSRF check for state-changing endpoints ───────────────────────────────────
+const ALLOWED_ORIGINS = (() => {
+  const set = new Set();
+  const add = (u) => { try { set.add(new URL(u).origin); } catch {} };
+  add(BASE_URL);
+  (process.env.ALLOWED_ORIGINS || '').split(',').map(s => s.trim()).filter(Boolean).forEach(add);
+  // Vercel auto-injects these — covers prod + preview without manual config
+  if (process.env.VERCEL_PROJECT_PRODUCTION_URL) add(`https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`);
+  if (process.env.VERCEL_URL) add(`https://${process.env.VERCEL_URL}`);
+  return set;
+})();
+
 function checkOrigin(req, res) {
   if (DEV_MODE) return true;
   const origin = req.headers['origin'];
-  // All modern browsers send Origin on POST — reject if absent
   if (!origin) {
+    console.warn('[csrf] missing origin ip=' + req.ip + ' path=' + req.path);
     res.status(403).json({ error: 'Forbidden' });
     return false;
   }
-  const allowed = new URL(BASE_URL).origin;
-  if (origin !== allowed) {
+  if (!ALLOWED_ORIGINS.has(origin)) {
+    console.warn('[csrf] rejected origin=' + origin + ' allowed=' + [...ALLOWED_ORIGINS].join(','));
     res.status(403).json({ error: 'Forbidden' });
     return false;
   }
