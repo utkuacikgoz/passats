@@ -32,6 +32,13 @@ const BASE_URL = process.env.BASE_URL || `http://localhost:${PORT}`;
 const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-3.1-flash-lite';
 const POSTHOG_HOST = process.env.POSTHOG_HOST || 'https://us.i.posthog.com';
 const APP_SCRIPT_CSP_HASH = "'sha256-Wro7QYWxaTlnewoY7ukw4+jRDF7cEF6pWV3ziEdhZ3k='";
+// Hashes of individual onclick handler bodies (required for 'unsafe-hashes' to allow them)
+const APP_HANDLER_CSP_HASHES = [
+  "'sha256-PNSBC4eKT981jWU7VUWY1rrkVVj0fQGd8duewJsZptY='", // showView('landing')
+  "'sha256-pZxCg0aN1aHaHQ1BG9oYaJobxEoXaUIZRu3Sm8pT2YQ='", // onkeydown handler
+  "'sha256-+sHL2zzQtByQnCf19Rv5VOUrN+15Fh04dw8mLo3Yo4I='", // startCheckout()
+  "'sha256-xs8BTA3IhBcadubj5lWdCRekTpMssl1EMbUL1T57oNE='", // startAnalysis()
+].join(' ');
 const TEST_ALLOWED_IPS = new Set(
   (process.env.TEST_ALLOWED_IPS || '')
     .split(',')
@@ -199,7 +206,8 @@ app.use((req, res, next) => {
   // If Stripe Elements (js.stripe.com) is ever added, update script-src + frame-src.
   res.setHeader('Content-Security-Policy', [
     "default-src 'self'",
-    `script-src 'self' 'unsafe-hashes' ${APP_SCRIPT_CSP_HASH}`,
+    `script-src 'self' 'unsafe-hashes' ${APP_SCRIPT_CSP_HASH} ${APP_HANDLER_CSP_HASHES}`,
+
     "style-src 'self' 'unsafe-inline' fonts.googleapis.com",
     "font-src fonts.gstatic.com",
     "img-src 'self' data:",
