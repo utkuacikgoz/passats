@@ -31,7 +31,7 @@ const PORT = process.env.PORT || 3000;
 const BASE_URL = process.env.BASE_URL || `http://localhost:${PORT}`;
 const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-3.1-flash-lite';
 const POSTHOG_HOST = process.env.POSTHOG_HOST || 'https://us.i.posthog.com';
-const APP_SCRIPT_CSP_HASH = 'sha256-Wro7QYWxaTlnewoY7ukw4+jRDF7cEF6pWV3ziEdhZ3k=';
+const APP_SCRIPT_CSP_HASH = "'sha256-Wro7QYWxaTlnewoY7ukw4+jRDF7cEF6pWV3ziEdhZ3k='";
 const TEST_ALLOWED_IPS = new Set(
   (process.env.TEST_ALLOWED_IPS || '')
     .split(',')
@@ -199,7 +199,7 @@ app.use((req, res, next) => {
   // If Stripe Elements (js.stripe.com) is ever added, update script-src + frame-src.
   res.setHeader('Content-Security-Policy', [
     "default-src 'self'",
-    `script-src 'self' ${APP_SCRIPT_CSP_HASH}`,
+    `script-src 'self' 'unsafe-hashes' ${APP_SCRIPT_CSP_HASH}`,
     "style-src 'self' 'unsafe-inline' fonts.googleapis.com",
     "font-src fonts.gstatic.com",
     "img-src 'self' data:",
