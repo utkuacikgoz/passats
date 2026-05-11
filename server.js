@@ -464,7 +464,7 @@ if (DEV_MODE) {
 // ── Owner test token — bypass payment in production for smoke testing ─────────
 app.get('/api/test-token', async (req, res) => {
   const secret = process.env.TEST_SECRET;
-  if (!secret || TEST_ALLOWED_IPS.size === 0 || req.headers['x-test-secret'] !== secret || !isAllowedTestIp(req.ip)) {
+  if (!secret || req.headers['x-test-secret'] !== secret || (TEST_ALLOWED_IPS.size > 0 && !isAllowedTestIp(req.ip))) {
     return res.status(404).json({ error: 'Not found' });
   }
   if (!await enforceRateLimit(req, res, 'test-token:' + normalizeIp(req.ip), 5, 60000)) return;
