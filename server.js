@@ -38,6 +38,7 @@ const APP_HANDLER_CSP_HASHES = [
   "'sha256-pZxCg0aN1aHaHQ1BG9oYaJobxEoXaUIZRu3Sm8pT2YQ='", // onkeydown handler
   "'sha256-+sHL2zzQtByQnCf19Rv5VOUrN+15Fh04dw8mLo3Yo4I='", // startCheckout()
   "'sha256-xs8BTA3IhBcadubj5lWdCRekTpMssl1EMbUL1T57oNE='", // startAnalysis()
+  "'sha256-yUeu/Jy2O5YqLCuSJr5FKGy2nSjYppMdbMmVYC1WdF0='", // fileSelected(this)
 ].join(' ');
 const TEST_ALLOWED_IPS = new Set(
   (process.env.TEST_ALLOWED_IPS || '')
@@ -86,6 +87,7 @@ try {
       host: POSTHOG_HOST,
       flushAt: 1,
       flushInterval: 0,
+      enableExceptionAutocapture: true,
     });
   }
   if (!DEV_MODE) {
@@ -207,7 +209,6 @@ app.use((req, res, next) => {
   res.setHeader('Content-Security-Policy', [
     "default-src 'self'",
     `script-src 'self' 'unsafe-hashes' ${APP_SCRIPT_CSP_HASH} ${APP_HANDLER_CSP_HASHES}`,
-
     "style-src 'self' 'unsafe-inline' fonts.googleapis.com",
     "font-src fonts.gstatic.com",
     "img-src 'self' data:",
@@ -247,7 +248,8 @@ app.use(express.static(path.join(__dirname, 'public'), {
 
 // ── Health check (gated behind secret header) ─────────────────────────────────
 app.get('/api/health', (req, res) => {
-  if (req.headers['x-health-secret'] !== process.env.HEALTH_SECRET) {
+  const healthSecret = process.env.HEALTH_SECRET;
+  if (!healthSecret || req.headers['x-health-secret'] !== healthSecret) {
     return res.status(404).json({ error: 'Not found' });
   }
   res.json({
@@ -362,6 +364,7 @@ app.post('/api/checkout', async (req, res) => {
       cancel_url: `${BASE_URL}/?cancelled=1`,
       expires_at: Math.floor(Date.now() / 1000) + 30 * 60,
     });
+    capturePosthog('checkout_initiated', { requestId: req.requestId, stripe_session_id: session.id }, session.id);
     res.json({ url: session.url });
   } catch (err) {
     logError('checkout.error', err, { requestId: req.requestId, ip });
@@ -396,6 +399,11 @@ async function handleWebhook(req, res) {
     await stripe.checkout.sessions.update(checkoutSession.id, {
       metadata: { passats_token: token }
     }).catch(() => {});
+    capturePosthog('payment_completed', {
+      stripe_session_id: checkoutSession.id,
+      amount_total: checkoutSession.amount_total,
+      currency: checkoutSession.currency,
+    }, checkoutSession.id);
   }
 
   res.json({ received: true });
@@ -531,6 +539,7 @@ app.post('/api/analyze', analyzeAuth, upload.single('cv'), async (req, res) => {
     }
     if (!claimed) {
       log('warn', 'token.replay_blocked', { requestId: reqId, jti: tokenPayload.jti });
+      capturePosthog('token_replay_blocked', { requestId: reqId }, tokenPayload.sessionId);
       return res.status(403).json({ error: 'Token already used' });
     }
 
@@ -560,6 +569,14 @@ app.post('/api/analyze', analyzeAuth, upload.single('cv'), async (req, res) => {
     log('info', 'analyze.started', { requestId: reqId, model: GEMINI_MODEL, hasJobDescription: !!jobDescription });
     const result = await callGemini(text, jobDescription);
     log('info', 'analyze.completed', { requestId: reqId, overallScore: result.overallScore, model: GEMINI_MODEL });
+    capturePosthog('cv_analysis_completed', {
+      requestId: reqId,
+      overall_score: result.overallScore,
+      verdict: result.verdict,
+      detected_role: result.detectedRole,
+      has_job_description: !!jobDescription,
+      file_type: req.file?.mimetype,
+    }, tokenPayload.sessionId);
     res.json(result);
   } catch (err) {
     // Password-protected PDF — release token (user mistake, not adversarial)
@@ -580,9 +597,13 @@ app.post('/api/analyze', analyzeAuth, upload.single('cv'), async (req, res) => {
           logError('redis.release_token_failed', delErr, { requestId: reqId, jti: tokenPayload.jti });
         });
         logError('analyze.retryable_error', err, { requestId: reqId, retries, jti: tokenPayload.jti, model: GEMINI_MODEL });
+        capturePosthog('cv_analysis_failed', { requestId: reqId, retries, retryable: true }, tokenPayload.sessionId);
+        if (posthog && !DEV_MODE) posthog.captureException(err, tokenPayload.sessionId, { requestId: reqId, retries });
         return res.status(500).json({ error: `Analysis failed. Please try again (${retries}/3). If this persists, quote ref ${reqId}.` });
       }
       logError('analyze.retries_exhausted', err, { requestId: reqId, retries, jti: tokenPayload.jti, model: GEMINI_MODEL });
+      capturePosthog('cv_analysis_failed', { requestId: reqId, retries, retryable: false }, tokenPayload.sessionId);
+      if (posthog && !DEV_MODE) posthog.captureException(err, tokenPayload.sessionId, { requestId: reqId, retries });
       return res.status(500).json({ error: `Analysis failed. Maximum retries exceeded. Quote ref ${reqId}.` });
     }
     logError('analyze.error', err, { requestId: reqId, model: GEMINI_MODEL });

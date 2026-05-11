@@ -18,11 +18,48 @@ function assertOk(condition, message) {
 }
 
 function makePdf(text) {
-  const content = text || 'Jane Doe\njane@example.com\n555-9876\nSenior Software Engineer with 7 years experience in TypeScript, React, Node.js, AWS, Docker, CI/CD, SQL, and Git.';
-  const stream = `1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 612 792]/Contents 4 0 R/Resources<</Font<</F1 5 0 R>>>>>>endobj\n4 0 obj<</Length ${content.length + 20}>>stream\nBT /F1 12 Tf (${content}) Tj ET\nendstream\nendobj\n5 0 obj<</Type/Font/Subtype/Type1/BaseFont/Helvetica>>endobj\n`;
-  const xrefOffset = stream.length;
-  const pdf = `%PDF-1.4\n${stream}xref\n0 6\n0000000000 65535 f \ntrailer<</Size 6/Root 1 0 R>>\nstartxref\n${xrefOffset}\n%%EOF`;
-  return Buffer.from(pdf);
+  const cvText = (text || 'Jane Doe jane@example.com 555-9876 Senior Software Engineer 7 years TypeScript React Node.js AWS Docker CI/CD SQL Git. Led team of 5. Reduced deploy time by 40 percent. REST APIs 1M requests per day.').replace(/[()\\%]/g, ' ');
+
+  // Build each part as a Buffer so byte offsets are exact
+  const parts = [];
+  const offsets = {};
+  const push = str => parts.push(Buffer.from(str, 'latin1'));
+  const totalBytes = () => parts.reduce((s, b) => s + b.length, 0);
+  const pad = n => String(n).padStart(10, '0');
+
+  push('%PDF-1.4\n');
+
+  offsets[1] = totalBytes();
+  push('1 0 obj\n<</Type /Catalog /Pages 2 0 R>>\nendobj\n');
+
+  offsets[2] = totalBytes();
+  push('2 0 obj\n<</Type /Pages /Kids [3 0 R] /Count 1>>\nendobj\n');
+
+  offsets[3] = totalBytes();
+  push('3 0 obj\n<</Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources <</Font <</F1 5 0 R>>>>>>\nendobj\n');
+
+  offsets[4] = totalBytes();
+  const stream = Buffer.from(`BT /F1 12 Tf 72 720 Td (${cvText}) Tj ET`, 'latin1');
+  push(`4 0 obj\n<</Length ${stream.length}>>\nstream\n`);
+  parts.push(stream);
+  push('\nendstream\nendobj\n');
+
+  offsets[5] = totalBytes();
+  push('5 0 obj\n<</Type /Font /Subtype /Type1 /BaseFont /Helvetica>>\nendobj\n');
+
+  const xrefOffset = totalBytes();
+  push([
+    'xref\n0 6\n',
+    `0000000000 65535 f \n`,
+    `${pad(offsets[1])} 00000 n \n`,
+    `${pad(offsets[2])} 00000 n \n`,
+    `${pad(offsets[3])} 00000 n \n`,
+    `${pad(offsets[4])} 00000 n \n`,
+    `${pad(offsets[5])} 00000 n \n`,
+    `trailer\n<</Size 6 /Root 1 0 R>>\nstartxref\n${xrefOffset}\n%%EOF\n`,
+  ].join(''));
+
+  return Buffer.concat(parts);
 }
 
 async function getHealth() {
