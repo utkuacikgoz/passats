@@ -71,12 +71,19 @@ describe('Health & Static', () => {
     assert.match(res.text, /User-agent/);
   });
 
-  it('GET /api/health without secret returns 200 in dev mode (no HEALTH_SECRET set)', async () => {
-    // In DEV_MODE, HEALTH_SECRET is undefined so the check passes
+  it('GET /api/health without secret returns 404 (HEALTH_SECRET always required)', async () => {
+    // Health endpoint returns 404 when HEALTH_SECRET is not configured — never publicly accessible
     const res = await request.get('/api/health');
+    assert.equal(res.status, 404);
+  });
+
+  it('GET /api/health with correct secret returns 200', async () => {
+    process.env.HEALTH_SECRET = 'test-health-secret';
+    const res = await request.get('/api/health').set('x-health-secret', 'test-health-secret');
     assert.equal(res.status, 200);
     assert.equal(res.body.status, 'ok');
     assert.equal(res.body.devMode, true);
+    delete process.env.HEALTH_SECRET;
   });
 });
 
