@@ -1,5 +1,10 @@
 {
     "chat.tools.terminal.autoApprove": {
-        "git rev-parse": true
+        "git rev-parse": true,
+        "npm update": true,
+        "/^cd \"/Users/utkuacikgoz/Downloads/passats-main 4\" && node -e \"\nconst \\{ PDFParse \\} = require\\('pdf-parse'\\);\n// Test with a minimal PDF buffer\nconst buf = Buffer\\.from\\('%PDF-1\\.4\\\\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\\\\n2 0 obj<</Type/Pages/Kids\\[3 0 R\\]/Count 1>>endobj\\\\n3 0 obj<</Type/Page/Parent 2 0 R/MediaBox\\[0 0 612 792\\]>>endobj\\\\nxref\\\\n0 4\\\\n0000000000 65535 f \\\\ntrailer<</Size 4/Root 1 0 R>>\\\\nstartxref\\\\n9\\\\n%%EOF'\\);\nPDFParse\\(buf\\)\\.then\\(r => \\{ console\\.log\\('result type:', typeof r\\); console\\.log\\('has text:', typeof r\\.text\\); console\\.log\\('text:', r\\.text\\?\\.substring\\(0,50\\)\\); \\}\\)\\.catch\\(e => console\\.log\\('error:', e\\.message\\)\\);\n\" 2>&1$/": {
+            "approve": true,
+            "matchCommandLine": true
+        }
     }
 }
