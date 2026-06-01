@@ -29,7 +29,7 @@ if (!DEV_MODE) {
 const app = express();
 const PORT = process.env.PORT || 3000;
 const BASE_URL = process.env.BASE_URL || `http://localhost:${PORT}`;
-const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-3.1-flash-lite';
+const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
 const POSTHOG_HOST = process.env.POSTHOG_HOST || 'https://us.i.posthog.com';
 const APP_SCRIPT_CSP_HASH = "'sha256-Wro7QYWxaTlnewoY7ukw4+jRDF7cEF6pWV3ziEdhZ3k='";
 // Hashes of individual onclick handler bodies (required for 'unsafe-hashes' to allow them)
