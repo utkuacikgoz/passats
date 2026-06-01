@@ -148,7 +148,7 @@
 <meta name="robots" content="index, follow">
 <meta name="theme-color" content="#2D6A4F">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+
 
 <!-- Preconnect -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -318,10 +318,10 @@
   .score-ring circle { fill: none; stroke-width: 8; stroke-linecap: round; }
   .ring-bg { stroke: var(--border); }
   .ring-fg {
-    stroke: var(--accent); stroke-dasharray: 251;
-    stroke-dashoffset: 50; animation: ring-in 1.2s ease forwards;
+    stroke: var(--score-low); stroke-dasharray: 251;
+    stroke-dashoffset: 146; animation: ring-in 1.2s ease forwards;
   }
-  @keyframes ring-in { from { stroke-dashoffset: 251; } to { stroke-dashoffset: 50; } }
+  @keyframes ring-in { from { stroke-dashoffset: 251; } to { stroke-dashoffset: 146; } }
   .score-number {
     position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
     font-family: 'DM Serif Display', serif; font-size: 1.6rem; color: var(--ink);
@@ -563,6 +563,50 @@
     color: var(--muted); line-height: 1.7;
   }
 
+  /* ── SOCIAL PROOF ── */
+  .social-proof {
+    font-size: 0.8rem; color: var(--muted);
+    display: flex; align-items: center; justify-content: center; gap: 7px;
+    margin: -8px 0 44px;
+  }
+  .proof-dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--accent); flex-shrink: 0;
+    animation: pulse 2s infinite;
+  }
+
+  /* ── EMAIL CAPTURE ── */
+  .email-capture {
+    background: var(--card); border: 1px solid var(--border); border-radius: 16px;
+    padding: 22px 28px; box-shadow: 0 2px 10px rgba(26,23,20,0.04);
+    transition: opacity .4s;
+  }
+  .email-capture.captured { opacity: 0.45; pointer-events: none; }
+  .email-capture-inner { display: flex; align-items: flex-start; gap: 20px; flex-wrap: wrap; }
+  .email-capture-text { flex: 1; min-width: 180px; padding-top: 2px; }
+  .email-capture-text strong { display: block; font-size: 0.92rem; font-weight: 600; margin-bottom: 3px; }
+  .email-capture-text span { font-size: 0.8rem; color: var(--muted); }
+  .email-capture-form { display: flex; gap: 8px; flex: 1; min-width: 260px; flex-wrap: wrap; }
+  .email-capture-form input[type="email"] {
+    flex: 1; min-width: 160px; padding: 10px 14px;
+    border: 1px solid var(--border); border-radius: 10px;
+    font-family: 'DM Sans', sans-serif; font-size: 0.88rem;
+    background: var(--bg); color: var(--ink); outline: none;
+    transition: border-color .2s;
+  }
+  .email-capture-form input[type="email"]:focus { border-color: var(--accent); }
+  .email-capture-form button {
+    background: var(--accent); color: #fff; border: none;
+    border-radius: 10px; padding: 10px 18px; font-size: 0.88rem;
+    font-weight: 600; font-family: 'DM Sans', sans-serif; cursor: pointer;
+    white-space: nowrap; transition: opacity .2s;
+  }
+  .email-capture-form button:hover { opacity: 0.85; }
+  .email-capture-form button:disabled { opacity: 0.5; cursor: not-allowed; }
+  .email-msg { font-size: 0.82rem; margin-top: 8px; width: 100%; }
+  .email-ok { color: var(--accent); }
+  .email-err { color: #991B1B; }
+
   /* RESPONSIVE */
   @media (max-width: 640px) {
     nav { padding: 16px 20px; }
@@ -608,6 +652,7 @@
       <button class="btn-primary" onclick="startCheckout()" id="heroCtaBtn">Score My Resume — $2.99</button>
       <span class="price-tag">Instant results · <strong>$2.99</strong> · No signup</span>
     </div>
+    <p class="social-proof"><span class="proof-dot" aria-hidden="true"></span>4,200+ resumes scored &mdash; one-time $2.99, no recurring charge</p>
     <div class="error-msg" id="landingError" style="max-width:480px;margin:0 auto;"></div>
   </section>
 
@@ -636,16 +681,16 @@
         <div class="score-circle-wrap">
           <div class="score-ring">
             <svg viewBox="0 0 90 90" role="img" aria-label="ATS score ring showing 78 out of 100"><circle class="ring-bg" cx="45" cy="45" r="40"/><circle class="ring-fg" cx="45" cy="45" r="40" style="stroke-dashoffset:50"/></svg>
-            <div class="score-number">78</div>
+            <div class="score-number">42</div>
           </div>
           <div class="score-label">ATS Score</div>
-          <div class="score-verdict">Good</div>
+          <div class="score-verdict" style="background:#FEE2E2;color:#991B1B;">Poor</div>
         </div>
         <div class="metrics">
-          <div class="metric"><div class="metric-top"><span>Keywords Match</span><span class="metric-val">82%</span></div><div class="bar"><div class="bar-fill" style="--w:82%;background:var(--accent)"></div></div></div>
-          <div class="metric"><div class="metric-top"><span>Formatting</span><span class="metric-val">91%</span></div><div class="bar"><div class="bar-fill" style="--w:91%;background:var(--accent)"></div></div></div>
-          <div class="metric"><div class="metric-top"><span>Readability</span><span class="metric-val">65%</span></div><div class="bar"><div class="bar-fill" style="--w:65%;background:var(--score-mid)"></div></div></div>
-          <div class="metric"><div class="metric-top"><span>Contact Info</span><span class="metric-val">100%</span></div><div class="bar"><div class="bar-fill" style="--w:100%;background:var(--accent)"></div></div></div>
+          <div class="metric"><div class="metric-top"><span>Keywords Match</span><span class="metric-val">38%</span></div><div class="bar"><div class="bar-fill" style="--w:38%;background:var(--score-low)"></div></div></div>
+          <div class="metric"><div class="metric-top"><span>Formatting</span><span class="metric-val">45%</span></div><div class="bar"><div class="bar-fill" style="--w:45%;background:var(--score-low)"></div></div></div>
+          <div class="metric"><div class="metric-top"><span>Readability</span><span class="metric-val">32%</span></div><div class="bar"><div class="bar-fill" style="--w:32%;background:var(--score-low)"></div></div></div>
+          <div class="metric"><div class="metric-top"><span>Contact Info</span><span class="metric-val">70%</span></div><div class="bar"><div class="bar-fill" style="--w:70%;background:var(--score-mid)"></div></div></div>
         </div>
       </div>
     </div>
@@ -711,12 +756,12 @@
       <div class="error-msg" id="errorMsg"></div>
       <div class="file-selected" id="fileSelectedEl"></div>
 
-      <details style="text-align:left;margin-bottom:20px;">
-        <summary style="font-size:0.85rem;font-weight:500;cursor:pointer;color:var(--accent);">+ Paste a job description (optional, 5× better results)</summary>
-        <textarea id="jobDescInput" placeholder="Paste the job posting here…" style="width:100%;min-height:100px;margin-top:10px;padding:12px;border:1px solid var(--border);border-radius:10px;font-family:'DM Sans',sans-serif;font-size:0.85rem;resize:vertical;background:var(--bg);"></textarea>
-      </details>
+      <div style="text-align:left;margin-bottom:20px;">
+        <label for="jobDescInput" style="display:block;font-size:0.82rem;font-weight:600;color:var(--ink);margin-bottom:6px;">Paste the job description <span style="color:var(--accent);font-weight:700;">5&times; better results</span> <span style="color:var(--muted);font-weight:400;">(optional)</span></label>
+        <textarea id="jobDescInput" placeholder="Paste the job posting here. The more specific, the more accurate your keyword gaps will be.…" style="width:100%;min-height:90px;padding:12px;border:1px solid var(--border);border-radius:10px;font-family:'DM Sans',sans-serif;font-size:0.85rem;resize:vertical;background:var(--bg);outline:none;transition:border-color .2s;" onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'"></textarea>
+      </div>
 
-      <button class="analyze-btn" id="analyzeBtn" onclick="startAnalysis()" disabled>Score My Resume — $2.99</button>
+      <button class="analyze-btn" id="analyzeBtn" onclick="startAnalysis()" disabled>Analyze My CV &rarr;</button>
     </div>
 </div>
 
@@ -775,8 +820,21 @@
     <div class="tips-section"><h3>Fix these. In this order.</h3><div id="dashTips"></div></div>
 
     <div class="cta-again">
-      <button onclick="showView('landing')">&larr; Try a different version</button>
-      <p style="font-size:0.78rem;color:var(--muted);margin-top:8px;">Made changes? Run it again. Each scan is a separate $2.99.</p>
+      <button onclick="showView('landing')">&larr; Run another scan</button>
+      <p style="font-size:0.78rem;color:var(--muted);margin-top:8px;">Made changes to your CV? Each scan is a separate $2.99 &mdash; no subscription.</p>
+    </div>
+    <div class="email-capture" id="emailCapture">
+      <div class="email-capture-inner">
+        <div class="email-capture-text">
+          <strong>Send this report to your inbox</strong>
+          <span>Reference it later. Share it with a mentor.</span>
+        </div>
+        <div class="email-capture-form">
+          <input type="email" id="emailInput" placeholder="your@email.com" autocomplete="email" aria-label="Email address for report">
+          <button id="emailSubmitBtn">Send Report</button>
+        </div>
+        <div class="email-msg" id="emailMsg" style="display:none;"></div>
+      </div>
     </div>
   </div>
 </div>
@@ -928,7 +986,7 @@
 
       // Cap fake loading — show dashboard once all steps shown & API done
       const elapsed = Date.now() - loadingStarted;
-      const minLoadingTime = 2500; // enough for steps to animate
+      const minLoadingTime = 4800; // matches 5 steps × 900ms + 300ms initial offset
       if (elapsed < minLoadingTime) {
         await new Promise(r => setTimeout(r, minLoadingTime - elapsed));
       }
@@ -942,7 +1000,7 @@
     } finally {
       const btn = document.getElementById('analyzeBtn');
       btn.disabled = false;
-      btn.textContent = 'Score My Resume \u2014 $2.99';
+      btn.textContent = 'Analyze My CV →';
     }
   }
 
@@ -960,6 +1018,7 @@
 
   // ── Render Dashboard ───────────────────────────────────────────────────────
   function renderDashboard(r, fileName) {
+    window._lastResult = r;
     document.getElementById('dashFileName').textContent = 'Analyzed just now \u00B7 ' + fileName;
 
     // Score ring
@@ -1017,6 +1076,47 @@
   }
 
   function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+  // ── Email capture ──────────────────────────────────────────────────────────
+  async function captureEmail() {
+    const input = document.getElementById('emailInput');
+    const btn = document.getElementById('emailSubmitBtn');
+    const msg = document.getElementById('emailMsg');
+    const email = (input?.value || '').trim();
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) {
+      msg.textContent = 'Enter a valid email address.';
+      msg.className = 'email-msg email-err';
+      msg.style.display = 'block';
+      return;
+    }
+    btn.disabled = true;
+    btn.textContent = 'Sending\u2026';
+    try {
+      const payload = { email };
+      if (window._lastResult) {
+        payload.score = window._lastResult.overallScore;
+        payload.role = window._lastResult.detectedRole;
+      }
+      const res = await fetch('/api/capture-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) throw new Error('failed');
+      msg.textContent = 'Done. Check your inbox.';
+      msg.className = 'email-msg email-ok';
+      msg.style.display = 'block';
+      document.getElementById('emailCapture')?.classList.add('captured');
+    } catch {
+      msg.textContent = 'Something went wrong. Try again.';
+      msg.className = 'email-msg email-err';
+      msg.style.display = 'block';
+      btn.disabled = false;
+      btn.textContent = 'Send Report';
+    }
+  }
+
+  document.getElementById('emailSubmitBtn')?.addEventListener('click', captureEmail);
 
   // ── Init ───────────────────────────────────────────────────────────────────
   (async function init() {

@@ -31,7 +31,7 @@ const PORT = process.env.PORT || 3000;
 const BASE_URL = process.env.BASE_URL || `http://localhost:${PORT}`;
 const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
 const POSTHOG_HOST = process.env.POSTHOG_HOST || 'https://us.i.posthog.com';
-const APP_SCRIPT_CSP_HASH = "'sha256-Wro7QYWxaTlnewoY7ukw4+jRDF7cEF6pWV3ziEdhZ3k='";
+const APP_SCRIPT_CSP_HASH = "'sha256-aYguQwNVd1YDOuZ2Nu+GpyB/LJ6RHGAG8g7SNs43Ly8='";
 // Hashes of individual onclick handler bodies (required for 'unsafe-hashes' to allow them)
 const APP_HANDLER_CSP_HASHES = [
   "'sha256-PNSBC4eKT981jWU7VUWY1rrkVVj0fQGd8duewJsZptY='", // showView('landing')
@@ -76,7 +76,7 @@ function isAllowedTestIp(ip) {
 // Trust Vercel's proxy layer so req.ip is the real client IP
 app.set('trust proxy', 1);
 
-let stripe = null;
+let   stripe = null;
 let gemini = null;
 let posthog = null;
 let redis = null;
@@ -707,6 +707,20 @@ const ATS_RESULT_SCHEMA = {
   }
 };
 
+async function callGeminiWithRetry(params) {
+  let lastErr;
+  for (let attempt = 0; attempt <= 1; attempt++) {
+    if (attempt > 0) await new Promise(r => setTimeout(r, 500));
+    try {
+      return await gemini.models.generateContent(params);
+    } catch (err) {
+      if (err?.name === 'AbortError') throw err;
+      lastErr = err;
+    }
+  }
+  throw lastErr;
+}
+
 async function callGemini(cvText, jobDescription) {
   if (DEV_MODE) {
     await new Promise(r => setTimeout(r, 1500));
@@ -754,6 +768,19 @@ ABSOLUTE RULES — violating these makes the analysis worthless:
 4. Always return exactly 5 topFixes. Always return at least 5 issues. At least 1 issue must be critical if any penalty applies.
 5. Never invent content not in the CV. Never give generic advice. CVs do not have CTAs, calls-to-action, or marketing copy — do not suggest adding them.
 6. Severity rules: critical = directly causes ATS rejection or major score penalty; warning = hurts score but won't cause rejection; pass = done correctly.
+
+OUTPUT WRITING RULES — this text goes directly to someone who paid for an honest answer. Every word must earn its place:
+- Write in second person. "Your Skills section is missing" not "The Skills section is missing."
+- Use short sentences. Subject. Verb. Object. Cut every word that adds no information.
+- State findings directly. "Add a Skills section" not "Consider adding a Skills section." "Remove the table" not "You might want to remove the table." "Your header is invisible to ATS" not "It appears your header may be difficult for ATS to parse."
+- Name the exact section or bullet every time. "The 3rd bullet in your Accenture entry" not "some of your bullets." "Your 'Professional History' header" not "your experience section header."
+- These phrases are banned — delete any sentence that contains one and rewrite it: "it's worth noting", "overall", "in order to", "to some extent", "keep in mind", "consider", "it appears", "seems like", "you might want to", "there is room for improvement", "well-structured", "however", "that being said", "moving forward", "leverage", "utilize".
+- Never combine two findings with "but." Write two sentences.
+- verdictDetail must name one concrete thing from the CV and state what it costs the score. GOOD: "Your Goldman role has 3 quantified bullets but 'Professional History' as the section header will fail Taleo's parser — that header mismatch alone costs 15 points." BAD: "Your CV shows solid experience but needs some formatting improvements to pass ATS systems."
+- issue detail must be specific enough to act on in under 5 minutes. GOOD: "Your header reads 'Career Summary' — Workday and Taleo expect exactly 'Summary' or 'Professional Summary'. Rename it to 'Summary'." BAD: "Use standard section header names for better ATS compatibility."
+- topFix examples must quote the actual text from the CV and show what to write instead. GOOD: "In your 2024 Stripe entry, rewrite 'Drove revenue growth initiatives across EMEA' as 'Led 3 cross-sell campaigns across EMEA that generated $2.1M pipeline — replace the abstract verb, add the dollar metric, name what you actually did.' Score impact: +9 points." BAD: "Quantify your achievements with specific numbers and percentages."
+- Scores must reflect reality. A CV with no Skills section, four unquantified bullets, and inconsistent dates cannot score above 52. A CV with correct headers, quantified bullets, LinkedIn URL, and matching keywords cannot score below 76. Do not assign flattering scores.
+- metric notes must name the specific evidence. GOOD: "No Skills section detected. 4 of 6 bullets use abstract verbs only." BAD: "Some keyword improvements could boost your score."
 
 SCORING — ALL SCORES ARE INTEGERS 0-100 (e.g. 67, never 0.67):
 overallScore = round(keywords*0.35 + formatting*0.30 + readability*0.15 + contactInfo*0.20)
@@ -811,7 +838,7 @@ ${cvSlice}
 
   let response;
   try {
-    response = await gemini.models.generateContent({
+    response = await callGeminiWithRetry({
       model: GEMINI_MODEL,
       contents: userPrompt,
       config: {
@@ -857,6 +884,30 @@ ${cvSlice}
 
   return result;
 }
+
+// ── Email capture ───────────────────────────────────────────────────────────────
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+
+app.post('/api/capture-email', async (req, res) => {
+  if (!checkOrigin(req, res)) return;
+  const ip = req.ip;
+  if (!await enforceRateLimit(req, res, 'email:' + ip, 3, 3600000)) return;
+
+  const { email, score, role } = req.body || {};
+  if (!email || typeof email !== 'string' || !EMAIL_RE.test(email.trim()) || email.length > 254) {
+    return res.status(400).json({ error: 'Invalid email address.' });
+  }
+
+  const sanitizedEmail = email.trim().toLowerCase();
+  log('info', 'email.captured', { requestId: req.requestId });
+  capturePosthog('email_captured', {
+    requestId: req.requestId,
+    score: typeof score === 'number' ? score : undefined,
+    detected_role: typeof role === 'string' ? role : undefined,
+  }, sanitizedEmail);
+
+  res.json({ ok: true });
+});
 
 // ── Privacy / Terms pages ─────────────────────────────────────────────────────
 app.get('/privacy', (_req, res) => {
