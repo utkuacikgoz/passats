@@ -92,6 +92,22 @@
         "@type": "Answer",
         "text": "Nothing. It's processed in real time, analyzed, and immediately discarded. We don't store it, we don't train on it, we don't sell it. Payment goes through Stripe, we never see your card details."
       }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I make my resume ATS-friendly?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Use a single-column layout, standard section headers (Summary, Experience, Skills, Education), and a normal font with no tables, text boxes, columns, or graphics. Save as PDF or DOCX with selectable text. Mirror the exact keywords from the job description, including acronyms and their spelled-out forms. PassATS scans your resume against all of this and tells you the specific lines to change."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What ATS score is good enough to pass?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Aim for 80 or higher. Below about 60 you're likely auto-filtered before a recruiter sees you; 60 to 79 slips through for some roles but loses competitive ones on keyword match. PassATS breaks your score into keywords, formatting, readability, and contact info so you can fix the weakest part first."
+      }
     }
   ]
 }
@@ -646,7 +662,7 @@
     <div class="badge"><div class="badge-dot"></div> Instant ATS Score Check</div>
     <h1>You're not unqualified.<br>You're getting filtered<br>by a <em>robot.</em></h1>
     <p class="subtitle">
-      50 applications, zero callbacks. It's not you, it's ATS. Find out why in 60 seconds.
+      50 applications. Zero callbacks. It's not your experience &mdash; an ATS bot is filtering you out before a human ever sees your name. See exactly why in 60 seconds.
     </p>
     <div class="cta-row">
       <button class="btn-primary" onclick="startCheckout()" id="heroCtaBtn">Score My Resume — $2.99</button>
@@ -729,6 +745,14 @@
       <details class="faq-item">
         <summary>What happens to my resume after I upload it?</summary>
         <p>Nothing. It's processed in real time, analyzed, and immediately discarded. We don't store it, we don't train on it, we don't sell it. Payment goes through Stripe &mdash; we never see your card details. Your data is yours.</p>
+      </details>
+      <details class="faq-item">
+        <summary>How do I make my resume ATS-friendly?</summary>
+        <p>Use a single-column layout, standard section headers (Summary, Experience, Skills, Education), and a normal font &mdash; no tables, text boxes, columns, or graphics. Save as PDF or DOCX with selectable text. Mirror the exact keywords from the job description, including acronyms and their spelled-out forms (both "PMP" and "Project Management Professional"). PassATS scans your resume against all of this and tells you the specific lines to change &mdash; not generic advice.</p>
+      </details>
+      <details class="faq-item">
+        <summary>What ATS score is good enough to pass?</summary>
+        <p>Aim for 80 or higher. Below ~60 and you're likely being auto-filtered before a recruiter sees you; 60&ndash;79 means you'll slip through for some roles but lose the competitive ones on keyword match. PassATS breaks your score into keywords, formatting, readability, and contact info, so you can see exactly which part is dragging you down and fix that first.</p>
       </details>
     </div>
   </section>

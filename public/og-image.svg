@@ -1,60 +1,17 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
-  <defs>
-    <style>
-      @import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display&amp;family=DM+Sans:wght@400;600;700&amp;display=swap');
-    </style>
-  </defs>
-
-  <!-- Background -->
   <rect width="1200" height="630" fill="#F5F2ED"/>
-
-  <!-- Left accent bar -->
-  <rect width="8" height="630" fill="#2D6A4F"/>
-
-  <!-- Score ring (right side) — score 73, poor = orange accent -->
-  <!-- Ring background -->
-  <circle cx="920" cy="315" r="130" fill="none" stroke="#E8E2D9" stroke-width="18"/>
-  <!-- Ring fill — score 73: offset = 251*(1-0.73)=67.77 → dasharray=251, dashoffset=68 — scaled to r=130: circumference=2π*130≈817 -->
-  <circle cx="920" cy="315" r="130" fill="none" stroke="#2D6A4F" stroke-width="18"
-          stroke-dasharray="817" stroke-dashoffset="221"
-          stroke-linecap="round" transform="rotate(-90 920 315)"/>
-  <text x="920" y="305" text-anchor="middle" font-family="DM Sans, Arial, sans-serif" font-size="64" font-weight="700" fill="#1A1714">73</text>
-  <text x="920" y="340" text-anchor="middle" font-family="DM Sans, Arial, sans-serif" font-size="20" fill="#6B6560">ATS Score</text>
-
-  <!-- Score badge -->
-  <rect x="855" y="375" width="130" height="36" rx="18" fill="#D1FAE5"/>
-  <text x="920" y="398" text-anchor="middle" font-family="DM Sans, Arial, sans-serif" font-size="15" font-weight="600" fill="#065F46">Needs Work</text>
-
-  <!-- Left content -->
-  <!-- Logo mark -->
-  <rect x="72" y="72" width="52" height="52" rx="14" fill="#2D6A4F"/>
-  <text x="98" y="107" text-anchor="middle" font-family="DM Sans, Arial, sans-serif" font-size="26" font-weight="700" fill="#fff">P</text>
-
-  <!-- Brand name -->
-  <text x="140" y="109" font-family="DM Sans, Arial, sans-serif" font-size="26" font-weight="700" fill="#1A1714">PassATS</text>
-
-  <!-- Headline -->
-  <text x="72" y="230" font-family="DM Sans, Arial, sans-serif" font-size="62" font-weight="700" fill="#1A1714">Is your resume</text>
-  <text x="72" y="306" font-family="DM Sans, Arial, sans-serif" font-size="62" font-weight="700" fill="#1A1714">passing the robots?</text>
-
-  <!-- Subline -->
-  <text x="72" y="374" font-family="DM Sans, Arial, sans-serif" font-size="26" font-weight="400" fill="#6B6560">Instant ATS score. Specific fixes. No fluff.</text>
-
-  <!-- Metric bars -->
-  <rect x="72" y="430" width="460" height="8" rx="4" fill="#E8E2D9"/>
-  <rect x="72" y="430" width="244" height="8" rx="4" fill="#E76F51"/>
-  <text x="72" y="420" font-family="DM Sans, Arial, sans-serif" font-size="14" fill="#6B6560">Keywords Match</text>
-  <text x="534" y="420" font-family="DM Sans, Arial, sans-serif" font-size="14" fill="#6B6560">53%</text>
-
-  <rect x="72" y="466" width="460" height="8" rx="4" fill="#E8E2D9"/>
-  <rect x="72" y="466" width="322" height="8" rx="4" fill="#2D6A4F"/>
-  <text x="72" y="456" font-family="DM Sans, Arial, sans-serif" font-size="14" fill="#6B6560">Formatting</text>
-  <text x="534" y="456" font-family="DM Sans, Arial, sans-serif" font-size="14" fill="#6B6560">70%</text>
-
-  <!-- CTA pill -->
-  <rect x="72" y="520" width="260" height="56" rx="28" fill="#2D6A4F"/>
-  <text x="202" y="554" text-anchor="middle" font-family="DM Sans, Arial, sans-serif" font-size="20" font-weight="600" fill="#fff">Score My Resume — $2.99</text>
-
-  <!-- URL -->
-  <text x="72" y="606" font-family="DM Sans, Arial, sans-serif" font-size="18" fill="#9C9490">passats.com</text>
+  <rect x="0" y="0" width="1200" height="14" fill="#E76F51"/>
+  <text x="80" y="122" font-family="Georgia, 'Times New Roman', serif" font-size="46" font-weight="700" fill="#1A1714">Pass<tspan fill="#2D6A4F">ATS</tspan></text>
+  <g transform="translate(1048,150)">
+    <circle r="98" fill="none" stroke="#E2DDD6" stroke-width="22"/>
+    <circle r="98" fill="none" stroke="#E76F51" stroke-width="22" stroke-linecap="round" stroke-dasharray="616" stroke-dashoffset="357" transform="rotate(-90)"/>
+    <text x="0" y="10" font-family="Georgia, 'Times New Roman', serif" font-size="78" font-weight="700" fill="#1A1714" text-anchor="middle">42</text>
+    <text x="0" y="46" font-family="Arial, Helvetica, sans-serif" font-size="17" letter-spacing="2" fill="#8C8680" text-anchor="middle">ATS SCORE</text>
+  </g>
+  <text x="82" y="250" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="700" letter-spacing="4" fill="#2D6A4F">INSTANT ATS SCORE CHECK</text>
+  <text x="80" y="352" font-family="Georgia, 'Times New Roman', serif" font-size="80" font-weight="700" fill="#1A1714">You're getting filtered</text>
+  <text x="80" y="450" font-family="Georgia, 'Times New Roman', serif" font-size="80" font-weight="700" fill="#1A1714">by a <tspan font-style="italic" fill="#2D6A4F">robot.</tspan></text>
+  <text x="82" y="524" font-family="Arial, Helvetica, sans-serif" font-size="32" fill="#6b6560">Check your resume's ATS score &amp; fix it in 60 seconds.</text>
+  <rect x="82" y="556" width="378" height="60" rx="30" fill="#E76F51"/>
+  <text x="271" y="594" font-family="Arial, Helvetica, sans-serif" font-size="26" font-weight="700" fill="#ffffff" text-anchor="middle">Score My Resume — $2.99</text>
 </svg>
