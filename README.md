@@ -1,6 +1,6 @@
 # PassATS
 
-PassATS is a paid ATS resume scoring service built on Express, Stripe, Upstash Redis, and Gemini structured output.
+PassATS is a paid ATS resume scoring service built on Express, Stripe, Upstash Redis, and Claude structured output.
 
 ## Runtime
 
@@ -8,15 +8,15 @@ PassATS is a paid ATS resume scoring service built on Express, Stripe, Upstash R
 - Vercel or another Node-compatible serverless/container runtime
 - Stripe checkout + webhook configured
 - Upstash Redis for single-use token replay protection and global rate limiting
-- Gemini API key from Google AI Studio
+- Anthropic API key for Claude
 - Optional PostHog project key for server-side error tracing
 
 ## Environment
 
 Required in production:
 
-- `GEMINI_API_KEY`
-- `GEMINI_MODEL` (recommended: `gemini-3.1-flash-lite`)
+- `ANTHROPIC_API_KEY`
+- `LLM_MODEL` (default when unset: `claude-sonnet-5`; use `claude-haiku-4-5` for lower cost/latency)
 - `STRIPE_SECRET_KEY`
 - `STRIPE_WEBHOOK_SECRET`
 - `STRIPE_PRICE_ID`
@@ -44,8 +44,8 @@ Recommended optional variables:
 
 ## Where To Get Environment Variables
 
-- `GEMINI_API_KEY`: Google AI Studio API keys page.
-- `GEMINI_MODEL`: choose manually; default is `gemini-3.1-flash-lite`.
+- `ANTHROPIC_API_KEY`: Anthropic Console, API keys page.
+- `LLM_MODEL`: choose manually; default is `claude-sonnet-5`. `claude-haiku-4-5` trades a little copy sharpness for lower cost/latency.
 - `STRIPE_SECRET_KEY`: Stripe Dashboard, Developers, API keys.
 - `STRIPE_WEBHOOK_SECRET`: Stripe Dashboard, Developers, Webhooks, then reveal the endpoint signing secret.
 - `STRIPE_PRICE_ID`: Stripe Dashboard, Products, open the price and copy the `price_...` identifier.
@@ -73,18 +73,18 @@ Before go-live, verify the following:
 - `POSTHOG_API_KEY` is set if you want server-side errors traceable in PostHog.
 - `TEST_SECRET` is either unset or rotated to an owner-only secret if you want smoke-test access.
 - `TEST_ALLOWED_IPS` is set to your public IP if `/api/test-token` is enabled. Without it, the endpoint stays disabled.
-- Gemini billing, rate limits, and allowed regions are confirmed for your traffic profile.
-- The configured Gemini model is pinned to `gemini-3.1-flash-lite` or another explicitly chosen stable model, not a preview alias.
+- Anthropic billing and rate limits are confirmed for your traffic profile.
+- `LLM_MODEL` is pinned to `claude-sonnet-5` (or `claude-haiku-4-5`), an explicitly chosen stable model, not a dated snapshot alias.
 - Error monitoring is attached to PostHog or another log sink so failed analyses can be traced by request ID.
 - A real payment-to-analysis smoke test is completed in production before opening traffic.
 
 ## Suggested Pre-Launch Smoke Tests
 
 1. Complete a real Stripe purchase and verify `/success` can fetch a valid token.
-2. Upload a valid text PDF and confirm a Gemini-backed report is returned.
+2. Upload a valid text PDF and confirm a Claude-backed report is returned.
 3. Reuse the same token and confirm replay is blocked with `403`.
 4. Upload an invalid file and confirm the token is not burned unnecessarily.
-5. Hit `/api/health` with the correct secret header and verify `hasGemini`, `hasStripe`, `hasRedis`, and optionally `hasPostHog` are `true`.
+5. Hit `/api/health` with the correct secret header and verify `hasLlm`, `hasStripe`, `hasRedis`, and optionally `hasPostHog` are `true`.
 
 ## Production Smoke Script
 
