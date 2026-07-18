@@ -7,7 +7,7 @@ const os = require('os');
 const Stripe = require('stripe');
 const { GoogleGenAI } = require('@google/genai');
 const mammoth = require('mammoth');
-const PDFParse = require('pdf-parse/lib/pdf-parse.js');
+const { PDFParse } = require('pdf-parse');
 const { PostHog } = require('posthog-node');
 const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
@@ -635,14 +635,19 @@ async function extractText(file) {
     const mime = file.mimetype;
     const buffer = await readUploadedFileBuffer(file);
     if (mime === 'application/pdf') {
+      // pdf-parse v2 is class-based: construct with the buffer, getText(), then
+      // release the pdfjs resources with destroy().
+      const parser = new PDFParse({ data: buffer });
       try {
-        const data = await PDFParse(buffer);
+        const data = await parser.getText();
         return data.text;
       } catch (err) {
         if (err.message && /password|encrypted/i.test(err.message)) {
           throw new Error('PDF_PASSWORD_PROTECTED');
         }
         throw err;
+      } finally {
+        await parser.destroy();
       }
     }
     if (mime === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
