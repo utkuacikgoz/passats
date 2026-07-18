@@ -6,8 +6,9 @@ const multer = require('multer');
 const os = require('os');
 const Stripe = require('stripe');
 const { GoogleGenAI } = require('@google/genai');
-const mammoth = require('mammoth');
-const { PDFParse } = require('pdf-parse');
+// mammoth + pdf-parse are lazy-required inside extractText() so a heavy-parser
+// import problem (pdf-parse pulls pdfjs) can't crash the whole function at cold
+// start — it would fail only that one request.
 const { PostHog } = require('posthog-node');
 const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
@@ -17,12 +18,18 @@ const { Redis } = require('@upstash/redis');
 // ── Config ────────────────────────────────────────────────────────────────────
 const DEV_MODE = process.env.DEV_MODE === 'true';
 
+// When required config is missing in production we do NOT process.exit(1):
+// exiting crashes the whole serverless function, so every route — including the
+// static marketing page — returns an opaque 500. Instead we boot in a degraded
+// mode (CONFIG_ERROR set): static pages still serve, and /api/* returns a clean
+// 503 that names the misconfiguration in the logs.
+let CONFIG_ERROR = null;
 if (!DEV_MODE) {
   const required = ['STRIPE_SECRET_KEY', 'STRIPE_WEBHOOK_SECRET', 'STRIPE_PRICE_ID', 'GEMINI_API_KEY', 'JWT_SECRET', 'UPSTASH_REDIS_REST_URL', 'UPSTASH_REDIS_REST_TOKEN'];
   const missing = required.filter(k => !process.env[k]);
   if (missing.length) {
-    console.error('FATAL: Missing required env vars: ' + missing.join(', '));
-    process.exit(1);
+    CONFIG_ERROR = missing;
+    console.error('CONFIG ERROR: missing required env vars: ' + missing.join(', ') + ' — API disabled (503) until set; static pages still served.');
   }
 }
 
@@ -90,7 +97,7 @@ try {
       enableExceptionAutocapture: true,
     });
   }
-  if (!DEV_MODE) {
+  if (!DEV_MODE && !CONFIG_ERROR) {
     stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
     gemini = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
     // Upstash Redis — atomic jti single-use. Required for token replay protection.
@@ -100,8 +107,9 @@ try {
     });
   }
 } catch (err) {
+  // Degrade instead of crashing the function: API returns 503, static pages serve.
   console.error('SDK init error:', err.message);
-  process.exit(1);
+  CONFIG_ERROR = CONFIG_ERROR || ['<sdk_init_failed>'];
 }
 
 // In dev mode only — in-memory sessions for mock tokens
@@ -188,6 +196,18 @@ async function enforceRateLimit(req, res, key, maxRequests, windowMs) {
 // ── Request ID middleware ─────────────────────────────────────────────────────
 app.use((req, _res, next) => {
   req.requestId = crypto.randomUUID();
+  next();
+});
+
+// ── Config guard ──────────────────────────────────────────────────────────────
+// If the app booted without required config (prod), fail every /api/* call with a
+// clean 503 instead of letting handlers throw. Static pages are unaffected, so the
+// marketing site stays up while config is completed.
+app.use('/api', (req, res, next) => {
+  if (CONFIG_ERROR) {
+    log('error', 'api.not_configured', { requestId: req.requestId, missing: CONFIG_ERROR });
+    return res.status(503).json({ error: 'Service temporarily unavailable. Please try again shortly.' });
+  }
   next();
 });
 
@@ -636,7 +656,9 @@ async function extractText(file) {
     const buffer = await readUploadedFileBuffer(file);
     if (mime === 'application/pdf') {
       // pdf-parse v2 is class-based: construct with the buffer, getText(), then
-      // release the pdfjs resources with destroy().
+      // release the pdfjs resources with destroy(). Lazy-required so a pdfjs load
+      // problem is scoped to this request, not the whole cold start.
+      const { PDFParse } = require('pdf-parse');
       const parser = new PDFParse({ data: buffer });
       try {
         const data = await parser.getText();
@@ -654,6 +676,7 @@ async function extractText(file) {
         mime === 'application/msword') {
       // convertToHtml preserves hyperlink hrefs; extractRawText silently drops them.
       // We inline link URLs so the LLM can see personal website / portfolio / LinkedIn URLs.
+      const mammoth = require('mammoth');
       const result = await mammoth.convertToHtml({ buffer });
       const text = result.value
         .replace(/<a\s[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi, (_, href, content) => {
