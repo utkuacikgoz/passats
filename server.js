@@ -206,7 +206,9 @@ app.use((req, _res, next) => {
 app.use('/api', (req, res, next) => {
   if (CONFIG_ERROR) {
     log('error', 'api.not_configured', { requestId: req.requestId, missing: CONFIG_ERROR });
-    return res.status(503).json({ error: 'Service temporarily unavailable. Please try again shortly.' });
+    // Report the missing var NAMES (never values) so a misconfigured deploy is
+    // self-diagnosing instead of an opaque 503.
+    return res.status(503).json({ error: 'Service temporarily unavailable. Please try again shortly.', missing: CONFIG_ERROR });
   }
   next();
 });
