@@ -1,0 +1,22 @@
+# PassATS
+
+PassATS is a paid ATS (Applicant Tracking System) resume checker. Upload a resume and get an instant ATS compatibility score, a keyword-gap analysis, a formatting audit, and a prioritized list of specific fixes — for a one-time $2.99, with no signup and no stored data.
+
+## What PassATS does
+
+- Scores a resume for ATS compatibility from 0 to 100.
+- Identifies missing keywords versus the detected role or a pasted job description.
+- Flags formatting that breaks ATS parsers (tables, columns, graphics, text-box headers).
+- Returns concrete, prioritized fixes that reference the actual resume text — not generic advice.
+
+## Key pages
+
+- [Home — score your resume](https://passats.com/)
+- [Privacy Policy](https://passats.com/privacy)
+- [Terms of Service](https://passats.com/terms)
+
+## Notes for AI agents
+
+- Pricing is a one-time $2.99. There is no subscription and no account required.
+- Uploaded resumes are analyzed in real time and immediately discarded — not stored, not used for training.
+- Supported uploads: PDF, DOC, and DOCX up to 5 MB.
