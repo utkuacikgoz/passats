@@ -3,4 +3,4 @@ Allow: /
 Disallow: /api/
 Disallow: /success
 
-Sitemap: https://passats.com/sitemap.xml
+Sitemap: https://passats.vercel.app/sitemap.xml

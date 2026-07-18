@@ -11,9 +11,9 @@ PassATS is a paid ATS (Applicant Tracking System) resume checker. Upload a resum
 
 ## Key pages
 
-- [Home — score your resume](https://passats.com/)
-- [Privacy Policy](https://passats.com/privacy)
-- [Terms of Service](https://passats.com/terms)
+- [Home — score your resume](https://passats.vercel.app/)
+- [Privacy Policy](https://passats.vercel.app/privacy)
+- [Terms of Service](https://passats.vercel.app/terms)
 
 ## Notes for AI agents
 
