@@ -188,7 +188,7 @@ async function enforceRateLimit(req, res, key, maxRequests, windowMs) {
     return true;
   } catch (err) {
     logError('ratelimit.error', err, { requestId: req.requestId, rateLimitKey: key });
-    res.status(503).json({ error: `Service temporarily unavailable. Quote ref ${req.requestId}.` });
+    res.status(503).json({ error: `Service temporarily unavailable. Quote ref ${req.requestId}.`, detail: String(err && err.message || err).slice(0, 200) });
     return false;
   }
 }
