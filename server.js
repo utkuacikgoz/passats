@@ -5,7 +5,7 @@ const fs = require('fs/promises');
 const multer = require('multer');
 const os = require('os');
 const Stripe = require('stripe');
-const { GoogleGenAI } = require('@google/genai');
+const Anthropic = require('@anthropic-ai/sdk');
 // mammoth + pdf-parse are lazy-required inside extractText() so a heavy-parser
 // import problem (pdf-parse pulls pdfjs) can't crash the whole function at cold
 // start — it would fail only that one request.
@@ -25,7 +25,7 @@ const DEV_MODE = process.env.DEV_MODE === 'true';
 // 503 that names the misconfiguration in the logs.
 let CONFIG_ERROR = null;
 if (!DEV_MODE) {
-  const required = ['STRIPE_SECRET_KEY', 'STRIPE_WEBHOOK_SECRET', 'STRIPE_PRICE_ID', 'GEMINI_API_KEY', 'JWT_SECRET', 'UPSTASH_REDIS_REST_URL', 'UPSTASH_REDIS_REST_TOKEN'];
+  const required = ['STRIPE_SECRET_KEY', 'STRIPE_WEBHOOK_SECRET', 'STRIPE_PRICE_ID', 'ANTHROPIC_API_KEY', 'JWT_SECRET', 'UPSTASH_REDIS_REST_URL', 'UPSTASH_REDIS_REST_TOKEN'];
   const missing = required.filter(k => !process.env[k]);
   if (missing.length) {
     CONFIG_ERROR = missing;
@@ -36,7 +36,10 @@ if (!DEV_MODE) {
 const app = express();
 const PORT = process.env.PORT || 3000;
 const BASE_URL = process.env.BASE_URL || `http://localhost:${PORT}`;
-const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+// Analysis model. Claude Sonnet 5 is the launch default — best quality/latency
+// balance for the instruction-heavy scoring prompt; override via LLM_MODEL
+// (e.g. claude-haiku-4-5 to trade a little copy sharpness for lower cost/latency).
+const LLM_MODEL = process.env.LLM_MODEL || 'claude-sonnet-5';
 const POSTHOG_HOST = process.env.POSTHOG_HOST || 'https://us.i.posthog.com';
 const APP_SCRIPT_CSP_HASH = "'sha256-aYguQwNVd1YDOuZ2Nu+GpyB/LJ6RHGAG8g7SNs43Ly8='";
 // Hashes of individual onclick handler bodies (required for 'unsafe-hashes' to allow them)
@@ -84,7 +87,7 @@ function isAllowedTestIp(ip) {
 app.set('trust proxy', 1);
 
 let   stripe = null;
-let gemini = null;
+let anthropic = null;
 let posthog = null;
 let redis = null;
 
@@ -99,7 +102,7 @@ try {
   }
   if (!DEV_MODE && !CONFIG_ERROR) {
     stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
-    gemini = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+    anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
     // Upstash Redis — atomic jti single-use. Required for token replay protection.
     redis = new Redis({
       url: process.env.UPSTASH_REDIS_REST_URL,
@@ -276,10 +279,10 @@ app.get('/api/health', (req, res) => {
     status: 'ok',
     devMode: DEV_MODE,
     hasStripe: !!stripe,
-    hasGemini: !!gemini,
+    hasLlm: !!anthropic,
     hasPostHog: !!posthog,
     hasRedis: !!redis,
-    llmModel: DEV_MODE ? 'mock' : GEMINI_MODEL,
+    llmModel: DEV_MODE ? 'mock' : LLM_MODEL,
   });
 });
 
@@ -597,9 +600,9 @@ app.post('/api/analyze', analyzeAuth, upload.single('cv'), async (req, res) => {
 
     // Job description from multipart form field
     const jobDescription = req.body?.jobDescription || '';
-    log('info', 'analyze.started', { requestId: reqId, model: GEMINI_MODEL, hasJobDescription: !!jobDescription });
-    const result = await callGemini(text, jobDescription);
-    log('info', 'analyze.completed', { requestId: reqId, overallScore: result.overallScore, model: GEMINI_MODEL });
+    log('info', 'analyze.started', { requestId: reqId, model: LLM_MODEL, hasJobDescription: !!jobDescription });
+    const result = await analyzeCv(text, jobDescription);
+    log('info', 'analyze.completed', { requestId: reqId, overallScore: result.overallScore, model: LLM_MODEL });
     capturePosthog('cv_analysis_completed', {
       requestId: reqId,
       overall_score: result.overallScore,
@@ -627,17 +630,17 @@ app.post('/api/analyze', analyzeAuth, upload.single('cv'), async (req, res) => {
         await redis.del(`passats:jti:${tokenPayload.jti}`).catch(delErr => {
           logError('redis.release_token_failed', delErr, { requestId: reqId, jti: tokenPayload.jti });
         });
-        logError('analyze.retryable_error', err, { requestId: reqId, retries, jti: tokenPayload.jti, model: GEMINI_MODEL });
+        logError('analyze.retryable_error', err, { requestId: reqId, retries, jti: tokenPayload.jti, model: LLM_MODEL });
         capturePosthog('cv_analysis_failed', { requestId: reqId, retries, retryable: true }, tokenPayload.sessionId);
         if (posthog && !DEV_MODE) posthog.captureException(err, tokenPayload.sessionId, { requestId: reqId, retries });
         return res.status(500).json({ error: `Analysis failed. Please try again (${retries}/3). If this persists, quote ref ${reqId}.` });
       }
-      logError('analyze.retries_exhausted', err, { requestId: reqId, retries, jti: tokenPayload.jti, model: GEMINI_MODEL });
+      logError('analyze.retries_exhausted', err, { requestId: reqId, retries, jti: tokenPayload.jti, model: LLM_MODEL });
       capturePosthog('cv_analysis_failed', { requestId: reqId, retries, retryable: false }, tokenPayload.sessionId);
       if (posthog && !DEV_MODE) posthog.captureException(err, tokenPayload.sessionId, { requestId: reqId, retries });
       return res.status(500).json({ error: `Analysis failed. Maximum retries exceeded. Quote ref ${reqId}.` });
     }
-    logError('analyze.error', err, { requestId: reqId, model: GEMINI_MODEL });
+    logError('analyze.error', err, { requestId: reqId, model: LLM_MODEL });
     res.status(500).json({ error: `Analysis failed. Please try again. If this persists, quote ref ${reqId}.` });
   } finally {
     await cleanupUploadedFile(req.file);
@@ -695,12 +698,16 @@ async function extractText(file) {
   return Promise.race([parse, timeout]).finally(() => clearTimeout(timeoutId));
 }
 
-// ── Gemini API (structured JSON output) ───────────────────────────────────────
+// ── Claude API (structured JSON output) ───────────────────────────────────────
+// Anthropic structured outputs (output_config.format) require additionalProperties:false
+// on every object and every property listed in `required`. Unsupported keywords
+// (minimum/maximum/maxItems) are stripped by the SDK and validated client-side.
 const ATS_RESULT_SCHEMA = {
   name: 'ats_report',
   description: 'ATS compatibility analysis report for a CV/resume',
   input_schema: {
     type: 'object',
+    additionalProperties: false,
     required: ['overallScore', 'verdict', 'verdictDetail', 'detectedRole', 'metrics', 'issues', 'keywordsFound', 'keywordsMissing', 'topFixes'],
     properties: {
       overallScore: { type: 'number', minimum: 0, maximum: 100, description: 'ATS compatibility score, integer between 0 and 100 (e.g. 67, NOT 0.67)' },
@@ -709,18 +716,19 @@ const ATS_RESULT_SCHEMA = {
       detectedRole: { type: 'string', description: 'Detected job category' },
       metrics: {
         type: 'object',
+        additionalProperties: false,
         required: ['keywords', 'formatting', 'readability', 'contactInfo'],
         properties: {
-          keywords: { type: 'object', required: ['score', 'note'], properties: { score: { type: 'number', minimum: 0, maximum: 100, description: 'Integer 0-100, e.g. 72' }, note: { type: 'string' } } },
-          formatting: { type: 'object', required: ['score', 'note'], properties: { score: { type: 'number', minimum: 0, maximum: 100, description: 'Integer 0-100, e.g. 72' }, note: { type: 'string' } } },
-          readability: { type: 'object', required: ['score', 'note'], properties: { score: { type: 'number', minimum: 0, maximum: 100, description: 'Integer 0-100, e.g. 72' }, note: { type: 'string' } } },
-          contactInfo: { type: 'object', required: ['score', 'note'], properties: { score: { type: 'number', minimum: 0, maximum: 100, description: 'Integer 0-100, e.g. 72' }, note: { type: 'string' } } },
+          keywords: { type: 'object', additionalProperties: false, required: ['score', 'note'], properties: { score: { type: 'number', minimum: 0, maximum: 100, description: 'Integer 0-100, e.g. 72' }, note: { type: 'string' } } },
+          formatting: { type: 'object', additionalProperties: false, required: ['score', 'note'], properties: { score: { type: 'number', minimum: 0, maximum: 100, description: 'Integer 0-100, e.g. 72' }, note: { type: 'string' } } },
+          readability: { type: 'object', additionalProperties: false, required: ['score', 'note'], properties: { score: { type: 'number', minimum: 0, maximum: 100, description: 'Integer 0-100, e.g. 72' }, note: { type: 'string' } } },
+          contactInfo: { type: 'object', additionalProperties: false, required: ['score', 'note'], properties: { score: { type: 'number', minimum: 0, maximum: 100, description: 'Integer 0-100, e.g. 72' }, note: { type: 'string' } } },
         }
       },
       issues: {
         type: 'array',
         items: {
-          type: 'object', required: ['severity', 'title', 'detail'],
+          type: 'object', additionalProperties: false, required: ['severity', 'title', 'detail'],
           properties: {
             severity: { type: 'string', enum: ['critical', 'warning', 'pass'] },
             title: { type: 'string' },
@@ -735,21 +743,29 @@ const ATS_RESULT_SCHEMA = {
   }
 };
 
-async function callGeminiWithRetry(params) {
-  let lastErr;
-  for (let attempt = 0; attempt <= 1; attempt++) {
-    if (attempt > 0) await new Promise(r => setTimeout(r, 500));
-    try {
-      return await gemini.models.generateContent(params);
-    } catch (err) {
-      if (err?.name === 'AbortError') throw err;
-      lastErr = err;
+// Anthropic structured outputs reject numeric/array/string constraints
+// (minimum, maximum, maxItems, …). Strip them before sending; the intent still
+// lives in each field's `description`, and normalizeScore() clamps ranges.
+// The unsupported keywords stay in ATS_RESULT_SCHEMA for documentation.
+const UNSUPPORTED_SCHEMA_KEYS = new Set([
+  'minimum', 'maximum', 'exclusiveMinimum', 'exclusiveMaximum',
+  'minItems', 'maxItems', 'minLength', 'maxLength', 'pattern', 'multipleOf',
+]);
+function sanitizeSchema(node) {
+  if (Array.isArray(node)) return node.map(sanitizeSchema);
+  if (node && typeof node === 'object') {
+    const out = {};
+    for (const [k, v] of Object.entries(node)) {
+      if (UNSUPPORTED_SCHEMA_KEYS.has(k)) continue;
+      out[k] = sanitizeSchema(v);
     }
+    return out;
   }
-  throw lastErr;
+  return node;
 }
+const ATS_OUTPUT_SCHEMA = sanitizeSchema(ATS_RESULT_SCHEMA.input_schema);
 
-async function callGemini(cvText, jobDescription) {
+async function analyzeCv(cvText, jobDescription) {
   if (DEV_MODE) {
     await new Promise(r => setTimeout(r, 1500));
     return {
@@ -866,19 +882,20 @@ ${cvSlice}
 
   let response;
   try {
-    response = await callGeminiWithRetry({
-      model: GEMINI_MODEL,
-      contents: userPrompt,
-      config: {
-        abortSignal: abortController.signal,
-        systemInstruction: systemPrompt,
-        maxOutputTokens: 2000,
-        responseMimeType: 'application/json',
-        responseJsonSchema: ATS_RESULT_SCHEMA.input_schema,
+    response = await anthropic.messages.create({
+      model: LLM_MODEL,
+      max_tokens: 3000,
+      system: systemPrompt,
+      thinking: { type: 'disabled' },
+      output_config: {
+        format: { type: 'json_schema', schema: ATS_OUTPUT_SCHEMA },
       },
-    });
+      messages: [{ role: 'user', content: userPrompt }],
+    }, { signal: abortController.signal });
   } catch (err) {
-    if (err?.name === 'AbortError') {
+    // Our 25s AbortController fires APIUserAbortError; the SDK's own timeout
+    // fires APIConnectionTimeoutError. Map both to the retryable LLM_TIMEOUT.
+    if (/Abort|Timeout/i.test(err?.name || '') || err?.name === 'AbortError') {
       throw new Error('LLM_TIMEOUT');
     }
     throw err;
@@ -886,16 +903,24 @@ ${cvSlice}
     clearTimeout(timeoutId);
   }
 
-  if (!response.text) {
-    log('error', 'gemini.empty_response', { model: GEMINI_MODEL });
+  // Safety classifier declined (unlikely for a resume) — treat as retryable.
+  if (response.stop_reason === 'refusal') {
+    log('error', 'llm.refusal', { model: LLM_MODEL, category: response.stop_details?.category });
+    throw new Error('Analysis returned invalid format. Please try again.');
+  }
+
+  // output_config.format guarantees the first text block is valid JSON.
+  const textBlock = response.content.find(b => b.type === 'text');
+  if (!textBlock?.text) {
+    log('error', 'llm.empty_response', { model: LLM_MODEL, stopReason: response.stop_reason });
     throw new Error('Analysis returned invalid format. Please try again.');
   }
 
   let result;
   try {
-    result = JSON.parse(response.text);
+    result = JSON.parse(textBlock.text);
   } catch {
-    log('error', 'gemini.invalid_json', { model: GEMINI_MODEL });
+    log('error', 'llm.invalid_json', { model: LLM_MODEL, stopReason: response.stop_reason });
     throw new Error('Analysis returned invalid format. Please try again.');
   }
 
