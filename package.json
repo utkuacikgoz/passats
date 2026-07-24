@@ -10,6 +10,7 @@
     "start": "node server.js",
     "dev": "node --watch server.js",
     "smoke:prod": "node scripts/smoke-test.js",
+    "owner:analyze": "bash scripts/owner-analyze.sh",
     "test": "node --test test/e2e.test.js"
   },
   "dependencies": {
