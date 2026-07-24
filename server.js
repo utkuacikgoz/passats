@@ -66,12 +66,24 @@ const JWT_SECRET = DEV_MODE
 // Optional: previous secret for graceful rotation — set JWT_SECRET_PREV during rollover
 const JWT_SECRET_PREV = (!DEV_MODE && process.env.JWT_SECRET_PREV) || null;
 
-// Verify JWT with rotation support — tries current secret, falls back to previous
+// Verify JWT with rotation support — tries current secret, falls back to previous.
+// Pin algorithms to HS256 (the only algorithm we sign with) as defense-in-depth.
 function verifyJwt(token) {
-  try { return jwt.verify(token, JWT_SECRET); } catch (err) {
-    if (JWT_SECRET_PREV) return jwt.verify(token, JWT_SECRET_PREV);
+  try { return jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] }); } catch (err) {
+    if (JWT_SECRET_PREV) return jwt.verify(token, JWT_SECRET_PREV, { algorithms: ['HS256'] });
     throw err;
   }
+}
+
+// Constant-time comparison for secret headers. Header values may be string,
+// string[] (duplicate headers), or undefined — reject anything non-string, and
+// short-circuit on a missing/empty expected secret so unset gates stay closed.
+function safeSecretEqual(provided, expected) {
+  if (typeof provided !== 'string' || typeof expected !== 'string' || expected.length === 0) return false;
+  const a = Buffer.from(provided);
+  const b = Buffer.from(expected);
+  if (a.length !== b.length) return false;
+  return crypto.timingSafeEqual(a, b);
 }
 
 function normalizeIp(ip) {
@@ -272,7 +284,7 @@ app.use(express.static(path.join(__dirname, 'public'), {
 // ── Health check (gated behind secret header) ─────────────────────────────────
 app.get('/api/health', (req, res) => {
   const healthSecret = process.env.HEALTH_SECRET;
-  if (!healthSecret || req.headers['x-health-secret'] !== healthSecret) {
+  if (!safeSecretEqual(req.headers['x-health-secret'], healthSecret)) {
     return res.status(404).json({ error: 'Not found' });
   }
   res.json({
@@ -514,7 +526,7 @@ if (DEV_MODE) {
 // ── Owner test token — bypass payment in production for smoke testing ─────────
 app.get('/api/test-token', async (req, res) => {
   const secret = process.env.TEST_SECRET;
-  if (!secret || req.headers['x-test-secret'] !== secret || (TEST_ALLOWED_IPS.size > 0 && !isAllowedTestIp(req.ip))) {
+  if (!safeSecretEqual(req.headers['x-test-secret'], secret) || (TEST_ALLOWED_IPS.size > 0 && !isAllowedTestIp(req.ip))) {
     return res.status(404).json({ error: 'Not found' });
   }
   if (!await enforceRateLimit(req, res, 'test-token:' + normalizeIp(req.ip), 5, 60000)) return;
@@ -703,8 +715,6 @@ async function extractText(file) {
 // on every object and every property listed in `required`. Unsupported keywords
 // (minimum/maximum/maxItems) are stripped by the SDK and validated client-side.
 const ATS_RESULT_SCHEMA = {
-  name: 'ats_report',
-  description: 'ATS compatibility analysis report for a CV/resume',
   input_schema: {
     type: 'object',
     additionalProperties: false,
@@ -765,7 +775,14 @@ function sanitizeSchema(node) {
 }
 const ATS_OUTPUT_SCHEMA = sanitizeSchema(ATS_RESULT_SCHEMA.input_schema);
 
-async function analyzeCv(cvText, jobDescription) {
+// Normalize scores if the model returns 0-1 decimals instead of 0-100.
+const normalizeScore = s => (typeof s === 'number' && s > 0 && s <= 1) ? Math.round(s * 100) : Math.round(s);
+
+// client/model are injectable so the real (non-DEV_MODE) path is unit-testable
+// with a fake Anthropic client; production callers use the module defaults.
+async function analyzeCv(cvText, jobDescription, opts = {}) {
+  const client = opts.client || anthropic;
+  const model = opts.model || LLM_MODEL;
   if (DEV_MODE) {
     await new Promise(r => setTimeout(r, 1500));
     return {
@@ -882,8 +899,8 @@ ${cvSlice}
 
   let response;
   try {
-    response = await anthropic.messages.create({
-      model: LLM_MODEL,
+    response = await client.messages.create({
+      model,
       max_tokens: 3000,
       system: systemPrompt,
       thinking: { type: 'disabled' },
@@ -905,14 +922,14 @@ ${cvSlice}
 
   // Safety classifier declined (unlikely for a resume) — treat as retryable.
   if (response.stop_reason === 'refusal') {
-    log('error', 'llm.refusal', { model: LLM_MODEL, category: response.stop_details?.category });
+    log('error', 'llm.refusal', { model, category: response.stop_details?.category });
     throw new Error('Analysis returned invalid format. Please try again.');
   }
 
   // output_config.format guarantees the first text block is valid JSON.
   const textBlock = response.content.find(b => b.type === 'text');
   if (!textBlock?.text) {
-    log('error', 'llm.empty_response', { model: LLM_MODEL, stopReason: response.stop_reason });
+    log('error', 'llm.empty_response', { model, stopReason: response.stop_reason });
     throw new Error('Analysis returned invalid format. Please try again.');
   }
 
@@ -920,12 +937,10 @@ ${cvSlice}
   try {
     result = JSON.parse(textBlock.text);
   } catch {
-    log('error', 'llm.invalid_json', { model: LLM_MODEL, stopReason: response.stop_reason });
+    log('error', 'llm.invalid_json', { model, stopReason: response.stop_reason });
     throw new Error('Analysis returned invalid format. Please try again.');
   }
 
-  // Normalize scores if the model returns 0-1 decimals instead of 0-100.
-  const normalizeScore = s => (typeof s === 'number' && s > 0 && s <= 1) ? Math.round(s * 100) : Math.round(s);
   if (result.overallScore !== undefined) result.overallScore = normalizeScore(result.overallScore);
   if (result.metrics) {
     for (const key of ['keywords', 'formatting', 'readability', 'contactInfo']) {
@@ -990,6 +1005,9 @@ if (DEV_MODE && !process.env.VERCEL) {
   }, 60000);
   cleanupTimer.unref(); // Don't keep process alive for cleanup
 }
+
+// Pure helpers exposed for unit tests only (no effect on request handling).
+app.__test = { analyzeCv, sanitizeSchema, normalizeScore, validateMagicBytes, checkOrigin, safeSecretEqual, ATS_OUTPUT_SCHEMA };
 
 // ── Start ─────────────────────────────────────────────────────────────────────
 if (process.env.VERCEL) {
