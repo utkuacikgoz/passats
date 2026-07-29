@@ -100,3 +100,11 @@ Owner-only shortcut:
 1. Set both `TEST_SECRET` and `TEST_ALLOWED_IPS` in production. Example: `TEST_ALLOWED_IPS=203.0.113.10`.
 2. If your current public IP is allowlisted, you can run `PASSATS_BASE_URL=https://your-domain.com PASSATS_TEST_SECRET=... npm run smoke:prod`.
 3. That still checks checkout creation, then uses `/api/test-token` to skip the manual payment step and exercise analysis directly.
+
+To run a real, no-payment analysis of a specific CV and print the raw model report (useful for eyeballing output quality after a model change):
+
+```
+TEST_SECRET=your-secret npm run owner:analyze -- path/to/resume.pdf "optional job description"
+```
+
+Same requirements: `TEST_SECRET` set in the deployment env, and your public IP in `TEST_ALLOWED_IPS`. Override the target with `BASE=https://your-domain.com`. Remove `TEST_SECRET` when finished to disable the endpoint.
