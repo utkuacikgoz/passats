@@ -320,3 +320,11 @@ describe('Removed email capture', () => {
     assert.equal(res.status, 404);
   });
 });
+
+describe('Customer-facing analysis failures', () => {
+  it('does not render raw server error details in the upload view', async () => {
+    const res = await request.get('/');
+    assert.doesNotMatch(res.text, /Analysis failed: ' \+ err\.message/);
+    assert.match(res.text, /We couldn\\'t complete your analysis just now\. Please try again in a moment\./);
+  });
+});
