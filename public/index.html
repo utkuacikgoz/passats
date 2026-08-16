@@ -965,8 +965,8 @@
         body: formData
       });
 
-      const data = await res.json();
-      console.log('Analysis response:', res.status, data);
+      const data = await res.json().catch(() => ({}));
+      console.log('Analysis response:', res.status);
       if (!res.ok) throw new Error(data.error || 'Analysis failed');
 
       // Cap fake loading — show dashboard once all steps shown & API done
@@ -978,10 +978,10 @@
 
       renderDashboard(data, uploadedFile.name);
       showView('dashboard');
-    } catch (err) {
-      console.error('Analysis failed:', err);
+    } catch {
+      console.error('Analysis request did not complete');
       showView('upload');
-      showError('Analysis failed: ' + err.message + '. Please try again.');
+      showError('We couldn\'t complete your analysis just now. Please try again in a moment.');
     } finally {
       const btn = document.getElementById('analyzeBtn');
       btn.disabled = false;
