@@ -828,7 +828,7 @@
 <script>
   // ── State ──────────────────────────────────────────────────────────────────
   let uploadedFile = null;
-  let uploadToken = null; // from Stripe payment verification
+  let uploadToken = null; // from Stripe payment verification or a short-lived owner test token
 
   // ── View Router ────────────────────────────────────────────────────────────
   function showView(id) {
@@ -878,6 +878,24 @@
     } catch (err) {
       showLandingError('Payment verification failed: ' + err.message);
       showView('landing');
+    }
+  }
+
+  // Owner-only UI testing: scripts/owner-ui.sh places a signed, short-lived
+  // test token in the URL fragment. Fragments never reach the server and this
+  // is removed from browser history before the upload screen is shown.
+  function getOwnerTestTokenFromFragment() {
+    const params = new URLSearchParams(window.location.hash.slice(1));
+    const token = params.get('owner_test_token');
+    if (!token) return null;
+    try {
+      const segment = token.split('.')[1];
+      if (!segment) return null;
+      const base64 = segment.replace(/-/g, '+').replace(/_/g, '/');
+      const payload = JSON.parse(atob(base64.padEnd(base64.length + (4 - base64.length % 4) % 4, '=')));
+      return typeof payload.sessionId === 'string' && payload.sessionId.startsWith('test_') ? token : null;
+    } catch {
+      return null;
     }
   }
 
@@ -1019,10 +1037,10 @@
     // Verdict badge
     const badge = document.getElementById('dashVerdictBadge');
     const vm = {
-      'Excellent': ['verdict-good', '✅ Excellent — most ATS systems will pass this'],
-      'Good':      ['verdict-good', '👍 Good — a few tweaks and you\'re there'],
-      'Needs Work':['verdict-mid',  '⚠️ Needs Work — a robot would struggle with this'],
-      'Poor':      ['verdict-low',  '🚨 Poor — this CV is likely getting auto-rejected']
+      'Excellent': ['verdict-good', '✅ Excellent — strong against the general benchmark'],
+      'Good':      ['verdict-good', '👍 Good — targeted improvements remain'],
+      'Needs Work':['verdict-mid',  '⚠️ Needs Work — material gaps remain'],
+      'Poor':      ['verdict-low',  '🚨 Poor — major gaps need fixing']
     };
     const v = vm[r.verdict] || vm['Needs Work'];
     badge.className = 'verdict-badge ' + v[0];
@@ -1065,7 +1083,14 @@
   // ── Init ───────────────────────────────────────────────────────────────────
   (async function init() {
     const params = new URLSearchParams(window.location.search);
-    if (params.get('session_id')) {
+    const ownerTestToken = getOwnerTestTokenFromFragment();
+    if (window.location.hash.includes('owner_test_token=')) {
+      window.history.replaceState({}, '', window.location.pathname + window.location.search);
+    }
+    if (ownerTestToken) {
+      uploadToken = ownerTestToken;
+      showView('upload');
+    } else if (params.get('session_id')) {
       await handlePaymentReturn();
     } else if (params.get('dev') === '1') {
       // Only attempt dev-token with explicit ?dev=1 flag
