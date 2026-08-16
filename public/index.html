@@ -308,46 +308,42 @@
 
   .hero-report {
     background: var(--card); border: 1px solid var(--border);
-    border-radius: 18px; overflow: hidden;
-    box-shadow: 0 24px 70px rgba(32,27,23,0.12);
+    border-radius: 3px; overflow: hidden;
+    box-shadow: 18px 20px 0 var(--surface), 0 24px 70px rgba(32,27,23,0.10);
     text-align: left;
   }
+  .hero-report::before { content: ''; display: block; height: 7px; background: var(--accent); }
   .report-summary {
-    padding: 24px 22px 20px; display: grid;
-    grid-template-columns: 116px 1fr; gap: 20px; align-items: center;
-    border-bottom: 1px solid var(--border);
+    padding: 30px 32px 26px; display: flex;
+    align-items: flex-start; justify-content: space-between; gap: 20px;
   }
   .report-score {
-    background: var(--ink); color: #fff; border-radius: 14px;
-    min-height: 116px; display: flex; flex-direction: column;
-    align-items: center; justify-content: center;
+    color: var(--accent); display: flex; flex-direction: column;
+    align-items: flex-end; justify-content: flex-start; flex-shrink: 0;
   }
-  .report-score strong { font-family: 'DM Serif Display', serif; font-size: 2.6rem; line-height: 0.95; }
-  .report-score span { font-size: 0.68rem; opacity: 0.65; margin-top: 7px; }
-  .report-context h3 { font-family: 'DM Serif Display', serif; font-size: 1.25rem; margin-bottom: 5px; }
-  .report-context p { font-size: 0.8rem; color: var(--muted); line-height: 1.45; }
+  .report-score strong { font-family: 'DM Serif Display', serif; font-size: 4.1rem; line-height: 0.78; letter-spacing: -0.05em; }
+  .report-score span { font-size: 0.72rem; color: var(--muted); margin-top: 10px; }
+  .report-context h3 { font-family: 'DM Serif Display', serif; font-size: 1.85rem; line-height: 1.05; margin-bottom: 6px; }
+  .report-context p { font-size: 0.84rem; color: var(--muted); line-height: 1.45; }
   .report-context .report-verdict {
-    display: inline-block; margin-top: 10px; padding: 4px 8px;
-    background: var(--warning-light); color: #775112; border-radius: 100px;
-    font-size: 0.7rem; font-weight: 600;
+    display: inline-block; margin-top: 18px; color: var(--accent);
+    font-size: 0.78rem; font-weight: 600;
   }
-  .report-section { padding: 20px 22px 22px; }
+  .report-section { padding: 0 32px 30px; }
   .report-section-title {
-    display: flex; align-items: center; justify-content: space-between;
-    font-size: 0.72rem; color: var(--muted); font-weight: 600;
-    letter-spacing: 0.07em; text-transform: uppercase; margin-bottom: 12px;
+    font-family: 'DM Serif Display', serif; font-size: 1.25rem;
+    color: var(--ink); margin-bottom: 12px;
   }
   .report-fix {
-    display: grid; grid-template-columns: 24px 1fr auto; gap: 10px;
-    align-items: start; padding: 11px 0; border-top: 1px solid var(--border);
+    display: grid; grid-template-columns: 32px 1fr auto; gap: 12px;
+    align-items: start; padding: 15px 0; border-top: 1px solid var(--border);
   }
-  .report-fix:first-of-type { border-top: none; padding-top: 0; }
-  .report-fix-num { color: var(--accent); font-size: 0.72rem; font-weight: 700; padding-top: 2px; }
-  .report-fix strong { display: block; font-size: 0.78rem; margin-bottom: 3px; }
-  .report-fix p { font-size: 0.74rem; color: var(--muted); line-height: 1.4; }
+  .report-fix:first-of-type { border-top: 1px solid var(--ink); }
+  .report-fix-num { color: var(--accent); font-family: 'DM Serif Display', serif; font-size: 1.15rem; padding-top: 1px; }
+  .report-fix strong { display: block; font-size: 0.88rem; margin-bottom: 4px; }
+  .report-fix p { font-size: 0.78rem; color: var(--muted); line-height: 1.4; }
   .report-impact {
-    color: var(--positive); background: var(--positive-light); border-radius: 100px;
-    padding: 4px 7px; font-size: 0.68rem; font-weight: 600; white-space: nowrap;
+    color: var(--accent); padding-top: 2px; font-size: 0.76rem; font-weight: 600; white-space: nowrap;
   }
 
   /* ── HOW IT WORKS ── */
@@ -622,30 +618,30 @@
       </div>
       <div class="error-msg" id="landingError" style="max-width:480px;margin:0 auto;"></div>
     </div>
-    <aside class="hero-report" aria-label="Sample PassATS report">
+    <aside class="hero-report" aria-label="PassATS report preview">
       <div class="report-summary">
-        <div class="report-score"><strong>72</strong><span>ATS SCORE</span></div>
         <div class="report-context">
-          <h3>Mark Zuckbefed's CV</h3>
-          <p>Product Manager</p>
-          <span class="report-verdict">Needs work</span>
+          <p>Mark Zuckbefed</p>
+          <h3>Product Manager</h3>
+          <span class="report-verdict">Your CV is underselling you.</span>
         </div>
+        <div class="report-score"><strong>72</strong><span>out of 100</span></div>
       </div>
       <div class="report-section">
-        <div class="report-section-title"><span>Highest impact fixes</span><span>3 found</span></div>
+        <div class="report-section-title">What is holding it back</div>
         <div class="report-fix">
-          <span class="report-fix-num">01</span>
-          <div><strong>Work experience</strong><p>Three bullets name work but not the result.</p></div>
+          <span class="report-fix-num">1</span>
+          <div><strong>Work experience</strong><p>Three bullets name work, not the result.</p></div>
           <span class="report-impact">+9 pts</span>
         </div>
         <div class="report-fix">
-          <span class="report-fix-num">02</span>
-          <div><strong>Skills</strong><p>SQL and experimentation are absent from the section.</p></div>
+          <span class="report-fix-num">2</span>
+          <div><strong>Skills section</strong><p>SQL and experimentation are absent.</p></div>
           <span class="report-impact">+7 pts</span>
         </div>
         <div class="report-fix">
-          <span class="report-fix-num">03</span>
-          <div><strong>Summary</strong><p>Your target role is clear. Your strongest outcome is not.</p></div>
+          <span class="report-fix-num">3</span>
+          <div><strong>Summary</strong><p>You state the role, not the impact.</p></div>
           <span class="report-impact">+5 pts</span>
         </div>
       </div>
