@@ -233,6 +233,8 @@ describe('PDF extraction', () => {
       mimetype: 'application/pdf',
     });
     assert.match(text, new RegExp(expected));
+    const { PDFParse } = require('pdf-parse');
+    assert.match(PDFParse.setWorker(), /^data:text\/javascript;base64,/);
     assert.equal(typeof globalThis.DOMMatrix, 'function');
     assert.equal(typeof globalThis.ImageData, 'function');
     assert.equal(typeof globalThis.Path2D, 'function');
