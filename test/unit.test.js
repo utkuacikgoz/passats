@@ -41,6 +41,7 @@ const {
   analysisRetryKey,
   extractText,
   ATS_OUTPUT_SCHEMA,
+  LLM_TIMEOUT_MS,
 } = app.__test;
 
 // A well-formed report the fake model returns; overallScore as 0-1 decimal to
@@ -264,6 +265,10 @@ describe('checkOrigin (CSRF)', () => {
 
 describe('analyzeCv (real path, injected fake client)', () => {
   const opts = (behavior) => ({ client: fakeClient(behavior), model: 'test-model' });
+
+  it('allows sufficient time for structured model output in a serverless request', () => {
+    assert.equal(LLM_TIMEOUT_MS, 55000);
+  });
 
   it('parses a valid response and normalizes 0-1 scores', async () => {
     const res = await analyzeCv('cv text long enough', '', opts(() => ({
