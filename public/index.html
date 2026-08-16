@@ -82,7 +82,7 @@
       "name": "What file formats work?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "PDF, DOC, and DOCX up to 5 MB. PDF is best. It's what ATS platforms handle most consistently. Avoid image-based PDFs (like scanned documents) if a human can't select the text, neither can the ATS."
+        "text": "PDF and DOCX up to 5 MB. PDF is best. It's what ATS platforms handle most consistently. Avoid image-based PDFs (like scanned documents) if a human can't select the text, neither can the ATS."
       }
     },
     {
@@ -137,7 +137,7 @@
       "@type": "HowToStep",
       "position": 2,
       "name": "Upload your CV",
-      "text": "Upload your resume as a PDF, DOC, or DOCX file. We parse it exactly as an ATS would."
+      "text": "Upload your resume as a PDF or DOCX file. We parse it exactly as an ATS would."
     },
     {
       "@type": "HowToStep",
@@ -597,38 +597,6 @@
     animation: pulse 2s infinite;
   }
 
-  /* ── EMAIL CAPTURE ── */
-  .email-capture {
-    background: var(--card); border: 1px solid var(--border); border-radius: 16px;
-    padding: 22px 28px; box-shadow: 0 2px 10px rgba(26,23,20,0.04);
-    transition: opacity .4s;
-  }
-  .email-capture.captured { opacity: 0.45; pointer-events: none; }
-  .email-capture-inner { display: flex; align-items: flex-start; gap: 20px; flex-wrap: wrap; }
-  .email-capture-text { flex: 1; min-width: 180px; padding-top: 2px; }
-  .email-capture-text strong { display: block; font-size: 0.92rem; font-weight: 600; margin-bottom: 3px; }
-  .email-capture-text span { font-size: 0.8rem; color: var(--muted); }
-  .email-capture-form { display: flex; gap: 8px; flex: 1; min-width: 260px; flex-wrap: wrap; }
-  .email-capture-form input[type="email"] {
-    flex: 1; min-width: 160px; padding: 10px 14px;
-    border: 1px solid var(--border); border-radius: 10px;
-    font-family: 'DM Sans', sans-serif; font-size: 0.88rem;
-    background: var(--bg); color: var(--ink); outline: none;
-    transition: border-color .2s;
-  }
-  .email-capture-form input[type="email"]:focus { border-color: var(--accent); }
-  .email-capture-form button {
-    background: var(--accent); color: #fff; border: none;
-    border-radius: 10px; padding: 10px 18px; font-size: 0.88rem;
-    font-weight: 600; font-family: 'DM Sans', sans-serif; cursor: pointer;
-    white-space: nowrap; transition: opacity .2s;
-  }
-  .email-capture-form button:hover { opacity: 0.85; }
-  .email-capture-form button:disabled { opacity: 0.5; cursor: not-allowed; }
-  .email-msg { font-size: 0.82rem; margin-top: 8px; width: 100%; }
-  .email-ok { color: var(--accent); }
-  .email-err { color: #991B1B; }
-
   /* RESPONSIVE */
   @media (max-width: 640px) {
     nav { padding: 16px 20px; }
@@ -746,7 +714,7 @@
       </details>
       <details class="faq-item">
         <summary>What file formats work?</summary>
-        <p>PDF, DOC, and DOCX &mdash; up to 5 MB. PDF is best. It's what ATS platforms handle most consistently. Avoid image-based PDFs (like scanned documents) &mdash; if a human can't select the text, neither can the ATS.</p>
+        <p>PDF and DOCX &mdash; up to 5 MB. PDF is best. It's what ATS platforms handle most consistently. Avoid image-based PDFs (like scanned documents) &mdash; if a human can't select the text, neither can the ATS.</p>
       </details>
       <details class="faq-item">
         <summary>What happens to my resume after I upload it?</summary>
@@ -777,10 +745,10 @@
       <p class="sub">Upload your CV below. We'll run it through the same kind of parser that's been ghosting you.</p>
 
       <div class="drop-zone" id="dropZone">
-        <input type="file" id="fileInput" accept=".pdf,.doc,.docx" onchange="fileSelected(this)" aria-label="Upload your CV file">
+        <input type="file" id="fileInput" accept=".pdf,.docx" onchange="fileSelected(this)" aria-label="Upload your CV file">
         <div class="drop-icon" aria-hidden="true">&#128196;</div>
         <div class="drop-text"><strong>Click to upload</strong> or drag &amp; drop</div>
-        <div class="drop-text" style="margin-top:6px;font-size:0.78rem;">PDF, DOC, DOCX — max 5 MB</div>
+        <div class="drop-text" style="margin-top:6px;font-size:0.78rem;">PDF or DOCX — max 5 MB</div>
       </div>
 
       <div class="error-msg" id="errorMsg"></div>
@@ -852,19 +820,6 @@
     <div class="cta-again">
       <button onclick="showView('landing')">&larr; Run another scan</button>
       <p style="font-size:0.78rem;color:var(--muted);margin-top:8px;">Made changes to your CV? Each scan is a separate $2.99 &mdash; no subscription.</p>
-    </div>
-    <div class="email-capture" id="emailCapture">
-      <div class="email-capture-inner">
-        <div class="email-capture-text">
-          <strong>Send this report to your inbox</strong>
-          <span>Reference it later. Share it with a mentor.</span>
-        </div>
-        <div class="email-capture-form">
-          <input type="email" id="emailInput" placeholder="your@email.com" autocomplete="email" aria-label="Email address for report">
-          <button id="emailSubmitBtn">Send Report</button>
-        </div>
-        <div class="email-msg" id="emailMsg" style="display:none;"></div>
-      </div>
     </div>
   </div>
 </div>
@@ -942,8 +897,8 @@
       return;
     }
     const ext = file.name.split('.').pop().toLowerCase();
-    if (!['pdf', 'doc', 'docx'].includes(ext)) {
-      showError('Unsupported file type. Please upload a PDF, DOC, or DOCX.');
+    if (!['pdf', 'docx'].includes(ext)) {
+      showError('Unsupported file type. Please upload a PDF or DOCX.');
       return;
     }
     uploadedFile = file;
@@ -1106,47 +1061,6 @@
   }
 
   function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-
-  // ── Email capture ──────────────────────────────────────────────────────────
-  async function captureEmail() {
-    const input = document.getElementById('emailInput');
-    const btn = document.getElementById('emailSubmitBtn');
-    const msg = document.getElementById('emailMsg');
-    const email = (input?.value || '').trim();
-    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) {
-      msg.textContent = 'Enter a valid email address.';
-      msg.className = 'email-msg email-err';
-      msg.style.display = 'block';
-      return;
-    }
-    btn.disabled = true;
-    btn.textContent = 'Sending\u2026';
-    try {
-      const payload = { email };
-      if (window._lastResult) {
-        payload.score = window._lastResult.overallScore;
-        payload.role = window._lastResult.detectedRole;
-      }
-      const res = await fetch('/api/capture-email', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-      if (!res.ok) throw new Error('failed');
-      msg.textContent = 'Done. Check your inbox.';
-      msg.className = 'email-msg email-ok';
-      msg.style.display = 'block';
-      document.getElementById('emailCapture')?.classList.add('captured');
-    } catch {
-      msg.textContent = 'Something went wrong. Try again.';
-      msg.className = 'email-msg email-err';
-      msg.style.display = 'block';
-      btn.disabled = false;
-      btn.textContent = 'Send Report';
-    }
-  }
-
-  document.getElementById('emailSubmitBtn')?.addEventListener('click', captureEmail);
 
   // ── Init ───────────────────────────────────────────────────────────────────
   (async function init() {

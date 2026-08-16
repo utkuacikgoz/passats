@@ -35,26 +35,27 @@
 <nav><a class="logo" href="/">Pass<span>ATS</span></a></nav>
 <main>
   <h1>Privacy Policy</h1>
-  <p><strong>Last updated:</strong> April 2026</p>
+  <p><strong>Last updated:</strong> August 2026</p>
 
   <h2>What we collect</h2>
-  <p>When you use PassATS, the only data we process is:</p>
+  <p>When you use PassATS, we process:</p>
   <ul>
-    <li>Your uploaded resume file (PDF, DOC, or DOCX)</li>
-    <li>Payment information handled entirely by <a href="https://stripe.com/privacy" rel="noopener">Stripe</a></li>
+    <li>Your uploaded resume file (PDF or DOCX) and any job description you provide</li>
+    <li>Payment and transaction information handled by <a href="https://stripe.com/privacy" rel="noopener">Stripe</a></li>
+    <li>Limited operational telemetry, such as request IDs, file type, analysis score, detected role, and error details</li>
   </ul>
 
   <h2>What happens to your resume</h2>
-  <p>Your resume is processed in real time, analyzed by our AI engine, and <strong>immediately discarded</strong>. We do not store, cache, or retain your file after analysis. We do not use your resume to train AI models.</p>
+  <p>Your resume is processed in real time and deleted from our temporary storage when the request finishes, including when analysis fails. We do not store resume text in analytics, and we do not use your resume to train AI models.</p>
 
   <h2>Payment data</h2>
   <p>All payments are processed through Stripe. We never see or store your credit card details. Stripe's privacy policy governs their handling of your payment data.</p>
 
   <h2>Cookies & tracking</h2>
-  <p>PassATS uses Vercel Web Analytics to understand basic usage patterns (page views, referrers). This analytics service is privacy-friendly and does not use cookies or track you across websites. No personal information is collected through analytics.</p>
+  <p>PassATS uses Vercel Web Analytics for basic page traffic and may use PostHog for server-side operational events and error diagnostics. We do not send your resume text or job description to these analytics services.</p>
 
   <h2>Data sharing</h2>
-  <p>We do not sell, rent, or share your data with anyone. Your resume text is sent to our AI provider (Anthropic) for analysis and is subject to their <a href="https://www.anthropic.com/privacy" rel="noopener">data processing terms</a>, which prohibit training on API inputs.</p>
+  <p>We do not sell or rent your data. We use service providers only to operate PassATS: Stripe for payments, Anthropic for resume analysis, Vercel for hosting and web analytics, and PostHog for optional operational telemetry. Resume text and job descriptions are sent to Anthropic for analysis and are subject to their <a href="https://www.anthropic.com/privacy" rel="noopener">data processing terms</a>.</p>
 
   <h2>Contact</h2>
   <p>Questions? Email <strong>privacy@passats.com</strong></p>
