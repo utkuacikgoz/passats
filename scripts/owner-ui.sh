@@ -12,11 +12,27 @@ if [[ -z "${TEST_SECRET:-}" ]]; then
   exit 1
 fi
 
-TOKEN="$(curl -fsS "$BASE/api/test-token" -H "x-test-secret: $TEST_SECRET" \
-  | python3 -c 'import sys,json; print(json.load(sys.stdin)["token"])' 2>/dev/null || true)"
+RESPONSE="$(curl -sS -w $'\n%{http_code}' "$BASE/api/test-token" -H "x-test-secret: $TEST_SECRET")" || {
+  echo "error: could not reach $BASE/api/test-token." >&2
+  exit 1
+}
+STATUS="${RESPONSE##*$'\n'}"
+BODY="${RESPONSE%$'\n'*}"
 
+if [[ "$STATUS" != "200" ]]; then
+  if [[ "$STATUS" == "404" ]]; then
+    echo "error: owner test access was rejected (404). Check TEST_SECRET and TEST_ALLOWED_IPS." >&2
+  elif [[ "$STATUS" == "429" ]]; then
+    echo "error: owner test-token rate limit reached. Wait one minute, then retry." >&2
+  else
+    echo "error: owner test-token endpoint returned HTTP $STATUS." >&2
+  fi
+  exit 1
+fi
+
+TOKEN="$(printf '%s' "$BODY" | python3 -c 'import sys,json; print(json.load(sys.stdin)["token"])' 2>/dev/null || true)"
 if [[ -z "$TOKEN" ]]; then
-  echo "error: could not get an owner test token. Check TEST_SECRET, TEST_ALLOWED_IPS, and the production deployment." >&2
+  echo "error: owner test-token endpoint returned an invalid response." >&2
   exit 1
 fi
 
