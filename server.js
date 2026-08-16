@@ -707,9 +707,12 @@ async function extractText(file) {
     if (mime === 'application/pdf') {
       // pdf-parse documents loading its worker before the parser on Vercel. The
       // worker installs DOMMatrix/ImageData/Path2D and supplies CanvasFactory.
+      // Configure its bundled data worker instead of its filesystem path: Vercel
+      // traces the module but does not retain pdf.worker.mjs beside the CJS file.
       // Keep both requires literal so Vercel's dependency tracer includes them.
-      const { CanvasFactory } = require('pdf-parse/worker');
+      const { CanvasFactory, getData } = require('pdf-parse/worker');
       const { PDFParse } = require('pdf-parse');
+      PDFParse.setWorker(getData());
       const parser = new PDFParse({ data: buffer, CanvasFactory });
       try {
         const data = await parser.getText();
