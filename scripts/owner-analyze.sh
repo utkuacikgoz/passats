@@ -8,8 +8,7 @@
 #
 # Prerequisites (set in your deployment env, then redeploy):
 #   TEST_SECRET       any random string — your no-pay key
-#   TEST_ALLOWED_IPS  your public IP (curl ifconfig.me) — locks it to you.
-#                     Leave unset to allow any IP that has the secret.
+#   TEST_ALLOWED_IPS  your public IP (curl ifconfig.me) — required.
 # Delete TEST_SECRET when you're done to close the backdoor.
 #
 # Usage:
@@ -28,7 +27,7 @@ if [[ -z "${TEST_SECRET:-}" ]]; then
   exit 1
 fi
 if [[ -z "$CV" || ! -f "$CV" ]]; then
-  echo "error: pass a readable CV file (PDF/DOC/DOCX, <5MB) as the first argument." >&2
+  echo "error: pass a readable CV file (PDF/DOCX, <5MB) as the first argument." >&2
   echo "usage: TEST_SECRET=<secret> $0 <cv-file> [job-description]" >&2
   exit 1
 fi
