@@ -43,7 +43,9 @@ const BASE_URL = process.env.BASE_URL || `http://localhost:${PORT}`;
 // (e.g. claude-haiku-4-5 to trade a little copy sharpness for lower cost/latency).
 const LLM_MODEL = process.env.LLM_MODEL || 'claude-sonnet-5';
 const POSTHOG_HOST = process.env.POSTHOG_HOST || 'https://us.i.posthog.com';
-const APP_SCRIPT_CSP_HASH = "'sha256-0nQ0TEwjf+1bcZ502cgWGdnyU5fzj1f+cssZnT7M9KI='";
+const ANALYSIS_RETRY_MESSAGE = 'We couldn\'t complete your analysis right now. Please try again shortly.';
+const ANALYSIS_SUPPORT_MESSAGE = 'We couldn\'t complete your analysis. Please contact support so we can help.';
+const APP_SCRIPT_CSP_HASH = "'sha256-4eODAOxi7xDqaLy2JwMO4qqn5kl+rgu2kucwuA/OQV8='";
 const VERCEL_ANALYTICS_CSP_HASH = "'sha256-rbTaSdDD+Sd+K8IZ66VS79bdI78bN8AwXXyN0/lD5fY='";
 // Hashes of individual onclick handler bodies (required for 'unsafe-hashes' to allow them)
 const APP_HANDLER_CSP_HASHES = [
@@ -678,15 +680,15 @@ app.post('/api/analyze', analyzeAuth, upload.single('cv'), async (req, res) => {
         logError('analyze.retryable_error', err, { requestId: reqId, retries, sessionId: tokenPayload.sessionId, model: LLM_MODEL });
         capturePosthog('cv_analysis_failed', { requestId: reqId, retries, retryable: true }, tokenPayload.sessionId);
         if (posthog && !DEV_MODE) posthog.captureException(err, tokenPayload.sessionId, { requestId: reqId, retries });
-        return res.status(500).json({ error: `Analysis failed. Please try again (${retries}/3). If this persists, quote ref ${reqId}.` });
+        return res.status(500).json({ error: ANALYSIS_RETRY_MESSAGE });
       }
       logError('analyze.retries_exhausted', err, { requestId: reqId, retries, sessionId: tokenPayload.sessionId, model: LLM_MODEL });
       capturePosthog('cv_analysis_failed', { requestId: reqId, retries, retryable: false }, tokenPayload.sessionId);
       if (posthog && !DEV_MODE) posthog.captureException(err, tokenPayload.sessionId, { requestId: reqId, retries });
-      return res.status(500).json({ error: `Analysis failed. Maximum retries exceeded. Quote ref ${reqId}.` });
+      return res.status(500).json({ error: ANALYSIS_SUPPORT_MESSAGE });
     }
     logError('analyze.error', err, { requestId: reqId, model: LLM_MODEL });
-    res.status(500).json({ error: `Analysis failed. Please try again. If this persists, quote ref ${reqId}.` });
+    res.status(500).json({ error: ANALYSIS_RETRY_MESSAGE });
   } finally {
     await cleanupUploadedFile(req.file);
   }
