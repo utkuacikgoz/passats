@@ -11,7 +11,7 @@
     "dev": "node --watch server.js",
     "smoke:prod": "node scripts/smoke-test.js",
     "owner:analyze": "bash scripts/owner-analyze.sh",
-    "test": "node --test test/e2e.test.js"
+    "test": "node --test test/*.test.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.115.0",
