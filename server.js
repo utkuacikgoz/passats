@@ -8,7 +8,9 @@ const Stripe = require('stripe');
 const Anthropic = require('@anthropic-ai/sdk');
 // mammoth + pdf-parse are lazy-required inside extractText() so a heavy-parser
 // import problem (pdf-parse pulls pdfjs) can't crash the whole function at cold
-// start — it would fail only that one request.
+// start — it would fail only that one request. The explicit pdf-parse/worker
+// import is required for Node/serverless canvas globals and makes Vercel trace
+// the native @napi-rs/canvas dependency into the function bundle.
 const { PostHog } = require('posthog-node');
 const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
@@ -701,11 +703,12 @@ async function extractText(file) {
     const mime = file.mimetype;
     const buffer = await readUploadedFileBuffer(file);
     if (mime === 'application/pdf') {
-      // pdf-parse v2 is class-based: construct with the buffer, getText(), then
-      // release the pdfjs resources with destroy(). Lazy-required so a pdfjs load
-      // problem is scoped to this request, not the whole cold start.
+      // pdf-parse documents loading its worker before the parser on Vercel. The
+      // worker installs DOMMatrix/ImageData/Path2D and supplies CanvasFactory.
+      // Keep both requires literal so Vercel's dependency tracer includes them.
+      const { CanvasFactory } = require('pdf-parse/worker');
       const { PDFParse } = require('pdf-parse');
-      const parser = new PDFParse({ data: buffer });
+      const parser = new PDFParse({ data: buffer, CanvasFactory });
       try {
         const data = await parser.getText();
         return data.text;
