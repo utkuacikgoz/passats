@@ -3,10 +3,9 @@
  *
  * Usage: node --test test/e2e.test.js
  */
-const { describe, it, before } = require('node:test');
+const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
-const path = require('path');
-const fs = require('fs');
+const crypto = require('crypto');
 
 // Boot in dev mode
 process.env.DEV_MODE = 'true';
@@ -27,10 +26,9 @@ function makePdf(text) {
   return Buffer.from(pdf);
 }
 
-// Minimal valid DOCX — PK zip with word/ directory marker
+// Minimal DOCX-like ZIP header; dev mode falls back to mock text after parsing.
 function makeDocx() {
-  // Real DOCX is a zip; we create a minimal buffer that passes magic byte check
-  // but will fail mammoth parse. In dev mode, extractText falls back to mock text.
+  // This passes the container check but fails Mammoth's structure validation.
   const buf = Buffer.alloc(2048);
   buf[0] = 0x50; buf[1] = 0x4B; buf[2] = 0x03; buf[3] = 0x04;
   buf.write('word/', 30);
@@ -231,6 +229,18 @@ describe('Analyze endpoint — file validation', () => {
     assert.equal(res.status, 400);
   });
 
+  it('rejects legacy DOC uploads that the parser does not support', async () => {
+    const token = await getDevToken();
+    const legacyDoc = Buffer.from([0xd0, 0xcf, 0x11, 0xe0, 0x00, 0x00]);
+    const res = await request
+      .post('/api/analyze')
+      .set('x-forwarded-for', '198.51.100.22')
+      .set('x-passats-token', token)
+      .attach('cv', legacyDoc, { filename: 'resume.doc', contentType: 'application/msword' });
+
+    assert.equal(res.status, 400);
+  });
+
   it('rejects file with valid mimetype but wrong magic bytes', async () => {
     const token = await getDevToken();
     const fakePdf = Buffer.from('this is not a real PDF file but it pretends to be one with enough bytes');
@@ -268,6 +278,24 @@ describe('Security headers', () => {
     assert.ok(res.headers['permissions-policy']);
   });
 
+  it('authorizes every executable inline script and event handler in CSP', async () => {
+    const res = await request.get('/');
+    const csp = res.headers['content-security-policy'];
+    const hash = body => `sha256-${crypto.createHash('sha256').update(body).digest('base64')}`;
+
+    for (const match of res.text.matchAll(/<script([^>]*)>([\s\S]*?)<\/script>/g)) {
+      const [, attributes, body] = match;
+      if (!attributes.includes('application/ld+json') && body.trim()) {
+        assert.ok(csp.includes(hash(body)), `CSP missing inline script hash: ${hash(body)}`);
+      }
+    }
+
+    const handlers = new Set([...res.text.matchAll(/\s(on[a-z]+)="([^"]*)"/g)].map(match => match[2]));
+    for (const body of handlers) {
+      assert.ok(csp.includes(hash(body)), `CSP missing inline handler hash: ${hash(body)}`);
+    }
+  });
+
   it('sets no-store on API responses', async () => {
     const res = await request.get('/api/verify-payment?session_id=test');
     assert.match(res.headers['cache-control'], /no-store/);
@@ -283,5 +311,12 @@ describe('Webhook', () => {
 
     assert.equal(res.status, 200);
     assert.equal(res.body.received, true);
+  });
+});
+
+describe('Removed email capture', () => {
+  it('does not claim to send reports through an unimplemented endpoint', async () => {
+    const res = await request.post('/api/capture-email').send({ email: 'person@example.com' });
+    assert.equal(res.status, 404);
   });
 });

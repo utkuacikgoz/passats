@@ -7,7 +7,7 @@ PassATS is a paid ATS resume scoring service built on Express, Stripe, Upstash R
 - Node 20+
 - Vercel or another Node-compatible serverless/container runtime
 - Stripe checkout + webhook configured
-- Upstash Redis for single-use token replay protection and global rate limiting
+- Upstash Redis for one-analysis-per-payment enforcement and global rate limiting
 - Anthropic API key for Claude
 - Optional PostHog project key for server-side error tracing
 

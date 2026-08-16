@@ -9,6 +9,7 @@
  */
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
+const path = require('node:path');
 const supertest = require('supertest');
 
 // Boot in production mode with valid dummy config (no CONFIG_ERROR, no network).
@@ -25,7 +26,22 @@ process.env.UPSTASH_REDIS_REST_URL = 'https://example.upstash.io';
 process.env.UPSTASH_REDIS_REST_TOKEN = 'dummy-token';
 
 const app = require('../server');
-const { analyzeCv, sanitizeSchema, normalizeScore, validateMagicBytes, checkOrigin, safeSecretEqual, ATS_OUTPUT_SCHEMA } = app.__test;
+const {
+  analyzeCv,
+  sanitizeSchema,
+  normalizeScore,
+  validateMagicBytes,
+  checkOrigin,
+  safeSecretEqual,
+  isOwnerTestAuthorized,
+  claimAnalysis,
+  hasAnalysisClaim,
+  releaseAnalysisClaim,
+  analysisClaimKey,
+  analysisRetryKey,
+  extractText,
+  ATS_OUTPUT_SCHEMA,
+} = app.__test;
 
 // A well-formed report the fake model returns; overallScore as 0-1 decimal to
 // also assert normalization runs.
@@ -97,19 +113,22 @@ describe('normalizeScore', () => {
     assert.equal(normalizeScore(0), 0);
     assert.equal(normalizeScore(100), 100);
   });
+  it('clamps out-of-range and invalid values', () => {
+    assert.equal(normalizeScore(-5), 0);
+    assert.equal(normalizeScore(120), 100);
+    assert.equal(normalizeScore(Number.NaN), 0);
+  });
 });
 
 describe('validateMagicBytes', () => {
   const pdf = Buffer.from('%PDF-1.4 rest');
-  const docxHeader = (() => { const b = Buffer.alloc(64); b[0] = 0x50; b[1] = 0x4b; b.write('word/', 30); return b; })();
-  const zipNoWord = (() => { const b = Buffer.alloc(64); b[0] = 0x50; b[1] = 0x4b; return b; })();
+  const docxHeader = Buffer.from([0x50, 0x4b, 0x03, 0x04]);
   const doc = Buffer.from([0xd0, 0xcf, 0x11, 0xe0]);
 
   it('accepts a real PDF header', () => assert.equal(validateMagicBytes(pdf, 'application/pdf'), true));
   it('rejects a non-PDF claiming to be PDF', () => assert.equal(validateMagicBytes(Buffer.from('NOPE-not-pdf'), 'application/pdf'), false));
-  it('accepts a DOCX (PK + word/ marker)', () => assert.equal(validateMagicBytes(docxHeader, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'), true));
-  it('rejects a PK zip with no word/ marker as DOCX', () => assert.equal(validateMagicBytes(zipNoWord, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'), false));
-  it('accepts a legacy .doc OLE header', () => assert.equal(validateMagicBytes(doc, 'application/msword'), true));
+  it('accepts a DOCX ZIP local-file header', () => assert.equal(validateMagicBytes(docxHeader, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'), true));
+  it('rejects a legacy .doc OLE file', () => assert.equal(validateMagicBytes(doc, 'application/msword'), false));
   it('rejects buffers shorter than 4 bytes', () => assert.equal(validateMagicBytes(Buffer.from([0x25]), 'application/pdf'), false));
 });
 
@@ -124,6 +143,59 @@ describe('safeSecretEqual', () => {
     assert.equal(safeSecretEqual(['secret'], 'secret'), false); // duplicate-header array
     assert.equal(safeSecretEqual('secret', ''), false);
     assert.equal(safeSecretEqual('secret', undefined), false);
+  });
+});
+
+describe('owner test-token authorization', () => {
+  it('requires both the secret and a non-empty matching IP allowlist', () => {
+    assert.equal(isOwnerTestAuthorized('secret', 'secret', '203.0.113.10', new Set()), false);
+    assert.equal(isOwnerTestAuthorized('wrong', 'secret', '203.0.113.10', new Set(['203.0.113.10'])), false);
+    assert.equal(isOwnerTestAuthorized('secret', 'secret', '203.0.113.11', new Set(['203.0.113.10'])), false);
+    assert.equal(isOwnerTestAuthorized('secret', 'secret', '::ffff:203.0.113.10', new Set(['203.0.113.10'])), true);
+  });
+});
+
+describe('analysis session claims', () => {
+  class FakeRedis {
+    constructor() { this.values = new Map(); }
+    async set(key, value, options = {}) {
+      if (options.nx && this.values.has(key)) return null;
+      this.values.set(key, value);
+      return 'OK';
+    }
+    async exists(key) { return this.values.has(key) ? 1 : 0; }
+    async del(key) { return this.values.delete(key) ? 1 : 0; }
+  }
+
+  it('allows only one concurrent claim for the same payment session', async () => {
+    const store = new FakeRedis();
+    const results = await Promise.all([
+      claimAnalysis('cs_paid_123', store),
+      claimAnalysis('cs_paid_123', store),
+    ]);
+    assert.deepEqual(results.sort(), [false, true]);
+    assert.equal(await hasAnalysisClaim('cs_paid_123', store), true);
+  });
+
+  it('can release a failed attempt without changing session identity', async () => {
+    const store = new FakeRedis();
+    assert.equal(await claimAnalysis('cs_paid_retry', store), true);
+    await releaseAnalysisClaim('cs_paid_retry', store);
+    assert.equal(await claimAnalysis('cs_paid_retry', store), true);
+    assert.equal(analysisClaimKey('cs_paid_retry'), 'passats:analysis:cs_paid_retry');
+    assert.equal(analysisRetryKey('cs_paid_retry'), 'passats:retry:cs_paid_retry');
+  });
+});
+
+describe('DOCX extraction', () => {
+  it('extracts text from a real DOCX through Mammoth', async () => {
+    const mammothRoot = path.resolve(path.dirname(require.resolve('mammoth')), '..');
+    const fixture = path.join(mammothRoot, 'test', 'test-data', 'single-paragraph.docx');
+    const text = await extractText({
+      path: fixture,
+      mimetype: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    });
+    assert.match(text, /Walking on imported air/);
   });
 });
 

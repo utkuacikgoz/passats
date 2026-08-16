@@ -19,4 +19,4 @@ PassATS is a paid ATS (Applicant Tracking System) resume checker. Upload a resum
 
 - Pricing is a one-time $2.99. There is no subscription and no account required.
 - Uploaded resumes are analyzed in real time and immediately discarded — not stored, not used for training.
-- Supported uploads: PDF, DOC, and DOCX up to 5 MB.
+- Supported uploads: PDF and DOCX up to 5 MB.
