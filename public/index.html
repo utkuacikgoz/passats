@@ -309,27 +309,23 @@
   .hero-report {
     background: var(--card); border: 1px solid var(--border);
     border-radius: 3px; overflow: hidden;
-    box-shadow: 18px 20px 0 var(--surface), 0 24px 70px rgba(32,27,23,0.10);
+    box-shadow: 0 22px 56px rgba(32,27,23,0.10);
     text-align: left;
   }
-  .hero-report::before { content: ''; display: block; height: 7px; background: var(--accent); }
+  .hero-report::before { content: ''; display: block; height: 3px; background: var(--accent); }
   .report-summary {
-    padding: 30px 32px 26px; display: flex;
+    padding: 32px 34px 22px; display: flex;
     align-items: flex-start; justify-content: space-between; gap: 20px;
   }
   .report-score {
-    color: var(--accent); display: flex; flex-direction: column;
+    color: var(--ink); display: flex; flex-direction: column;
     align-items: flex-end; justify-content: flex-start; flex-shrink: 0;
   }
   .report-score strong { font-family: 'DM Serif Display', serif; font-size: 4.1rem; line-height: 0.78; letter-spacing: -0.05em; }
   .report-score span { font-size: 0.72rem; color: var(--muted); margin-top: 10px; }
-  .report-context h3 { font-family: 'DM Serif Display', serif; font-size: 1.85rem; line-height: 1.05; margin-bottom: 6px; }
+  .report-context h3 { font-family: 'DM Serif Display', serif; font-size: 1.85rem; line-height: 1.05; margin-bottom: 8px; }
   .report-context p { font-size: 0.84rem; color: var(--muted); line-height: 1.45; }
-  .report-context .report-verdict {
-    display: inline-block; margin-top: 18px; color: var(--accent);
-    font-size: 0.78rem; font-weight: 600;
-  }
-  .report-section { padding: 0 32px 30px; }
+  .report-section { padding: 4px 34px 32px; }
   .report-section-title {
     font-family: 'DM Serif Display', serif; font-size: 1.25rem;
     color: var(--ink); margin-bottom: 12px;
@@ -621,14 +617,13 @@
     <aside class="hero-report" aria-label="PassATS report preview">
       <div class="report-summary">
         <div class="report-context">
-          <p>Mark Zuckbefed</p>
-          <h3>Product Manager</h3>
-          <span class="report-verdict">Your CV is underselling you.</span>
+          <h3>Mark Zuckbefed</h3>
+          <p>Product Manager</p>
         </div>
         <div class="report-score"><strong>72</strong><span>out of 100</span></div>
       </div>
       <div class="report-section">
-        <div class="report-section-title">What is holding it back</div>
+        <div class="report-section-title">What needs work</div>
         <div class="report-fix">
           <span class="report-fix-num">1</span>
           <div><strong>Work experience</strong><p>Three bullets name work, not the result.</p></div>
