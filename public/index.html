@@ -269,7 +269,11 @@
 
   .hero-explainer {
     font-size: 1.08rem; color: var(--ink); line-height: 1.55;
-    max-width: 440px; margin-bottom: 34px; font-weight: 500;
+    max-width: 440px; margin-bottom: 14px; font-weight: 500;
+  }
+  .hero-flow {
+    font-size: 0.94rem; color: var(--muted); line-height: 1.6;
+    max-width: 440px; margin-bottom: 34px;
   }
 
   .cta-row {
@@ -569,7 +573,7 @@
       text-align: center;
     }
     .hero-copy { text-align: center; }
-    .hero-explainer { margin-left: auto; margin-right: auto; }
+    .hero-explainer, .hero-flow { margin-left: auto; margin-right: auto; }
     .cta-row { justify-content: center; }
   }
   @media (max-width: 640px) {
@@ -609,6 +613,7 @@
     <div class="hero-copy">
       <h1>Your resume is<br><span>underselling you.</span></h1>
       <p class="hero-explainer">Get an ATS score, find missing keywords, and fix the lines that weaken your CV.</p>
+      <p class="hero-flow">No signup. No login. Pay. Upload. Get your result.</p>
       <div class="cta-row">
         <button class="btn-primary" onclick="startCheckout()" id="heroCtaBtn">Check My Resume. $2.99</button>
       </div>
