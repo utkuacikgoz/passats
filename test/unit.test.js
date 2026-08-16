@@ -283,6 +283,7 @@ describe('analyzeCv (real path, injected fake client)', () => {
     assert.match(request.system, /Never claim that the PDF is single-column, visually clean, table-free/);
     assert.match(request.system, /Never pad either list with cosmetic preferences/);
     assert.doesNotMatch(request.system, /email address is professional/);
+    assert.match(request.system, /Do not use a dash character in user facing prose/);
   });
 
   it('parses a valid response and normalizes 0-1 scores', async () => {
