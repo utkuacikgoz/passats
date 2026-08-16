@@ -585,18 +585,6 @@
     color: var(--muted); line-height: 1.7;
   }
 
-  /* ── SOCIAL PROOF ── */
-  .social-proof {
-    font-size: 0.8rem; color: var(--muted);
-    display: flex; align-items: center; justify-content: center; gap: 7px;
-    margin: -8px 0 44px;
-  }
-  .proof-dot {
-    width: 7px; height: 7px; border-radius: 50%;
-    background: var(--accent); flex-shrink: 0;
-    animation: pulse 2s infinite;
-  }
-
   /* RESPONSIVE */
   @media (max-width: 640px) {
     nav { padding: 16px 20px; }
@@ -642,7 +630,6 @@
       <button class="btn-primary" onclick="startCheckout()" id="heroCtaBtn">Find What I Miss. $2.99</button>
       <span class="price-tag">About one minute · <strong>$2.99</strong> · No signup</span>
     </div>
-    <p class="social-proof"><span class="proof-dot" aria-hidden="true"></span>Your experience deserves a fair read.</p>
     <div class="error-msg" id="landingError" style="max-width:480px;margin:0 auto;"></div>
   </section>
 
