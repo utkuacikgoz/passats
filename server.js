@@ -43,6 +43,9 @@ const BASE_URL = process.env.BASE_URL || `http://localhost:${PORT}`;
 // (e.g. claude-haiku-4-5 to trade a little copy sharpness for lower cost/latency).
 const LLM_MODEL = process.env.LLM_MODEL || 'claude-sonnet-5';
 const POSTHOG_HOST = process.env.POSTHOG_HOST || 'https://us.i.posthog.com';
+// Leave a small buffer below a 60-second serverless invocation while allowing
+// structured-output grammar compilation and normal model latency to complete.
+const LLM_TIMEOUT_MS = 55000;
 const ANALYSIS_RETRY_MESSAGE = 'We couldn\'t complete your analysis right now. Please try again shortly.';
 const ANALYSIS_SUPPORT_MESSAGE = 'We couldn\'t complete your analysis. Please contact support so we can help.';
 const APP_SCRIPT_CSP_HASH = "'sha256-4eODAOxi7xDqaLy2JwMO4qqn5kl+rgu2kucwuA/OQV8='";
@@ -939,7 +942,7 @@ ${cvSlice}
 ---`;
 
   const abortController = new AbortController();
-  const timeoutId = setTimeout(() => abortController.abort(), 25000);
+  const timeoutId = setTimeout(() => abortController.abort(), LLM_TIMEOUT_MS);
 
   let response;
   try {
@@ -954,7 +957,7 @@ ${cvSlice}
       messages: [{ role: 'user', content: userPrompt }],
     }, { signal: abortController.signal });
   } catch (err) {
-    // Our 25s AbortController fires APIUserAbortError; the SDK's own timeout
+    // Our AbortController fires APIUserAbortError; the SDK's own timeout
     // fires APIConnectionTimeoutError. Map both to the retryable LLM_TIMEOUT.
     if (/Abort|Timeout/i.test(err?.name || '') || err?.name === 'AbortError') {
       throw new Error('LLM_TIMEOUT');
@@ -1042,6 +1045,7 @@ app.__test = {
   analysisRetryKey,
   extractText,
   ATS_OUTPUT_SCHEMA,
+  LLM_TIMEOUT_MS,
 };
 
 // ── Start ─────────────────────────────────────────────────────────────────────
