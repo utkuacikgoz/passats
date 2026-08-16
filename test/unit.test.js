@@ -270,6 +270,21 @@ describe('analyzeCv (real path, injected fake client)', () => {
     assert.equal(LLM_TIMEOUT_MS, 55000);
   });
 
+  it('forbids unsupported ATS claims and cosmetic email advice in the evaluator prompt', async () => {
+    let request;
+    await analyzeCv('CV text', '', {
+      model: 'test-model',
+      client: { messages: { create: async options => {
+        request = options;
+        return { stop_reason: 'end_turn', content: [{ type: 'text', text: JSON.stringify(validReport()) }] };
+      } } },
+    });
+    assert.match(request.system, /Never penalize, downgrade, or recommend changing an email/);
+    assert.match(request.system, /Never claim that the PDF is single-column, visually clean, table-free/);
+    assert.match(request.system, /Never pad either list with cosmetic preferences/);
+    assert.doesNotMatch(request.system, /email address is professional/);
+  });
+
   it('parses a valid response and normalizes 0-1 scores', async () => {
     const res = await analyzeCv('cv text long enough', '', opts(() => ({
       stop_reason: 'end_turn',

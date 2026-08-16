@@ -107,4 +107,12 @@ To run a real, no-payment analysis of a specific CV and print the raw model repo
 TEST_SECRET=your-secret npm run owner:analyze -- path/to/resume.pdf "optional job description"
 ```
 
+To test the production upload and results UI without payment, run:
+
+```
+TEST_SECRET=your-secret npm run owner:ui
+```
+
+Open the printed URL in a browser. It contains a single-use, 30-minute owner test token in the URL fragment; the page removes it from browser history before showing the upload screen.
+
 Same requirements: `TEST_SECRET` set in the deployment env, and your public IP in `TEST_ALLOWED_IPS`. Override the target with `BASE=https://your-domain.com`. Remove `TEST_SECRET` when finished to disable the endpoint.

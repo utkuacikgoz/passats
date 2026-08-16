@@ -328,3 +328,12 @@ describe('Customer-facing analysis failures', () => {
     assert.match(res.text, /We couldn\\'t complete your analysis just now\. Please try again in a moment\./);
   });
 });
+
+describe('Owner UI testing', () => {
+  it('accepts only a short-lived owner token from a URL fragment and removes it from history', async () => {
+    const res = await request.get('/');
+    assert.match(res.text, /owner_test_token/);
+    assert.match(res.text, /payload\.sessionId\.startsWith\('test_'\)/);
+    assert.match(res.text, /window\.history\.replaceState/);
+  });
+});
