@@ -14,6 +14,7 @@
     "sync:sitemap": "node scripts/build-sitemap.js",
     "sync:seo": "npm run sync:faq && npm run sync:sitemap && npm run sync:csp",
     "build:og": "node scripts/build-og-image.js",
+    "smoke:routes": "node scripts/smoke-routes.js",
     "smoke:prod": "node scripts/smoke-test.js",
     "owner:analyze": "bash scripts/owner-analyze.sh",
     "owner:ui": "bash scripts/owner-ui.sh",

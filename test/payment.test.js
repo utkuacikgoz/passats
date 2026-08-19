@@ -52,6 +52,8 @@ const stripeState = {
   updates: [],
   created: [],
   nextEvent: null,
+  // Set to simulate an account or API version that will not accept custom_text.
+  rejectCustomText: false,
 };
 
 class FakeStripe {
@@ -60,6 +62,12 @@ class FakeStripe {
       sessions: {
         create: async params => {
           stripeState.created.push(params);
+          if (stripeState.rejectCustomText && params.custom_text) {
+            const err = new Error('Received unknown parameter: custom_text');
+            err.type = 'StripeInvalidRequestError';
+            err.statusCode = 400;
+            throw err;
+          }
           return { id: 'cs_test_created', url: 'https://checkout.stripe.test/cs_test_created' };
         },
         retrieve: async id => {
@@ -335,6 +343,11 @@ describe('analyze — the real path', () => {
 });
 
 describe('checkout', () => {
+  beforeEach(() => {
+    stripeState.rejectCustomText = false;
+    stripeState.created.length = 0;
+  });
+
   it('states the withdrawal-right waiver at the point of payment', async () => {
     const res = await request.post('/api/checkout').set('Origin', BASE_URL).set('x-vercel-forwarded-for', nextIp());
     assert.equal(res.status, 200);
@@ -343,6 +356,25 @@ describe('checkout', () => {
     assert.match(message, /immediately/i);
     assert.match(message, /right of withdrawal/i);
     assert.match(message, new RegExp(app.__test.SUPPORT_EMAIL.replace('.', '\\.')));
+  });
+
+  it('still sells the analysis if Stripe rejects the consent copy', async () => {
+    // A rejected optional field must never take the funnel down.
+    stripeState.rejectCustomText = true;
+    const res = await request.post('/api/checkout').set('Origin', BASE_URL).set('x-vercel-forwarded-for', nextIp());
+
+    assert.equal(res.status, 200);
+    assert.ok(res.body.url, 'the customer still gets a checkout URL');
+    assert.equal(stripeState.created.length, 2, 'retried once, without custom_text');
+    assert.equal(stripeState.created[1].custom_text, undefined);
+  });
+
+  it('does not retry a genuine Stripe outage', async () => {
+    const original = app.__test.isInvalidRequest;
+    assert.equal(original({ type: 'StripeInvalidRequestError' }), true);
+    assert.equal(original({ statusCode: 400 }), true);
+    assert.equal(original({ type: 'StripeAPIError', statusCode: 503 }), false);
+    assert.equal(original(new Error('socket hang up')), false);
   });
 });
 

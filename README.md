@@ -19,7 +19,11 @@ security headers and hashed CSP that `server.js` sets.
 
 ## Runtime
 
-- Node 22.x — pinned in `package.json` `engines`, CI, and the Vercel runtime.
+- Node — the version in `.nvmrc` is the single source. CI reads it via
+  `node-version-file`, `nvm use` reads it locally, and Vercel resolves
+  `engines` to the newest release of that major. The floor is 22.22.0 because
+  `posthog-node` declares `^20.20.0 || >=22.22.0`; anything lower installs with
+  an `EBADENGINE` warning.
 - Vercel or another Node-compatible serverless/container runtime
 - Stripe checkout + webhook configured
 - Upstash Redis for one-analysis-per-payment enforcement and global rate limiting
@@ -52,12 +56,13 @@ Recommended optional variables:
 
 ## Local Development
 
-1. Copy `.env.example` to `.env` and fill the values you need.
-2. For local UI/testing without live billing or live LLM calls, set `DEV_MODE=true`.
-3. Install dependencies with `npm install`.
-4. Start the app with `npm run dev`.
-5. Install the browser used by the journey tests once: `npx playwright install chromium`.
-6. Run the test suite with `npm test`.
+1. Run `nvm use` to match the Node version in `.nvmrc`.
+2. Copy `.env.example` to `.env` and fill the values you need.
+3. For local UI/testing without live billing or live LLM calls, set `DEV_MODE=true`.
+4. Install dependencies with `npm install`.
+5. Start the app with `npm run dev`.
+6. Install the browser used by the journey tests once: `npx playwright install chromium`.
+7. Run the test suite with `npm test`.
 
 ## Generated Files
 
@@ -96,11 +101,22 @@ Before go-live, verify the following:
 
 - `DEV_MODE` is not set in production.
 - Vercel project uses Node 22.x, matching `engines` and CI.
+- **Routing survives the move off `builds`.** Run
+  `BASE=https://your-preview.vercel.app npm run smoke:routes` against the first
+  preview deploy, before promoting it. Fifteen checks cover the catch-all rewrite
+  into `api/index.js`, static assets still winning over it, the `.html` redirects,
+  and — via the CSP and `X-Frame-Options` headers on `/` — that HTML is genuinely
+  served by the function rather than the CDN. This is the one change the test
+  suite cannot prove locally.
 - **The deployed function's real timeout is at least 60 s.** `vercel.json` asks for
   `maxDuration: 60`; confirm the deployment honoured it. `LLM_TIMEOUT_MS` is 55 s,
   and a platform timeout kills the request *outside* our catch block, so the
   analysis claim is never released and the customer is locked out of the analysis
   they paid for. If the plan caps duration lower, lower `LLM_TIMEOUT_MS` to match.
+- **The consent line survived.** Checkout sends `custom_text.submit` carrying the
+  withdrawal waiver, and falls back to a plain session if Stripe rejects it rather
+  than failing the sale. Grep the logs for `checkout.custom_text_rejected` after
+  the first live purchase: if it appears, the waiver is only on the terms page.
 - **`SUPPORT_EMAIL` resolves to a mailbox someone reads.** Send a test message to
   it. It is quoted in the terminal failure message and in the terms as the refund
   route; a customer who lost $2.99 with no reachable address opens a Stripe
@@ -165,6 +181,16 @@ Two things to keep an eye on:
 7. Hit `/api/health` with the correct secret header and verify `hasLlm`, `hasStripe`, `hasRedis`, and optionally `hasPostHog` are `true`.
 8. Confirm `payment_completed` and `cv_analysis_completed` appear in PostHog —
    these are flushed before the response, but the flush is bounded and best-effort.
+
+## Routing Smoke Check
+
+```
+BASE=https://your-deployment.vercel.app npm run smoke:routes
+```
+
+Read-only, no payment, safe against production. Exits non-zero on any failure and
+names what broke. It also detects the degraded boot mode — a 503 on `/api/*` means
+required environment variables are missing, and the server logs name which.
 
 ## Production Smoke Script
 
