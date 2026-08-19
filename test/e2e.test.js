@@ -86,6 +86,21 @@ describe('Health & Static', () => {
 });
 
 describe('Checkout flow (dev mode)', () => {
+  it('POST /api/events accepts an allowlisted anonymous funnel event', async () => {
+    const res = await request.post('/api/events').send({ event: 'landing_viewed', properties: {
+      anonymous_session_id: crypto.randomUUID(), source: 'google',
+    } });
+    assert.equal(res.status, 202);
+    assert.deepEqual(res.body, { accepted: true });
+  });
+
+  it('POST /api/events rejects unknown events', async () => {
+    const res = await request.post('/api/events').send({ event: 'resume_text_captured', properties: {
+      anonymous_session_id: crypto.randomUUID(),
+    } });
+    assert.equal(res.status, 400);
+  });
+
   it('POST /api/checkout returns redirect URL', async () => {
     const res = await request.post('/api/checkout');
     assert.equal(res.status, 200);
