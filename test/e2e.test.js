@@ -380,6 +380,24 @@ describe('Routing', () => {
     assert.doesNotMatch(res.headers['content-type'] || '', /html/);
   });
 
+  it('404s unknown pages instead of serving the app shell', async () => {
+    // A catch-all that returned the landing page answered 200 for /jobs, /blog,
+    // and every other guessed path: an unbounded set of soft-404s competing with
+    // the real pages in search results.
+    for (const route of ['/jobs', '/blog', '/a/b/c']) {
+      const res = await request.get(route);
+      assert.equal(res.status, 404, `${route} should not exist`);
+      assert.match(res.text, /That page does not exist/);
+      assert.match(res.text, /noindex/);
+    }
+  });
+
+  it('still serves the real pages', async () => {
+    for (const route of ['/', '/success', '/privacy', '/terms']) {
+      assert.equal((await request.get(route)).status, 200, `${route} must be served`);
+    }
+  });
+
   it('301s the .html variants to their canonical clean paths', async () => {
     for (const [from, to] of [['/privacy.html', '/privacy'], ['/terms.html', '/terms'], ['/index.html', '/']]) {
       const res = await request.get(from);
