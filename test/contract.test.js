@@ -169,6 +169,33 @@ describe('accessibility affordances are present', () => {
   });
 });
 
+describe('the development mock models the real product', () => {
+  // Developers and the owner UI smoke test look at this report constantly. If it
+  // breaks the rules the system prompt enforces, it teaches the wrong standard
+  // and hides copy regressions behind plausible-looking output.
+  const mockText = JSON.stringify(app.__test.devReport());
+
+  it('uses none of the hedging phrases the prompt bans', () => {
+    for (const banned of ['consider', 'it appears', 'seems like', 'you might want to', 'overall', 'in order to', 'leverage', 'utilize']) {
+      assert.doesNotMatch(mockText, new RegExp(`\\b${banned}\\b`, 'i'), `mock report uses the banned phrase "${banned}"`);
+    }
+  });
+
+  it('makes no claim about visual layout', () => {
+    assert.doesNotMatch(mockText, /\btables?\b|\bcolumns?\b|\bgraphics\b|clean layout|single[- ]column/i);
+  });
+
+  it('uses no dash characters in customer-facing prose', () => {
+    assert.doesNotMatch(mockText, /[\u2013\u2014]|--/);
+  });
+
+  it('returns 3 to 5 fixes and 3 to 7 issues, as the prompt requires', () => {
+    const report = app.__test.devReport();
+    assert.ok(report.topFixes.length >= 3 && report.topFixes.length <= 5, `${report.topFixes.length} fixes`);
+    assert.ok(report.issues.length >= 3 && report.issues.length <= 7, `${report.issues.length} issues`);
+  });
+});
+
 describe('the test runner covers every suite', () => {
   it('names each test file in a script', () => {
     // node --test runs files in parallel, and the Chromium suite starved the
