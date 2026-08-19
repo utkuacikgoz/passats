@@ -4,11 +4,16 @@
   "description": "ATS CV Review — instant resume scoring",
   "main": "server.js",
   "engines": {
-    "node": "24.x"
+    "node": "22.x"
   },
   "scripts": {
     "start": "node server.js",
     "dev": "node --watch server.js",
+    "sync:faq": "node scripts/sync-structured-data.js",
+    "sync:csp": "node scripts/sync-csp-hashes.js",
+    "sync:sitemap": "node scripts/build-sitemap.js",
+    "sync:seo": "npm run sync:faq && npm run sync:sitemap && npm run sync:csp",
+    "build:og": "node scripts/build-og-image.js",
     "smoke:prod": "node scripts/smoke-test.js",
     "owner:analyze": "bash scripts/owner-analyze.sh",
     "owner:ui": "bash scripts/owner-ui.sh",
@@ -30,6 +35,7 @@
     "stripe": "^22.5.0"
   },
   "devDependencies": {
+    "playwright": "^1.62.1",
     "supertest": "^7.2.2"
   }
 }
