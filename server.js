@@ -16,6 +16,7 @@ const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const path = require('path');
 const { Redis } = require('@upstash/redis');
+const { DOCUMENT_PARSE_TIMEOUT_MS, LLM_TIMEOUT_MS } = require('./config/runtime');
 
 // ── Config ────────────────────────────────────────────────────────────────────
 const DEV_MODE = process.env.DEV_MODE === 'true';
@@ -27,7 +28,7 @@ const DEV_MODE = process.env.DEV_MODE === 'true';
 // 503 that names the misconfiguration in the logs.
 let CONFIG_ERROR = null;
 if (!DEV_MODE) {
-  const required = ['STRIPE_SECRET_KEY', 'STRIPE_WEBHOOK_SECRET', 'STRIPE_PRICE_ID', 'ANTHROPIC_API_KEY', 'JWT_SECRET', 'UPSTASH_REDIS_REST_URL', 'UPSTASH_REDIS_REST_TOKEN'];
+  const required = ['STRIPE_SECRET_KEY', 'STRIPE_WEBHOOK_SECRET', 'STRIPE_PRICE_ID', 'ANTHROPIC_API_KEY', 'LLM_MODEL', 'JWT_SECRET', 'UPSTASH_REDIS_REST_URL', 'UPSTASH_REDIS_REST_TOKEN'];
   const missing = required.filter(k => !process.env[k]);
   if (missing.length) {
     CONFIG_ERROR = missing;
@@ -38,17 +39,15 @@ if (!DEV_MODE) {
 const app = express();
 const PORT = process.env.PORT || 3000;
 const BASE_URL = process.env.BASE_URL || `http://localhost:${PORT}`;
-// Analysis model. Claude Sonnet 5 is the launch default — best quality/latency
-// balance for the instruction-heavy scoring prompt; override via LLM_MODEL
-// (e.g. claude-haiku-4-5 to trade a little copy sharpness for lower cost/latency).
-const LLM_MODEL = process.env.LLM_MODEL || 'claude-sonnet-5';
+// Production deliberately has no model fallback. Requiring an explicit API model
+// ID prevents a deploy from silently changing quality/cost when a default moves.
+const LLM_MODEL = process.env.LLM_MODEL || (DEV_MODE ? 'mock' : null);
+const PROMPT_VERSION = '2026-08-19.1';
 const POSTHOG_HOST = process.env.POSTHOG_HOST || 'https://us.i.posthog.com';
-// Leave a small buffer below a 60-second serverless invocation while allowing
-// structured-output grammar compilation and normal model latency to complete.
-const LLM_TIMEOUT_MS = 55000;
+// Timeouts are shared with the CI deployment-budget check in config/runtime.js.
 const ANALYSIS_RETRY_MESSAGE = 'We couldn\'t complete your analysis right now. Please try again shortly.';
 const ANALYSIS_SUPPORT_MESSAGE = 'We couldn\'t complete your analysis. Please contact support so we can help.';
-const APP_SCRIPT_CSP_HASH = "'sha256-6zedb/zvFvDCb42WPxGfnC3sESF7tNURGuVMk8xDQJA='";
+const APP_SCRIPT_CSP_HASH = "'sha256-XlEK3wYs4fkVaVt9OCf484pZhCDRsrSN+iq9CYKCH+E='";
 const VERCEL_ANALYTICS_CSP_HASH = "'sha256-rbTaSdDD+Sd+K8IZ66VS79bdI78bN8AwXXyN0/lD5fY='";
 // Hashes of individual onclick handler bodies (required for 'unsafe-hashes' to allow them)
 const APP_HANDLER_CSP_HASHES = [
@@ -171,6 +170,45 @@ function capturePosthog(event, properties = {}, distinctId = 'server') {
   }
 }
 
+const CLIENT_FUNNEL_EVENTS = new Set([
+  'landing_viewed', 'checkout_clicked', 'upload_viewed',
+  'file_validation_failed', 'analysis_started', 'analysis_completed',
+  'analysis_failed', 'report_feedback_submitted',
+]);
+const CLIENT_FUNNEL_PROPERTY_KEYS = new Set([
+  'anonymous_session_id', 'campaign', 'source', 'medium', 'file_type',
+  'has_job_description', 'failure_category', 'latency_bucket', 'helpful',
+]);
+const CLIENT_FUNNEL_ENUMS = {
+  file_type: new Set(['pdf', 'docx']),
+  failure_category: new Set(['size', 'type', 'payment', 'network', 'server', 'unknown']),
+  latency_bucket: new Set(['under_15s', '15_to_30s', '30_to_60s', 'over_60s']),
+};
+
+function sanitizeFunnelEvent(body) {
+  if (!body || !CLIENT_FUNNEL_EVENTS.has(body.event)) return null;
+  const input = body.properties;
+  if (!input || typeof input !== 'object' || Array.isArray(input)) return null;
+  if (typeof input.anonymous_session_id !== 'string' || !/^[a-f0-9-]{36}$/.test(input.anonymous_session_id)) return null;
+  const properties = {};
+  for (const [key, value] of Object.entries(input)) {
+    if (!CLIENT_FUNNEL_PROPERTY_KEYS.has(key)) continue;
+    if (key === 'has_job_description' || key === 'helpful') {
+      if (typeof value === 'boolean') properties[key] = value;
+    } else if (CLIENT_FUNNEL_ENUMS[key]) {
+      if (CLIENT_FUNNEL_ENUMS[key].has(value)) properties[key] = value;
+    } else if (typeof value === 'string' && value.length <= 80 && /^[\w .:/-]*$/.test(value)) {
+      properties[key] = value;
+    }
+  }
+  properties.anonymous_session_id = input.anonymous_session_id;
+  return { event: body.event, properties };
+}
+
+function checkoutFunnelProperties(body) {
+  return sanitizeFunnelEvent({ event: 'checkout_clicked', properties: body?.analytics })?.properties || null;
+}
+
 function logError(event, err, fields = {}) {
   const properties = {
     ...fields,
@@ -280,6 +318,17 @@ app.use(compression());
 
 app.use(express.json({ limit: '50kb' }));
 
+// Same-origin, allowlisted funnel ingestion. Unknown properties are discarded so
+// resume/JD text, filenames, payment tokens, and raw model output cannot reach analytics.
+app.post('/api/events', async (req, res) => {
+  if (!checkOrigin(req, res)) return;
+  if (!await enforceRateLimit(req, res, 'events:' + req.ip, 60, 60000)) return;
+  const event = sanitizeFunnelEvent(req.body);
+  if (!event) return res.status(400).json({ error: 'Invalid event' });
+  capturePosthog(event.event, { ...event.properties, requestId: req.requestId }, event.properties.anonymous_session_id);
+  res.status(202).json({ accepted: true });
+});
+
 // Static assets with cache headers
 app.use(express.static(path.join(__dirname, 'public'), {
   maxAge: '7d',
@@ -309,6 +358,7 @@ app.get('/api/health', (req, res) => {
     hasPostHog: !!posthog,
     hasRedis: !!redis,
     llmModel: DEV_MODE ? 'mock' : LLM_MODEL,
+    promptVersion: PROMPT_VERSION,
   });
 });
 
@@ -429,14 +479,26 @@ app.post('/api/checkout', async (req, res) => {
   }
 
   try {
+    const funnel = checkoutFunnelProperties(req.body);
     const session = await stripe.checkout.sessions.create({
       mode: 'payment',
       line_items: [{ price: process.env.STRIPE_PRICE_ID, quantity: 1 }],
       success_url: `${BASE_URL}/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${BASE_URL}/?cancelled=1`,
       expires_at: Math.floor(Date.now() / 1000) + 30 * 60,
+      ...(funnel ? { metadata: {
+        passats_analytics_session: funnel.anonymous_session_id,
+        passats_utm_source: funnel.source || '',
+        passats_utm_medium: funnel.medium || '',
+        passats_utm_campaign: funnel.campaign || '',
+      } } : {}),
     });
-    capturePosthog('checkout_initiated', { requestId: req.requestId, stripe_session_id: session.id }, session.id);
+    capturePosthog('checkout_created', {
+      requestId: req.requestId,
+      source: funnel?.source,
+      medium: funnel?.medium,
+      campaign: funnel?.campaign,
+    }, funnel?.anonymous_session_id || session.id);
     res.json({ url: session.url });
   } catch (err) {
     logError('checkout.error', err, { requestId: req.requestId, ip });
@@ -472,10 +534,12 @@ async function handleWebhook(req, res) {
       metadata: { passats_token: token }
     }).catch(() => {});
     capturePosthog('payment_completed', {
-      stripe_session_id: checkoutSession.id,
       amount_total: checkoutSession.amount_total,
       currency: checkoutSession.currency,
-    }, checkoutSession.id);
+      source: checkoutSession.metadata?.passats_utm_source,
+      medium: checkoutSession.metadata?.passats_utm_medium,
+      campaign: checkoutSession.metadata?.passats_utm_campaign,
+    }, checkoutSession.metadata?.passats_analytics_session || checkoutSession.id);
   }
 
   res.json({ received: true });
@@ -592,6 +656,9 @@ async function analyzeAuth(req, res, next) {
 app.post('/api/analyze', analyzeAuth, upload.single('cv'), async (req, res) => {
   const reqId = req.requestId;
   const tokenPayload = req.tokenPayload;
+  const analyticsSessionId = typeof req.headers['x-passats-session'] === 'string' && /^[a-f0-9-]{36}$/.test(req.headers['x-passats-session'])
+    ? req.headers['x-passats-session']
+    : tokenPayload.sessionId;
 
   try {
     // Dev mode: check in-memory
@@ -601,13 +668,17 @@ app.post('/api/analyze', analyzeAuth, upload.single('cv'), async (req, res) => {
       if (devEntry) devEntry.used = true;
     }
 
-    if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+    if (!req.file) {
+      capturePosthog('file_validation_failed', { requestId: reqId, failure_category: 'type' }, analyticsSessionId);
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
 
     const uploadedBuffer = await readUploadedFileBuffer(req.file);
 
     // Magic byte validation — reject before claiming token so user isn't burned on bad file
     if (!validateMagicBytes(uploadedBuffer, req.file.mimetype)) {
       log('warn', 'upload.magic_byte_mismatch', { requestId: reqId, mimeType: req.file.mimetype });
+      capturePosthog('file_validation_failed', { requestId: reqId, failure_category: 'type' }, analyticsSessionId);
       return res.status(400).json({ error: 'File content does not match its type. Please upload a valid PDF or DOCX.' });
     }
 
@@ -644,22 +715,37 @@ app.post('/api/analyze', analyzeAuth, upload.single('cv'), async (req, res) => {
         });
       }
       log('warn', 'analyze.insufficient_text', { requestId: reqId, textLength: (text || '').length });
+      capturePosthog('file_validation_failed', { requestId: reqId, failure_category: 'type' }, analyticsSessionId);
       return res.status(422).json({ error: `Could not extract enough text. Please upload a text-based PDF or DOCX. If this persists, quote ref ${reqId}.` });
     }
 
     // Job description from multipart form field
     const jobDescription = req.body?.jobDescription || '';
-    log('info', 'analyze.started', { requestId: reqId, model: LLM_MODEL, hasJobDescription: !!jobDescription });
+    log('info', 'analyze.started', { requestId: reqId, model: LLM_MODEL, promptVersion: PROMPT_VERSION, hasJobDescription: !!jobDescription });
+    capturePosthog('analysis_started', {
+      requestId: reqId,
+      file_type: req.file?.mimetype === 'application/pdf' ? 'pdf' : 'docx',
+      has_job_description: !!jobDescription,
+      model: LLM_MODEL,
+      prompt_version: PROMPT_VERSION,
+    }, analyticsSessionId);
+    const analysisStartedAt = Date.now();
     const result = await analyzeCv(text, jobDescription);
-    log('info', 'analyze.completed', { requestId: reqId, overallScore: result.overallScore, model: LLM_MODEL });
-    capturePosthog('cv_analysis_completed', {
+    log('info', 'analyze.completed', { requestId: reqId, overallScore: result.overallScore, model: LLM_MODEL, promptVersion: PROMPT_VERSION });
+    capturePosthog('analysis_completed', {
       requestId: reqId,
       overall_score: result.overallScore,
       verdict: result.verdict,
       detected_role: result.detectedRole,
       has_job_description: !!jobDescription,
       file_type: req.file?.mimetype,
-    }, tokenPayload.sessionId);
+      model: LLM_MODEL,
+      prompt_version: PROMPT_VERSION,
+      latency_bucket: (() => {
+        const seconds = (Date.now() - analysisStartedAt) / 1000;
+        return seconds < 15 ? 'under_15s' : seconds < 30 ? '15_to_30s' : seconds < 60 ? '30_to_60s' : 'over_60s';
+      })(),
+    }, analyticsSessionId);
     res.json(result);
   } catch (err) {
     // Password-protected PDF — release token (user mistake, not adversarial)
@@ -667,6 +753,7 @@ app.post('/api/analyze', analyzeAuth, upload.single('cv'), async (req, res) => {
       if (redis && tokenPayload.sessionId) {
         await releaseAnalysisClaim(tokenPayload.sessionId).catch(() => {});
       }
+      capturePosthog('file_validation_failed', { requestId: reqId, failure_category: 'type' }, analyticsSessionId);
       return res.status(422).json({ error: `This PDF is password-protected. Please remove the password and re-upload. Quote ref ${reqId}.` });
     }
 
@@ -680,17 +767,17 @@ app.post('/api/analyze', analyzeAuth, upload.single('cv'), async (req, res) => {
         await releaseAnalysisClaim(tokenPayload.sessionId).catch(delErr => {
           logError('redis.release_token_failed', delErr, { requestId: reqId, sessionId: tokenPayload.sessionId });
         });
-        logError('analyze.retryable_error', err, { requestId: reqId, retries, sessionId: tokenPayload.sessionId, model: LLM_MODEL });
-        capturePosthog('cv_analysis_failed', { requestId: reqId, retries, retryable: true }, tokenPayload.sessionId);
+        logError('analyze.retryable_error', err, { requestId: reqId, retries, sessionId: tokenPayload.sessionId, model: LLM_MODEL, promptVersion: PROMPT_VERSION });
+        capturePosthog('analysis_failed', { requestId: reqId, retries, retryable: true, failure_category: 'server' }, analyticsSessionId);
         if (posthog && !DEV_MODE) posthog.captureException(err, tokenPayload.sessionId, { requestId: reqId, retries });
         return res.status(500).json({ error: ANALYSIS_RETRY_MESSAGE });
       }
-      logError('analyze.retries_exhausted', err, { requestId: reqId, retries, sessionId: tokenPayload.sessionId, model: LLM_MODEL });
-      capturePosthog('cv_analysis_failed', { requestId: reqId, retries, retryable: false }, tokenPayload.sessionId);
+      logError('analyze.retries_exhausted', err, { requestId: reqId, retries, sessionId: tokenPayload.sessionId, model: LLM_MODEL, promptVersion: PROMPT_VERSION });
+      capturePosthog('analysis_failed', { requestId: reqId, retries, retryable: false, failure_category: 'server' }, analyticsSessionId);
       if (posthog && !DEV_MODE) posthog.captureException(err, tokenPayload.sessionId, { requestId: reqId, retries });
       return res.status(500).json({ error: ANALYSIS_SUPPORT_MESSAGE });
     }
-    logError('analyze.error', err, { requestId: reqId, model: LLM_MODEL });
+    logError('analyze.error', err, { requestId: reqId, model: LLM_MODEL, promptVersion: PROMPT_VERSION });
     res.status(500).json({ error: ANALYSIS_RETRY_MESSAGE });
   } finally {
     await cleanupUploadedFile(req.file);
@@ -701,7 +788,7 @@ app.post('/api/analyze', analyzeAuth, upload.single('cv'), async (req, res) => {
 async function extractText(file) {
   let timeoutId;
   const timeout = new Promise((_, reject) => {
-    timeoutId = setTimeout(() => reject(new Error('Document parsing timed out')), 15000);
+    timeoutId = setTimeout(() => reject(new Error('Document parsing timed out')), DOCUMENT_PARSE_TIMEOUT_MS);
   });
 
   const parse = (async () => {
@@ -1053,6 +1140,10 @@ app.__test = {
   extractText,
   ATS_OUTPUT_SCHEMA,
   LLM_TIMEOUT_MS,
+  DOCUMENT_PARSE_TIMEOUT_MS,
+  PROMPT_VERSION,
+  sanitizeFunnelEvent,
+  checkoutFunnelProperties,
 };
 
 // ── Start ─────────────────────────────────────────────────────────────────────

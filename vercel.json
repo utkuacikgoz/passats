@@ -1,5 +1,11 @@
 {
   "version": 2,
+  "functions": {
+    "server.js": {
+      "maxDuration": 120,
+      "memory": 1024
+    }
+  },
   "builds": [
     { "src": "server.js", "use": "@vercel/node" },
     { "src": "public/**", "use": "@vercel/static" }

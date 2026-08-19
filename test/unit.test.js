@@ -21,6 +21,7 @@ process.env.STRIPE_SECRET_KEY = 'sk_test_dummy';
 process.env.STRIPE_WEBHOOK_SECRET = 'whsec_dummy';
 process.env.STRIPE_PRICE_ID = 'price_dummy';
 process.env.ANTHROPIC_API_KEY = 'sk-ant-dummy';
+process.env.LLM_MODEL = 'test-model';
 process.env.JWT_SECRET = 'a'.repeat(64);
 process.env.UPSTASH_REDIS_REST_URL = 'https://example.upstash.io';
 process.env.UPSTASH_REDIS_REST_TOKEN = 'dummy-token';
@@ -42,7 +43,36 @@ const {
   extractText,
   ATS_OUTPUT_SCHEMA,
   LLM_TIMEOUT_MS,
+  DOCUMENT_PARSE_TIMEOUT_MS,
+  sanitizeFunnelEvent,
+  checkoutFunnelProperties,
 } = app.__test;
+
+describe('privacy-safe funnel telemetry', () => {
+  const id = '12345678-1234-1234-1234-123456789abc';
+
+  it('accepts canonical events and strips non-allowlisted fields', () => {
+    assert.deepEqual(sanitizeFunnelEvent({ event: 'analysis_started', properties: {
+      anonymous_session_id: id, file_type: 'pdf', has_job_description: true,
+      filename: 'Jane-Doe.pdf', resume_text: 'private', job_description: 'private', token: 'secret', raw_output: 'private',
+    } }), { event: 'analysis_started', properties: {
+      anonymous_session_id: id, file_type: 'pdf', has_job_description: true,
+    } });
+  });
+
+  it('rejects unknown events and identifying session values', () => {
+    assert.equal(sanitizeFunnelEvent({ event: 'resume_uploaded', properties: { anonymous_session_id: id } }), null);
+    assert.equal(sanitizeFunnelEvent({ event: 'landing_viewed', properties: { anonymous_session_id: 'email@example.com' } }), null);
+  });
+
+  it('keeps only safe attribution when joining checkout to payment events', () => {
+    assert.deepEqual(checkoutFunnelProperties({ analytics: {
+      anonymous_session_id: id, source: 'google', medium: 'cpc', campaign: 'role-test',
+      resume_text: 'private', token: 'secret',
+    } }), { anonymous_session_id: id, source: 'google', medium: 'cpc', campaign: 'role-test' });
+    assert.equal(checkoutFunnelProperties({ analytics: { anonymous_session_id: 'not-a-uuid' } }), null);
+  });
+});
 
 // A well-formed report the fake model returns; overallScore as 0-1 decimal to
 // also assert normalization runs.
@@ -268,6 +298,7 @@ describe('analyzeCv (real path, injected fake client)', () => {
 
   it('allows sufficient time for structured model output in a serverless request', () => {
     assert.equal(LLM_TIMEOUT_MS, 55000);
+    assert.equal(DOCUMENT_PARSE_TIMEOUT_MS, 15000);
   });
 
   it('forbids unsupported ATS claims and cosmetic email advice in the evaluator prompt', async () => {
