@@ -197,8 +197,22 @@ describe('deployment configuration', () => {
   });
 
   it('runs CI on the Node version it deploys', () => {
+    // .nvmrc is the single source: CI reads it, nvm reads it, and Vercel resolves
+    // `engines` to the newest release of that major. Asserting the two agree is
+    // what stops CI going green about a runtime that never serves a request.
     const engines = JSON.parse(read('package.json')).engines.node;
-    const ci = read('.github/workflows/ci.yml').match(/node-version: "([^"]+)"/)[1];
-    assert.equal(ci, engines, 'CI would be testing a runtime that never serves a request');
+    const pinned = read('.nvmrc').trim();
+    const ci = read('.github/workflows/ci.yml');
+
+    assert.match(ci, /node-version-file: \.nvmrc/, 'CI must read .nvmrc, not inline a version');
+    assert.doesNotMatch(ci, /node-version: "/, 'an inlined version would drift from .nvmrc');
+    assert.equal(pinned.split('.')[0], engines.split('.')[0], '.nvmrc and engines disagree on the major');
+  });
+
+  it('pins a Node version every dependency accepts', () => {
+    // posthog-node declares ^20.20.0 || >=22.22.0. Anything below that floor
+    // installs with an EBADENGINE warning and is unsupported by the vendor.
+    const [major, minor] = read('.nvmrc').trim().split('.').map(Number);
+    assert.ok(major > 22 || (major === 22 && minor >= 22), '.nvmrc is below the posthog-node floor of 22.22.0');
   });
 });

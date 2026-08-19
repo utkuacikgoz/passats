@@ -64,6 +64,10 @@ const MAX_JOB_DESCRIPTION_CHARS = 12000;
 // description with accented or CJK characters costs more than one byte each.
 const MAX_JOB_DESCRIPTION_BYTES = 20000;
 const ANALYSIS_RETRY_MESSAGE = 'We couldn\'t complete your analysis right now. Please try again shortly.';
+// Shown on the Stripe Checkout submit button. Kept beside the other customer
+// copy so the wording cannot drift from the matching clause in the terms page.
+const CHECKOUT_CONSENT_MESSAGE =
+  `You are asking us to start your analysis immediately, so you lose the 14-day right of withdrawal once your report is delivered. If anything fails, email ${SUPPORT_EMAIL} for a full refund.`;
 const analysisSupportMessage = reqId =>
   `We couldn't complete your analysis. Email ${SUPPORT_EMAIL} with reference ${reqId} and we'll refund or fix it.`;
 const APP_SCRIPT_CSP_HASH = "'sha256-Y7DJV5l9VzCbD/zrV4oXLmTUzhNTUv/VclUyEarvn4A='";
@@ -114,6 +118,12 @@ function safeSecretEqual(provided, expected) {
   const b = Buffer.from(expected);
   if (a.length !== b.length) return false;
   return crypto.timingSafeEqual(a, b);
+}
+
+// Stripe signals a parameter it will not accept with a 400 / invalid_request_error.
+// Used to tell "this account cannot have that field" apart from a real outage.
+function isInvalidRequest(err) {
+  return err?.type === 'StripeInvalidRequestError' || err?.statusCode === 400 || err?.status === 400;
 }
 
 function normalizeIp(ip) {
@@ -485,23 +495,34 @@ app.post('/api/checkout', async (req, res) => {
     return res.json({ url: `${BASE_URL}/success?session_id=${fakeSessionId}` });
   }
 
+  const baseParams = {
+    mode: 'payment',
+    line_items: [{ price: process.env.STRIPE_PRICE_ID, quantity: 1 }],
+    success_url: `${BASE_URL}/success?session_id={CHECKOUT_SESSION_ID}`,
+    cancel_url: `${BASE_URL}/?cancelled=1`,
+    expires_at: Math.floor(Date.now() / 1000) + 30 * 60,
+  };
+
   try {
-    const session = await stripe.checkout.sessions.create({
-      mode: 'payment',
-      line_items: [{ price: process.env.STRIPE_PRICE_ID, quantity: 1 }],
-      success_url: `${BASE_URL}/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${BASE_URL}/?cancelled=1`,
-      expires_at: Math.floor(Date.now() / 1000) + 30 * 60,
-      // EU and UK consumers have a 14-day right of withdrawal on digital
-      // services unless they request immediate performance and acknowledge
-      // losing that right. Saying so at the point of payment is what makes the
-      // waiver valid; the terms page carries the same wording.
-      custom_text: {
-        submit: {
-          message: 'You are asking us to start your analysis immediately, so you lose the 14-day right of withdrawal once your report is delivered. If anything fails, email ' + SUPPORT_EMAIL + ' for a full refund.',
-        },
-      },
-    });
+    let session;
+    try {
+      session = await stripe.checkout.sessions.create({
+        ...baseParams,
+        // EU and UK consumers have a 14-day right of withdrawal on digital
+        // services unless they request immediate performance and acknowledge
+        // losing that right. Saying so at the point of payment is what makes the
+        // waiver valid; the terms page carries the same wording.
+        custom_text: { submit: { message: CHECKOUT_CONSENT_MESSAGE } },
+      });
+    } catch (err) {
+      // Never let the consent copy take checkout down. If this account or API
+      // version rejects custom_text, sell the analysis anyway and shout about it
+      // in the logs: the terms page still carries the waiver, and a broken
+      // checkout costs far more than a weaker one.
+      if (!isInvalidRequest(err)) throw err;
+      logError('checkout.custom_text_rejected', err, { requestId: req.requestId, ip });
+      session = await stripe.checkout.sessions.create(baseParams);
+    }
     capturePosthog('checkout_initiated', { requestId: req.requestId, stripe_session_id: session.id }, session.id);
     res.json({ url: session.url });
   } catch (err) {
@@ -1204,6 +1225,8 @@ app.__test = {
   MAX_UPLOAD_BYTES,
   MAX_JOB_DESCRIPTION_CHARS,
   MAX_JOB_DESCRIPTION_BYTES,
+  CHECKOUT_CONSENT_MESSAGE,
+  isInvalidRequest,
 };
 
 // ── Start ─────────────────────────────────────────────────────────────────────
