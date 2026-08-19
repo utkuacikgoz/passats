@@ -163,6 +163,23 @@ describe('the paid journey', () => {
     await page.close();
   });
 
+  it('does not hand a repeat customer their previous report', async () => {
+    // Regression: the stored report used to survive a second purchase, so a
+    // refresh after paying again restored the old analysis and left the
+    // customer unable to upload the CV they had just paid to have scored.
+    const page = await browser.newPage();
+    await runAnalysis(page);
+
+    await page.goto(`${origin}/success?session_id=dev_second_purchase`);
+    await page.waitForSelector('#upload.active', { timeout: 15000 });
+
+    await page.reload();
+
+    await page.waitForSelector('#upload.active', { timeout: 10000 });
+    assert.equal(await page.isVisible('#dashboard.active'), false, 'the previous report must not come back');
+    await page.close();
+  });
+
   it('offers the report as a saveable document', async () => {
     const page = await browser.newPage();
     await runAnalysis(page);
@@ -198,8 +215,16 @@ describe('client-side guards', () => {
       input.value = 'x'.repeat(20000);
       input.dispatchEvent(new Event('input'));
     });
+    // maxlength governs typing and paste, not programmatic assignment, so type
+    // into the field rather than setting .value and assert the browser clipped it.
+    await page.fill('#jobDescInput', '');
+    await page.evaluate(() => {
+      const input = document.getElementById('jobDescInput');
+      input.focus();
+      document.execCommand('insertText', false, 'x'.repeat(20000));
+    });
     const length = await page.evaluate(() => document.getElementById('jobDescInput').value.length);
-    assert.ok(length <= 12000 || true, 'programmatic writes bypass maxlength; the attribute guards typing');
+    assert.equal(length, app.__test.MAX_JOB_DESCRIPTION_CHARS, 'the browser enforced maxlength on input');
     assert.equal(await page.getAttribute('#jobDescInput', 'maxlength'), String(app.__test.MAX_JOB_DESCRIPTION_CHARS));
     await page.close();
   });

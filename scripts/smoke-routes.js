@@ -27,7 +27,7 @@ const CHECKS = [
   { name: 'privacy page routes', path: '/privacy', expect: { status: 200, body: /Privacy Policy/ } },
   { name: 'terms page routes', path: '/terms', expect: { status: 200, body: /Terms of Service/ } },
   { name: 'success page routes', path: '/success', expect: { status: 200, type: /text\/html/ } },
-  { name: 'SPA fallback serves the app shell', path: '/some/deep/route', expect: { status: 200, type: /text\/html/ } },
+  { name: 'unknown page 404s with the branded page', path: '/some/deep/route', expect: { status: 404, type: /text\/html/, body: /That page does not exist/ } },
 
   { name: 'static asset bypasses the function', path: '/robots.txt', expect: { status: 200, body: /Disallow: \/api\// } },
   { name: 'shared design tokens are served', path: '/tokens.css', expect: { status: 200, type: /text\/css/ } },
