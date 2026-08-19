@@ -11,6 +11,9 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-latest
+    # Without this the job default is six hours. The browser install step below
+    # hung once already; a hang should fail fast, not burn a runner all day.
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -21,7 +24,11 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Install Chromium for the browser journey tests
-        run: npx playwright install --with-deps chromium
+        # No --with-deps: the ubuntu-latest image already carries the shared
+        # libraries the headless shell needs, and the apt step it adds hung for
+        # 13 minutes on a run where the identical workflow had passed in under
+        # two. A missing library now fails fast and legibly instead.
+        run: npx playwright install chromium
       - name: Tests (node:test)
         run: npm test
       # Both of these derive purely from page content, so a diff here means the
@@ -38,6 +45,7 @@ jobs:
 
   secret-scan:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
         with:
