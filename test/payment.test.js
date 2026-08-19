@@ -17,8 +17,12 @@ const assert = require('node:assert/strict');
 // ── Fakes ────────────────────────────────────────────────────────────────────
 
 /** Minimal in-memory stand-in for the Upstash REST client server.js uses. */
+// Instances register themselves so the suite can inspect claim state without the
+// production code having to export its live Redis handle.
+const redisInstances = [];
+
 class FakeRedis {
-  constructor() { this.store = new Map(); }
+  constructor() { this.store = new Map(); redisInstances.push(this); }
   async set(key, value, opts = {}) {
     if (opts.nx && this.store.has(key)) return null;
     this.store.set(key, String(value));
@@ -165,7 +169,7 @@ stub('@anthropic-ai/sdk', FakeAnthropic);
 const app = require('../server');
 const supertest = require('supertest');
 const request = supertest(app);
-const redis = () => app.__test.redisForTests;
+const redis = () => redisInstances.at(-1);
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
