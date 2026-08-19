@@ -794,6 +794,10 @@
     <div class="tips-section"><h3>Fix these. In this order.</h3><div id="dashTips"></div></div>
 
     <div class="cta-again">
+      <p style="font-size:0.82rem;color:var(--muted);margin-bottom:10px;">Was this report helpful?</p>
+      <button type="button" class="feedback-btn" data-helpful="true">Yes</button>
+      <button type="button" class="feedback-btn" data-helpful="false">Not really</button>
+      <p id="feedbackThanks" style="display:none;font-size:0.78rem;color:var(--accent);margin:8px 0;">Thanks for your feedback.</p>
       <button onclick="showView('landing')">&larr; Run another scan</button>
       <p style="font-size:0.78rem;color:var(--muted);margin-top:8px;">Made changes to your CV? Each scan costs $2.99. No subscription.</p>
     </div>
@@ -805,6 +809,24 @@
   // ── State ──────────────────────────────────────────────────────────────────
   let uploadedFile = null;
   let uploadToken = null; // from Stripe payment verification or a short-lived owner test token
+  const analyticsSessionId = (() => {
+    try {
+      const existing = sessionStorage.getItem('passats_analytics_session');
+      if (existing) return existing;
+      const id = crypto.randomUUID();
+      sessionStorage.setItem('passats_analytics_session', id);
+      return id;
+    } catch { return crypto.randomUUID(); }
+  })();
+  const attribution = (() => {
+    const p = new URLSearchParams(window.location.search);
+    return { source: p.get('utm_source') || '', medium: p.get('utm_medium') || '', campaign: p.get('utm_campaign') || '' };
+  })();
+
+  function track(event, properties = {}) {
+    const body = JSON.stringify({ event, properties: { anonymous_session_id: analyticsSessionId, ...attribution, ...properties } });
+    fetch('/api/events', { method: 'POST', headers: { 'content-type': 'application/json' }, body, keepalive: true }).catch(() => {});
+  }
 
   // ── View Router ────────────────────────────────────────────────────────────
   function showView(id) {
@@ -815,11 +837,16 @@
 
   // ── Stripe Checkout ────────────────────────────────────────────────────────
   async function startCheckout() {
+    track('checkout_clicked');
     const btn = document.getElementById('heroCtaBtn');
     btn.disabled = true;
     btn.textContent = 'Redirecting…';
     try {
-      const res = await fetch('/api/checkout', { method: 'POST' });
+      const res = await fetch('/api/checkout', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ analytics: { anonymous_session_id: analyticsSessionId, ...attribution } })
+      });
       const data = await res.json();
       if (data.url) {
         window.location.href = data.url;
@@ -851,6 +878,7 @@
       // Clean URL
       window.history.replaceState({}, '', '/');
       showView('upload');
+      track('upload_viewed');
     } catch (err) {
       showLandingError('Payment verification failed: ' + err.message);
       showView('landing');
@@ -887,11 +915,13 @@
   function handleFile(file) {
     hideError();
     if (file.size > MAX_FILE_SIZE) {
+      track('file_validation_failed', { failure_category: 'size' });
       showError('File too large. Maximum size is 5 MB.');
       return;
     }
     const ext = file.name.split('.').pop().toLowerCase();
     if (!['pdf', 'docx'].includes(ext)) {
+      track('file_validation_failed', { failure_category: 'type' });
       showError('Unsupported file type. Please upload a PDF or DOCX.');
       return;
     }
@@ -955,7 +985,7 @@
       console.log('Sending analysis request…');
       const res = await fetch('/api/analyze', {
         method: 'POST',
-        headers: { 'x-passats-token': uploadToken },
+        headers: { 'x-passats-token': uploadToken, 'x-passats-session': analyticsSessionId },
         body: formData
       });
 
@@ -1056,8 +1086,15 @@
 
   function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
+  document.querySelectorAll('.feedback-btn').forEach(button => button.addEventListener('click', () => {
+    track('report_feedback_submitted', { helpful: button.dataset.helpful === 'true' });
+    document.querySelectorAll('.feedback-btn').forEach(item => { item.disabled = true; });
+    document.getElementById('feedbackThanks').style.display = 'block';
+  }));
+
   // ── Init ───────────────────────────────────────────────────────────────────
   (async function init() {
+    track('landing_viewed');
     const params = new URLSearchParams(window.location.search);
     const ownerTestToken = getOwnerTestTokenFromFragment();
     if (window.location.hash.includes('owner_test_token=')) {

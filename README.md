@@ -4,7 +4,7 @@ PassATS is a paid ATS resume scoring service built on Express, Stripe, Upstash R
 
 ## Runtime
 
-- Node 20+
+- Node 24.x (the same version pinned in `package.json` and CI)
 - Vercel or another Node-compatible serverless/container runtime
 - Stripe checkout + webhook configured
 - Upstash Redis for one-analysis-per-payment enforcement and global rate limiting
@@ -16,7 +16,7 @@ PassATS is a paid ATS resume scoring service built on Express, Stripe, Upstash R
 Required in production:
 
 - `ANTHROPIC_API_KEY`
-- `LLM_MODEL` (default when unset: `claude-sonnet-5`; use `claude-haiku-4-5` for lower cost/latency)
+- `LLM_MODEL` (required dated Anthropic API model ID, not a moving alias; there is no production fallback)
 - `STRIPE_SECRET_KEY`
 - `STRIPE_WEBHOOK_SECRET`
 - `STRIPE_PRICE_ID`
@@ -41,11 +41,19 @@ Recommended optional variables:
 3. Install dependencies with `npm install`.
 4. Start the app with `npm run dev`.
 5. Run the test suite with `npm test`.
+6. Validate the 60-case synthetic quality fixture with `npm run quality:check`.
+7. Validate Node/Vercel alignment and the end-to-end timeout budget with `npm run runtime:check`.
+
+To run the benchmark against the live model, set `ANTHROPIC_API_KEY` and an exact
+`LLM_MODEL`, then run `npm run quality:live`. Start with one paid request using
+`npm run quality:live -- --limit=1`; use `--repeats=3` when measuring score spread.
+The live command exits non-zero if it detects fixture-listed invented facts, less
+than 90% missing-keyword precision, or less than 85% hard-requirement recall.
 
 ## Where To Get Environment Variables
 
 - `ANTHROPIC_API_KEY`: Anthropic Console, API keys page.
-- `LLM_MODEL`: choose manually; default is `claude-sonnet-5`. `claude-haiku-4-5` trades a little copy sharpness for lower cost/latency.
+- `LLM_MODEL`: choose and pin an exact model ID from Anthropic. Production refuses to enable the API when it is unset.
 - `STRIPE_SECRET_KEY`: Stripe Dashboard, Developers, API keys.
 - `STRIPE_WEBHOOK_SECRET`: Stripe Dashboard, Developers, Webhooks, then reveal the endpoint signing secret.
 - `STRIPE_PRICE_ID`: Stripe Dashboard, Products, open the price and copy the `price_...` identifier.
@@ -63,7 +71,8 @@ For production, set them in your deployment platform, which is typically Vercel 
 Before go-live, verify the following:
 
 - `DEV_MODE` is not set in production.
-- Vercel project uses Node 20+.
+- Vercel project uses Node 24.x and honors the 120-second function duration in `vercel.json`.
+- `npm run runtime:check` passes. It reserves 15 seconds for parsing, 55 seconds for the model, and 30 seconds for cold start, cleanup, and response delivery (100 seconds total inside the 120-second function limit).
 - Stripe webhook in production points to `/api/webhook` and uses the production signing secret.
 - `BASE_URL` matches the live canonical domain exactly, including protocol.
 - `JWT_SECRET` is long, random, and stored only in the deployment platform secret store.
@@ -74,7 +83,7 @@ Before go-live, verify the following:
 - `TEST_SECRET` is either unset or rotated to an owner-only secret if you want smoke-test access.
 - `TEST_ALLOWED_IPS` is set to your public IP if `/api/test-token` is enabled. Without it, the endpoint stays disabled.
 - Anthropic billing and rate limits are confirmed for your traffic profile.
-- `LLM_MODEL` is pinned to `claude-sonnet-5` (or `claude-haiku-4-5`), an explicitly chosen stable model, not a dated snapshot alias.
+- `LLM_MODEL` is an explicitly chosen exact Anthropic API model ID and has passed the live quality benchmark.
 - Error monitoring is attached to PostHog or another log sink so failed analyses can be traced by request ID.
 - A real payment-to-analysis smoke test is completed in production before opening traffic.
 
@@ -85,6 +94,7 @@ Before go-live, verify the following:
 3. Reuse the same token and confirm replay is blocked with `403`.
 4. Upload an invalid file and confirm the token is not burned unnecessarily.
 5. Hit `/api/health` with the correct secret header and verify `hasLlm`, `hasStripe`, `hasRedis`, and optionally `hasPostHog` are `true`.
+   Record the returned `llmModel` and `promptVersion` with the release evidence.
 
 ## Production Smoke Script
 
