@@ -169,6 +169,20 @@ describe('accessibility affordances are present', () => {
   });
 });
 
+describe('the test runner covers every suite', () => {
+  it('names each test file in a script', () => {
+    // node --test runs files in parallel, and the Chromium suite starved the
+    // others under load until they were split. Explicit lists are only safe if
+    // nothing can be added without being wired in, so assert exactly that.
+    const scripts = JSON.parse(read('package.json')).scripts;
+    const wired = `${scripts['test:node']} ${scripts['test:browser']}`;
+    const files = fs.readdirSync(path.join(ROOT, 'test')).filter(name => name.endsWith('.test.js'));
+    for (const file of files) {
+      assert.ok(wired.includes(`test/${file}`), `test/${file} is never run — add it to test:node or test:browser`);
+    }
+  });
+});
+
 describe('deployment configuration', () => {
   const vercel = JSON.parse(read('vercel.json'));
 

@@ -52,6 +52,10 @@ const POSTHOG_HOST = process.env.POSTHOG_HOST || 'https://us.i.posthog.com';
 // the request outside our catch block, so the analysis claim is never released
 // and the customer is locked out of the analysis they paid for.
 const LLM_TIMEOUT_MS = 55000;
+// A full report runs about 1,200 output tokens; this leaves generous headroom.
+// Hitting the cap truncates the JSON mid-object, so a max_tokens stop reason is
+// treated as its own failure rather than being reported as a malformed response.
+const LLM_MAX_TOKENS = 3000;
 // Support contact is a single source of truth: the failure messages below, the
 // footer, and the legal pages all read it from here so a customer who paid can
 // always reach a mailbox that exists. Verify the mailbox before opening traffic.
@@ -70,7 +74,7 @@ const CHECKOUT_CONSENT_MESSAGE =
   `You are asking us to start your analysis immediately, so you lose the 14-day right of withdrawal once your report is delivered. If anything fails, email ${SUPPORT_EMAIL} for a full refund.`;
 const analysisSupportMessage = reqId =>
   `We couldn't complete your analysis. Email ${SUPPORT_EMAIL} with reference ${reqId} and we'll refund or fix it.`;
-const APP_SCRIPT_CSP_HASH = "'sha256-Y7DJV5l9VzCbD/zrV4oXLmTUzhNTUv/VclUyEarvn4A='";
+const APP_SCRIPT_CSP_HASH = "'sha256-OKkx0C2SmdeyYl/sumLmfbVSINJNBxD/6gl18n7VMwo='";
 const VERCEL_ANALYTICS_CSP_HASH = "'sha256-rbTaSdDD+Sd+K8IZ66VS79bdI78bN8AwXXyN0/lD5fY='";
 // Hashes of individual onclick handler bodies (required for 'unsafe-hashes' to allow them)
 const APP_HANDLER_CSP_HASHES = [
@@ -253,7 +257,14 @@ async function isRateLimited(key, maxRequests, windowMs) {
     pipeline.incr(redisKey);
     pipeline.expire(redisKey, ttlSeconds);
     const [count] = await pipeline.exec();
-    return Number(count) > maxRequests;
+    const used = Number(count);
+    if (!Number.isFinite(used)) {
+      // Throwing lands in enforceRateLimit's catch, which returns 503. Never let
+      // an unreadable counter read as "under the limit" — that would disable
+      // every rate limit in production without a single error in the logs.
+      throw new Error(`Rate limit counter was not a number: ${JSON.stringify(count)}`);
+    }
+    return used > maxRequests;
   }
 
   const now = Date.now();
@@ -893,7 +904,7 @@ const ATS_RESULT_SCHEMA = {
       },
       keywordsFound: { type: 'array', items: { type: 'string' }, maxItems: 8, description: 'Max 8 keywords found' },
       keywordsMissing: { type: 'array', items: { type: 'string' }, maxItems: 6, description: 'Max 6 missing keywords' },
-      topFixes: { type: 'array', items: { type: 'string' }, maxItems: 5, description: '5 actionable fix strings' },
+      topFixes: { type: 'array', items: { type: 'string' }, maxItems: 5, description: '3 to 5 actionable fix strings, ranked by impact' },
     }
   }
 };
@@ -1059,7 +1070,7 @@ ${cvSlice}
   try {
     response = await client.messages.create({
       model,
-      max_tokens: 3000,
+      max_tokens: LLM_MAX_TOKENS,
       system: systemPrompt,
       thinking: { type: 'disabled' },
       output_config: {
@@ -1082,6 +1093,11 @@ ${cvSlice}
   if (response.stop_reason === 'refusal') {
     log('error', 'llm.refusal', { model, category: response.stop_details?.category });
     throw new Error('Analysis returned invalid format. Please try again.');
+  }
+
+  if (response.stop_reason === 'max_tokens') {
+    log('error', 'llm.truncated', { model, maxTokens: LLM_MAX_TOKENS });
+    throw new Error('Analysis was cut off before it finished. Please try again.');
   }
 
   // output_config.format guarantees the first text block is valid JSON.
@@ -1139,16 +1155,21 @@ app.use('/api', (req, res) => {
   res.status(404).json({ error: 'Not found' });
 });
 
-// ── SPA fallback ──────────────────────────────────────────────────────────────
-// Only extensionless paths get the app shell. A request for a missing asset —
-// /_vercel/insights/script.js when running outside Vercel, a renamed stylesheet,
-// a stale image URL — must 404 rather than return HTML with a 200, which the
-// browser then refuses on MIME grounds and which hides broken links from us.
-app.get('{*path}', (req, res) => {
-  if (path.extname(req.path)) {
-    return res.status(404).type('text/plain').send('Not found');
-  }
+// ── Home ──────────────────────────────────────────────────────────────────────
+app.get('/', (_req, res) => {
   res.sendFile(path.join(VIEWS_DIR, 'index.html'));
+});
+
+// ── 404 ───────────────────────────────────────────────────────────────────────
+// There is no client-side router: every real URL has an explicit route above.
+// A catch-all that served the app shell instead answered 200 for /jobs, /blog,
+// and anything else a crawler guessed, which is an unbounded set of soft-404s
+// competing with the real pages. Everything unmatched is genuinely not found.
+app.use((req, res) => {
+  if (req.method === 'GET' && req.accepts('html') && !path.extname(req.path)) {
+    return res.status(404).sendFile(path.join(VIEWS_DIR, '404.html'));
+  }
+  res.status(404).type('text/plain').send('Not found');
 });
 
 // ── Terminal error handler ────────────────────────────────────────────────────
@@ -1217,9 +1238,6 @@ app.__test = {
   LLM_TIMEOUT_MS,
   clientIp,
   normalizeIp,
-  // The live Redis handle, so the money-path suite can assert on claim state
-  // instead of reaching through a second client.
-  redisForTests: redis,
   analysisSupportMessage,
   SUPPORT_EMAIL,
   MAX_UPLOAD_BYTES,

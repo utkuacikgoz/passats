@@ -581,7 +581,7 @@
 <noscript>
   <div style="max-width:600px;margin:80px auto;padding:40px;font-family:sans-serif;text-align:center;">
     <h2>PassATS</h2>
-    <p style="margin:16px 0;">Most resume tools want your email. We want your resume.</p>
+    <p style="margin:16px 0;">Score your resume for ATS compatibility, find your keyword gaps, and get the exact lines to fix.</p>
     <p style="color:#666;">JavaScript is required to use PassATS. Please enable JavaScript in your browser settings.</p>
   </div>
 </noscript>
@@ -864,6 +864,13 @@
       const res = await fetch(`/api/verify-payment?session_id=${encodeURIComponent(sessionId)}`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Verification failed');
+      // A repeat customer buying a second analysis in the same tab must not
+      // inherit the first one. Without this, a refresh after paying again
+      // restores the previous report and leaves them unable to upload the CV
+      // they just paid to have scored.
+      const prior = loadSession();
+      if (prior && prior.sessionId && prior.sessionId !== sessionId) clearSession();
+
       uploadToken = data.token;
       saveSession({ token: data.token, sessionId });
       // Keep session_id out of the visible URL, but keep it recoverable: it is
@@ -995,7 +1002,9 @@
         await new Promise(r => setTimeout(r, minLoadingTime - elapsed));
       }
 
-      saveSession({ report: data, fileName: uploadedFile.name });
+      // Stamp the report with the payment it belongs to, so a stale one can
+      // never be restored against a newer session.
+      saveSession({ report: data, fileName: uploadedFile.name, reportSessionId: (loadSession() || {}).sessionId });
       renderDashboard(data, uploadedFile.name);
       showView('dashboard');
     } catch (err) {
@@ -1142,7 +1151,7 @@
     // customer paid for and it must come straight back on refresh.
     const stored = loadSession();
     if (!ownerTestToken && !params.get('session_id') && stored) {
-      if (stored.report) {
+      if (stored.report && stored.reportSessionId === stored.sessionId) {
         renderDashboard(stored.report, stored.fileName || 'your CV');
         showView('dashboard');
         return;

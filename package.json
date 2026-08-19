@@ -18,7 +18,9 @@
     "smoke:prod": "node scripts/smoke-test.js",
     "owner:analyze": "bash scripts/owner-analyze.sh",
     "owner:ui": "bash scripts/owner-ui.sh",
-    "test": "node --test test/*.test.js"
+    "test": "npm run test:node && npm run test:browser",
+    "test:node": "node --test test/unit.test.js test/e2e.test.js test/payment.test.js test/contract.test.js",
+    "test:browser": "node --test test/browser.test.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.117.1",
