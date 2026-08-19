@@ -180,10 +180,22 @@ describe('the paid journey', () => {
     await page.close();
   });
 
-  it('offers the report as a saveable document', async () => {
+  it('offers the report as a saveable document that identifies itself', async () => {
     const page = await browser.newPage();
     await runAnalysis(page);
     assert.equal(await page.isVisible('.save-report-btn'), true);
+
+    // The printed copy is a document the customer keeps and may forward. It must
+    // carry the mark, the file it covers, and a support route.
+    await page.emulateMedia({ media: 'print' });
+    assert.equal(await page.isVisible('.print-footnote'), true, 'printed report is anonymous');
+    assert.equal(await page.isVisible('#dashFileName'), true, 'printed report loses the file and date');
+    assert.match(await page.textContent('.print-footnote'), /support@passats\.com/);
+    assert.equal(await page.isVisible('.cta-again'), false, 'buttons must not print');
+    await page.emulateMedia({ media: 'screen' });
+
+    // ...and must not clutter the screen view.
+    assert.equal(await page.isVisible('.print-footnote'), false);
     await page.close();
   });
 });
