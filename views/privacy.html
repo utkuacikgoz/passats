@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Privacy Policy — PassATS</title>
+<meta name="description" content="PassATS privacy policy. We don't store your resume, we don't train on it, we don't sell it.">
+<link rel="canonical" href="https://passats.vercel.app/privacy">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+
+<!-- Vercel Web Analytics -->
+<script>
+  window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
+</script>
+<script defer src="/_vercel/insights/script.js"></script>
+<link rel="stylesheet" href="/tokens.css">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--ink); min-height: 100vh; }
+  nav { padding: 20px 40px; border-bottom: 1px solid var(--border); }
+  .logo { font-family: 'DM Serif Display', serif; font-size: 1.4rem; text-decoration: none; color: var(--ink); }
+  .logo span { color: var(--accent); }
+  main { max-width: 660px; margin: 0 auto; padding: 60px 40px 80px; }
+  h1 { font-family: 'DM Serif Display', serif; font-size: 2rem; margin-bottom: 32px; }
+  h2 { font-size: 1.1rem; font-weight: 600; margin: 28px 0 10px; }
+  p, li { font-size: 0.92rem; color: var(--muted); line-height: 1.75; margin-bottom: 12px; }
+  ul { padding-left: 20px; }
+  a { color: var(--accent); }
+  strong { color: var(--ink); }
+  :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+  table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); font-size: 0.86rem; color: var(--muted); vertical-align: top; }
+  th { color: var(--ink); font-weight: 600; }
+  .tablewrap { overflow-x: auto; }
+  footer { max-width: 660px; margin: 0 auto; padding: 20px 40px 40px; text-align: center; font-size: 0.78rem; color: var(--muted); border-top: 1px solid var(--border); }
+</style>
+</head>
+<body>
+<nav><a class="logo" href="/">Pass<span>ATS</span></a></nav>
+<main>
+  <h1>Privacy Policy</h1>
+  <p><strong>Last updated:</strong> August 2026</p>
+
+  <h2>Who controls your data</h2>
+  <p>The data controller is <strong>[LEGAL ENTITY NAME]</strong>, registered in <strong>[JURISDICTION]</strong> at <strong>[REGISTERED ADDRESS]</strong>. For any privacy question or request, email <a href="mailto:privacy@passats.com">privacy@passats.com</a>.</p>
+
+  <h2>What we collect</h2>
+  <p>When you use PassATS, we process:</p>
+  <ul>
+    <li>Your uploaded resume file (PDF or DOCX) and any job description you provide</li>
+    <li>Payment and transaction information handled by Stripe</li>
+    <li>Limited operational telemetry, such as request IDs, file type, analysis score, detected role, and error details</li>
+  </ul>
+
+  <h2>Why we are allowed to process it</h2>
+  <p>We process your resume and job description to perform the contract you entered into when you paid for an analysis. We process payment data to meet our legal obligations around tax and accounting. We process operational telemetry under our legitimate interest in keeping the service working and diagnosing failures, and that telemetry never contains your resume text.</p>
+
+  <h2>What happens to your resume</h2>
+  <p>Your resume is processed in real time and deleted from our temporary storage when the request finishes, including when analysis fails. We do not store resume text in analytics, and we do not use your resume to train AI models.</p>
+
+  <h2>How long we keep things</h2>
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th>Data</th><th>Kept for</th></tr></thead>
+      <tbody>
+        <tr><td>Resume file and extracted text</td><td>Deleted when the request finishes. Never written to a database.</td></tr>
+        <tr><td>Your analysis report</td><td>Held only in your own browser tab. We do not keep a copy.</td></tr>
+        <tr><td>Payment records (Stripe)</td><td>As long as tax and accounting law requires, typically seven years.</td></tr>
+        <tr><td>Operational logs and telemetry</td><td>Up to 90 days, then deleted.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2>Payment data</h2>
+  <p>All payments are processed through Stripe. We never see or store your credit card details. Stripe's privacy policy governs their handling of your payment data.</p>
+
+  <h2>Cookies and tracking</h2>
+  <p>PassATS uses Vercel Web Analytics for basic page traffic and may use PostHog for server-side operational events and error diagnostics. Neither sets advertising cookies, and neither receives your resume text or job description.</p>
+
+  <h2>Data sharing and international transfers</h2>
+  <p>We do not sell or rent your data. We use service providers only to operate PassATS: Stripe for payments, Anthropic for resume analysis, Vercel for hosting and web analytics, and PostHog for optional operational telemetry. Resume text and job descriptions are sent to Anthropic for analysis and are subject to their data processing terms.</p>
+  <p>Some of these providers process data in the United States. Those transfers rely on the European Commission's Standard Contractual Clauses, or on an equivalent approved transfer mechanism, in each provider's data processing agreement.</p>
+
+  <h2>Your rights</h2>
+  <p>If you are in the EU or the UK, you have the right to access, correct, delete, restrict, or object to our processing of your personal data, the right to data portability, and the right to withdraw consent where processing relies on it. Because we do not retain your resume, most of these requests concern payment records and logs.</p>
+  <p>Email <a href="mailto:privacy@passats.com">privacy@passats.com</a> and we will respond within one month. You also have the right to complain to your local data protection authority.</p>
+
+  <h2>Contact</h2>
+  <p>Questions? Email <a href="mailto:privacy@passats.com">privacy@passats.com</a>. For refunds and support, email <a href="mailto:support@passats.com">support@passats.com</a>.</p>
+</main>
+<footer>
+  &copy; 2026 PassATS &middot; <a href="/">Home</a> &middot; <a href="/terms">Terms</a> &middot; <a href="mailto:support@passats.com">support@passats.com</a>
+</footer>
+</body>
+</html>

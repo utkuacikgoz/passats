@@ -1,17 +1,19 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
-  <rect width="1200" height="630" fill="#F5F2ED"/>
-  <rect x="0" y="0" width="1200" height="14" fill="#E76F51"/>
-  <text x="80" y="122" font-family="Georgia, 'Times New Roman', serif" font-size="46" font-weight="700" fill="#1A1714">Pass<tspan fill="#2D6A4F">ATS</tspan></text>
-  <g transform="translate(1048,150)">
-    <circle r="98" fill="none" stroke="#E2DDD6" stroke-width="22"/>
-    <circle r="98" fill="none" stroke="#E76F51" stroke-width="22" stroke-linecap="round" stroke-dasharray="616" stroke-dashoffset="357" transform="rotate(-90)"/>
-    <text x="0" y="10" font-family="Georgia, 'Times New Roman', serif" font-size="78" font-weight="700" fill="#1A1714" text-anchor="middle">42</text>
-    <text x="0" y="46" font-family="Arial, Helvetica, sans-serif" font-size="17" letter-spacing="2" fill="#8C8680" text-anchor="middle">ATS SCORE</text>
+  <!-- Brand tokens mirrored from /tokens.css. Regenerate the PNG with
+       `npm run build:og` after any change here. -->
+  <rect width="1200" height="630" fill="#F4EEE5"/>
+  <rect x="0" y="0" width="1200" height="14" fill="#D85D43"/>
+  <text x="80" y="122" font-family="Georgia, 'Times New Roman', serif" font-size="46" font-weight="700" fill="#201B17">Pass<tspan fill="#D85D43">ATS</tspan></text>
+  <g transform="translate(1030,168)">
+    <circle r="98" fill="none" stroke="#DCD1C5" stroke-width="22"/>
+    <circle r="98" fill="none" stroke="#2F6A55" stroke-width="22" stroke-linecap="round" stroke-dasharray="616" stroke-dashoffset="173" transform="rotate(-90)"/>
+    <text x="0" y="12" font-family="Georgia, 'Times New Roman', serif" font-size="78" font-weight="700" fill="#201B17" text-anchor="middle">72</text>
+    <text x="0" y="48" font-family="Arial, Helvetica, sans-serif" font-size="17" letter-spacing="2" fill="#6E655C" text-anchor="middle">ATS SCORE</text>
   </g>
-  <text x="82" y="250" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="700" letter-spacing="4" fill="#2D6A4F">INSTANT ATS SCORE CHECK</text>
-  <text x="80" y="352" font-family="Georgia, 'Times New Roman', serif" font-size="80" font-weight="700" fill="#1A1714">You're getting filtered</text>
-  <text x="80" y="450" font-family="Georgia, 'Times New Roman', serif" font-size="80" font-weight="700" fill="#1A1714">by a <tspan font-style="italic" fill="#2D6A4F">robot.</tspan></text>
-  <text x="82" y="524" font-family="Arial, Helvetica, sans-serif" font-size="32" fill="#6b6560">Check your resume's ATS score &amp; fix it in 60 seconds.</text>
-  <rect x="82" y="556" width="378" height="60" rx="30" fill="#E76F51"/>
-  <text x="271" y="594" font-family="Arial, Helvetica, sans-serif" font-size="26" font-weight="700" fill="#ffffff" text-anchor="middle">Score My Resume — $2.99</text>
+  <text x="82" y="250" font-family="Arial, Helvetica, sans-serif" font-size="23" font-weight="700" letter-spacing="4" fill="#6E655C">ATS RESUME CHECKER</text>
+  <text x="80" y="348" font-family="Georgia, 'Times New Roman', serif" font-size="76" font-weight="700" fill="#201B17">Your best work should</text>
+  <text x="80" y="440" font-family="Georgia, 'Times New Roman', serif" font-size="76" font-weight="700" fill="#201B17">not <tspan font-style="italic" fill="#D85D43">disappear.</tspan></text>
+  <text x="82" y="512" font-family="Arial, Helvetica, sans-serif" font-size="30" fill="#6E655C">The score, the gaps, and the exact lines to fix.</text>
+  <rect x="82" y="546" width="368" height="60" rx="30" fill="#D85D43"/>
+  <text x="266" y="584" font-family="Arial, Helvetica, sans-serif" font-size="26" font-weight="700" fill="#FFFCF8" text-anchor="middle">Check My Resume. $2.99</text>
 </svg>

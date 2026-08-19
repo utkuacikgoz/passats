@@ -36,6 +36,8 @@ if (!DEV_MODE) {
 }
 
 const app = express();
+// HTML documents are deliberately outside public/ — see the express.static note.
+const VIEWS_DIR = path.join(__dirname, 'views');
 const PORT = process.env.PORT || 3000;
 const BASE_URL = process.env.BASE_URL || `http://localhost:${PORT}`;
 // Analysis model. Claude Sonnet 5 is the launch default — best quality/latency
@@ -43,22 +45,40 @@ const BASE_URL = process.env.BASE_URL || `http://localhost:${PORT}`;
 // (e.g. claude-haiku-4-5 to trade a little copy sharpness for lower cost/latency).
 const LLM_MODEL = process.env.LLM_MODEL || 'claude-sonnet-5';
 const POSTHOG_HOST = process.env.POSTHOG_HOST || 'https://us.i.posthog.com';
-// Leave a small buffer below a 60-second serverless invocation while allowing
+// Leave a small buffer below the 60-second invocation ceiling declared in
+// vercel.json (`functions["api/index.js"].maxDuration`), while allowing
 // structured-output grammar compilation and normal model latency to complete.
+// If that ceiling ever changes, change this with it — a platform timeout kills
+// the request outside our catch block, so the analysis claim is never released
+// and the customer is locked out of the analysis they paid for.
 const LLM_TIMEOUT_MS = 55000;
+// Support contact is a single source of truth: the failure messages below, the
+// footer, and the legal pages all read it from here so a customer who paid can
+// always reach a mailbox that exists. Verify the mailbox before opening traffic.
+const SUPPORT_EMAIL = process.env.SUPPORT_EMAIL || 'support@passats.com';
+// Upload limits live here so the multer ceiling, the textarea maxlength rendered
+// into the page, the error copy, and the prompt slice can never drift apart.
+const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
+const MAX_JOB_DESCRIPTION_CHARS = 12000;
+// Byte ceiling sits above the character limit: multer counts bytes and a job
+// description with accented or CJK characters costs more than one byte each.
+const MAX_JOB_DESCRIPTION_BYTES = 20000;
 const ANALYSIS_RETRY_MESSAGE = 'We couldn\'t complete your analysis right now. Please try again shortly.';
-const ANALYSIS_SUPPORT_MESSAGE = 'We couldn\'t complete your analysis. Please contact support so we can help.';
-const APP_SCRIPT_CSP_HASH = "'sha256-6zedb/zvFvDCb42WPxGfnC3sESF7tNURGuVMk8xDQJA='";
+const analysisSupportMessage = reqId =>
+  `We couldn't complete your analysis. Email ${SUPPORT_EMAIL} with reference ${reqId} and we'll refund or fix it.`;
+const APP_SCRIPT_CSP_HASH = "'sha256-Y7DJV5l9VzCbD/zrV4oXLmTUzhNTUv/VclUyEarvn4A='";
 const VERCEL_ANALYTICS_CSP_HASH = "'sha256-rbTaSdDD+Sd+K8IZ66VS79bdI78bN8AwXXyN0/lD5fY='";
 // Hashes of individual onclick handler bodies (required for 'unsafe-hashes' to allow them)
 const APP_HANDLER_CSP_HASHES = [
   "'sha256-PNSBC4eKT981jWU7VUWY1rrkVVj0fQGd8duewJsZptY='", // showView('landing')
-  "'sha256-pZxCg0aN1aHaHQ1BG9oYaJobxEoXaUIZRu3Sm8pT2YQ='", // onkeydown handler
+  "'sha256-pZxCg0aN1aHaHQ1BG9oYaJobxEoXaUIZRu3Sm8pT2YQ='", // if(event.key==='Enter'||event.key===' '){event…
   "'sha256-+sHL2zzQtByQnCf19Rv5VOUrN+15Fh04dw8mLo3Yo4I='", // startCheckout()
-  "'sha256-xs8BTA3IhBcadubj5lWdCRekTpMssl1EMbUL1T57oNE='", // startAnalysis()
   "'sha256-yUeu/Jy2O5YqLCuSJr5FKGy2nSjYppMdbMmVYC1WdF0='", // fileSelected(this)
-  "'sha256-CbVHLCnwV427HrcwsLdbh491k6FiycGp+zMMQLbnrTA='", // textarea focus style
-  "'sha256-yU03ONm8LtlVoSfPslmrL0rnGnT5Tp47xH1aB2Dr9Xs='", // textarea blur style
+  "'sha256-CbVHLCnwV427HrcwsLdbh491k6FiycGp+zMMQLbnrTA='", // this.style.borderColor='var(--accent)'
+  "'sha256-yU03ONm8LtlVoSfPslmrL0rnGnT5Tp47xH1aB2Dr9Xs='", // this.style.borderColor='var(--border)'
+  "'sha256-xs8BTA3IhBcadubj5lWdCRekTpMssl1EMbUL1T57oNE='", // startAnalysis()
+  "'sha256-69fqArDChhwIvqDXgQ7c23hHwIuhavhryq9Rg925ftM='", // saveReport()
+  "'sha256-z6hAwjmUwzyDoRXTD/Tu8VhZfB4g35x4QNvjBfH6sgg='", // startOver()
 ].join(' ');
 const TEST_ALLOWED_IPS = new Set(
   (process.env.TEST_ALLOWED_IPS || '')
@@ -101,6 +121,16 @@ function normalizeIp(ip) {
   return ip.replace(/^::ffff:/, '').trim();
 }
 
+// Rate limits and the owner-test allowlist are only as trustworthy as the IP
+// they key on. `x-forwarded-for` is client-writable and Express hands us its
+// last hop, so prefer `x-vercel-forwarded-for` — Vercel sets it at the edge and
+// strips any inbound copy. Fall back to req.ip for local dev and self-hosting.
+function clientIp(req) {
+  const vercelIp = req?.headers?.['x-vercel-forwarded-for'];
+  if (typeof vercelIp === 'string' && vercelIp.trim()) return normalizeIp(vercelIp.split(',')[0]);
+  return normalizeIp(req?.ip);
+}
+
 function isAllowedTestIp(ip, allowedIps = TEST_ALLOWED_IPS) {
   return allowedIps.has(normalizeIp(ip));
 }
@@ -109,7 +139,8 @@ function isOwnerTestAuthorized(providedSecret, expectedSecret, ip, allowedIps = 
   return safeSecretEqual(providedSecret, expectedSecret) && allowedIps.size > 0 && isAllowedTestIp(ip, allowedIps);
 }
 
-// Trust Vercel's proxy layer so req.ip is the real client IP
+// Trust Vercel's proxy layer so req.ip is usable locally; clientIp() is what
+// every security decision keys on (see H3 note above).
 app.set('trust proxy', 1);
 
 let   stripe = null;
@@ -171,6 +202,24 @@ function capturePosthog(event, properties = {}, distinctId = 'server') {
   }
 }
 
+// A serverless instance can freeze the moment the response is written, dropping
+// whatever PostHog still has in flight. Await a flush before responding on the
+// paths whose telemetry we actually rely on — payment, analysis outcome, replay.
+// Telemetry must never fail a request, so every error is swallowed, and the
+// flush is bounded so a slow PostHog can't eat the invocation budget.
+const POSTHOG_FLUSH_TIMEOUT_MS = 2000;
+async function flushPosthog() {
+  if (!posthog || DEV_MODE) return;
+  try {
+    await Promise.race([
+      posthog.flush(),
+      new Promise(resolve => setTimeout(resolve, POSTHOG_FLUSH_TIMEOUT_MS)),
+    ]);
+  } catch (err) {
+    log('warn', 'posthog.flush_failed', { message: err.message });
+  }
+}
+
 function logError(event, err, fields = {}) {
   const properties = {
     ...fields,
@@ -185,12 +234,16 @@ function logError(event, err, fields = {}) {
 const rateLimits = new Map();
 async function isRateLimited(key, maxRequests, windowMs) {
   if (!DEV_MODE && redis) {
-    const redisKey = `passats:ratelimit:${key}`;
-    const count = await redis.incr(redisKey);
-    if (count === 1) {
-      await redis.expire(redisKey, Math.ceil(windowMs / 1000));
-    }
-    return count > maxRequests;
+    // Bucket by window so a key that misses its EXPIRE still ages out instead of
+    // blocking that caller forever, and pipeline both writes into one round trip.
+    const bucket = Math.floor(Date.now() / windowMs);
+    const redisKey = `passats:ratelimit:${key}:${bucket}`;
+    const ttlSeconds = Math.ceil(windowMs / 1000) + 1;
+    const pipeline = redis.pipeline();
+    pipeline.incr(redisKey);
+    pipeline.expire(redisKey, ttlSeconds);
+    const [count] = await pipeline.exec();
+    return Number(count) > maxRequests;
   }
 
   const now = Date.now();
@@ -280,7 +333,11 @@ app.use(compression());
 
 app.use(express.json({ limit: '50kb' }));
 
-// Static assets with cache headers
+// Static assets with cache headers.
+// public/ holds only fingerprint-free assets (icons, OG image, robots, sitemap).
+// The HTML documents live in views/ and are always served by this function, so
+// the security headers and hashed CSP above apply to every page a browser renders
+// — Vercel's static layer would have served them bare.
 app.use(express.static(path.join(__dirname, 'public'), {
   maxAge: '7d',
   etag: true,
@@ -321,7 +378,7 @@ const upload = multer({
       cb(null, `passats-${suffix}`);
     },
   }),
-  limits: { fileSize: 5 * 1024 * 1024, fieldSize: 20000, fields: 5 },
+  limits: { fileSize: MAX_UPLOAD_BYTES, fieldSize: MAX_JOB_DESCRIPTION_BYTES, fields: 5 },
   fileFilter: (_req, file, cb) => {
     const allowed = [
       'application/pdf',
@@ -377,7 +434,7 @@ function checkOrigin(req, res) {
   if (DEV_MODE) return true;
   const origin = req.headers['origin'];
   if (!origin) {
-    console.warn('[csrf] missing origin ip=' + req.ip + ' path=' + req.path);
+    console.warn('[csrf] missing origin ip=' + clientIp(req) + ' path=' + req.path);
     res.status(403).json({ error: 'Forbidden' });
     return false;
   }
@@ -418,7 +475,7 @@ async function releaseAnalysisClaim(sessionId, store = redis) {
 app.post('/api/checkout', async (req, res) => {
   if (!checkOrigin(req, res)) return;
 
-  const ip = req.ip;
+  const ip = clientIp(req);
   if (!await enforceRateLimit(req, res, 'checkout:' + ip, 10, 60000)) return;
 
   if (DEV_MODE) {
@@ -435,6 +492,15 @@ app.post('/api/checkout', async (req, res) => {
       success_url: `${BASE_URL}/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${BASE_URL}/?cancelled=1`,
       expires_at: Math.floor(Date.now() / 1000) + 30 * 60,
+      // EU and UK consumers have a 14-day right of withdrawal on digital
+      // services unless they request immediate performance and acknowledge
+      // losing that right. Saying so at the point of payment is what makes the
+      // waiver valid; the terms page carries the same wording.
+      custom_text: {
+        submit: {
+          message: 'You are asking us to start your analysis immediately, so you lose the 14-day right of withdrawal once your report is delivered. If anything fails, email ' + SUPPORT_EMAIL + ' for a full refund.',
+        },
+      },
     });
     capturePosthog('checkout_initiated', { requestId: req.requestId, stripe_session_id: session.id }, session.id);
     res.json({ url: session.url });
@@ -459,8 +525,17 @@ async function handleWebhook(req, res) {
 
   if (event.type === 'checkout.session.completed') {
     const checkoutSession = event.data.object;
-    // Idempotency: if webhook re-fires (Stripe retries on 5xx), don't overwrite existing token
-    if (checkoutSession.metadata?.passats_token) {
+    // Idempotency: Stripe replays the ORIGINAL event payload on retry, so the
+    // metadata on `event.data.object` is a pre-write snapshot and can never show
+    // our own token. Re-read the live session to make the guard meaningful. The
+    // authoritative single-use control is still the session-keyed analysis claim.
+    let liveSession = checkoutSession;
+    try {
+      liveSession = await stripe.checkout.sessions.retrieve(checkoutSession.id);
+    } catch (err) {
+      log('warn', 'webhook.session_reread_failed', { sessionId: checkoutSession.id, message: err.message });
+    }
+    if (liveSession.metadata?.passats_token) {
       return res.json({ received: true });
     }
     const token = jwt.sign(
@@ -476,6 +551,7 @@ async function handleWebhook(req, res) {
       amount_total: checkoutSession.amount_total,
       currency: checkoutSession.currency,
     }, checkoutSession.id);
+    await flushPosthog();
   }
 
   res.json({ received: true });
@@ -483,7 +559,7 @@ async function handleWebhook(req, res) {
 
 // ── Verify payment & get upload token ─────────────────────────────────────────
 app.get('/api/verify-payment', async (req, res) => {
-  const ip = req.ip;
+  const ip = clientIp(req);
   if (!await enforceRateLimit(req, res, 'verify:' + ip, 20, 60000)) return;
 
   const { session_id } = req.query;
@@ -558,10 +634,10 @@ if (DEV_MODE) {
 // ── Owner test token — bypass payment in production for smoke testing ─────────
 app.get('/api/test-token', async (req, res) => {
   const secret = process.env.TEST_SECRET;
-  if (!isOwnerTestAuthorized(req.headers['x-test-secret'], secret, req.ip)) {
+  if (!isOwnerTestAuthorized(req.headers['x-test-secret'], secret, clientIp(req))) {
     return res.status(404).json({ error: 'Not found' });
   }
-  if (!await enforceRateLimit(req, res, 'test-token:' + normalizeIp(req.ip), 5, 60000)) return;
+  if (!await enforceRateLimit(req, res, 'test-token:' + clientIp(req), 5, 60000)) return;
   const token = jwt.sign(
     { sessionId: 'test_' + crypto.randomUUID(), jti: crypto.randomUUID() },
     JWT_SECRET,
@@ -573,7 +649,7 @@ app.get('/api/test-token', async (req, res) => {
 // ── Pre-multer auth — origin + rate limit + JWT verify before file upload ─────
 async function analyzeAuth(req, res, next) {
   if (!checkOrigin(req, res)) return;
-  if (!await enforceRateLimit(req, res, 'analyze:' + req.ip, 10, 60000)) return;
+  if (!await enforceRateLimit(req, res, 'analyze:' + clientIp(req), 10, 60000)) return;
   const tokenHeader = req.headers['x-passats-token'];
   if (!tokenHeader) return res.status(401).json({ error: 'Missing token' });
   try {
@@ -623,6 +699,7 @@ app.post('/api/analyze', analyzeAuth, upload.single('cv'), async (req, res) => {
     if (!claimed) {
       log('warn', 'token.replay_blocked', { requestId: reqId, sessionId: tokenPayload.sessionId });
       capturePosthog('token_replay_blocked', { requestId: reqId }, tokenPayload.sessionId);
+      await flushPosthog();
       return res.status(403).json({ error: 'Token already used' });
     }
 
@@ -648,7 +725,10 @@ app.post('/api/analyze', analyzeAuth, upload.single('cv'), async (req, res) => {
     }
 
     // Job description from multipart form field
-    const jobDescription = req.body?.jobDescription || '';
+    // Defensive trim: the textarea enforces this too, but a direct API caller
+    // can send more, and silently paying for text we never read is worse than
+    // cutting it at the documented limit.
+    const jobDescription = (req.body?.jobDescription || '').slice(0, MAX_JOB_DESCRIPTION_CHARS);
     log('info', 'analyze.started', { requestId: reqId, model: LLM_MODEL, hasJobDescription: !!jobDescription });
     const result = await analyzeCv(text, jobDescription);
     log('info', 'analyze.completed', { requestId: reqId, overallScore: result.overallScore, model: LLM_MODEL });
@@ -660,6 +740,7 @@ app.post('/api/analyze', analyzeAuth, upload.single('cv'), async (req, res) => {
       has_job_description: !!jobDescription,
       file_type: req.file?.mimetype,
     }, tokenPayload.sessionId);
+    await flushPosthog();
     res.json(result);
   } catch (err) {
     // Password-protected PDF — release token (user mistake, not adversarial)
@@ -683,12 +764,14 @@ app.post('/api/analyze', analyzeAuth, upload.single('cv'), async (req, res) => {
         logError('analyze.retryable_error', err, { requestId: reqId, retries, sessionId: tokenPayload.sessionId, model: LLM_MODEL });
         capturePosthog('cv_analysis_failed', { requestId: reqId, retries, retryable: true }, tokenPayload.sessionId);
         if (posthog && !DEV_MODE) posthog.captureException(err, tokenPayload.sessionId, { requestId: reqId, retries });
+        await flushPosthog();
         return res.status(500).json({ error: ANALYSIS_RETRY_MESSAGE });
       }
       logError('analyze.retries_exhausted', err, { requestId: reqId, retries, sessionId: tokenPayload.sessionId, model: LLM_MODEL });
       capturePosthog('cv_analysis_failed', { requestId: reqId, retries, retryable: false }, tokenPayload.sessionId);
       if (posthog && !DEV_MODE) posthog.captureException(err, tokenPayload.sessionId, { requestId: reqId, retries });
-      return res.status(500).json({ error: ANALYSIS_SUPPORT_MESSAGE });
+      await flushPosthog();
+      return res.status(500).json({ error: analysisSupportMessage(reqId) });
     }
     logError('analyze.error', err, { requestId: reqId, model: LLM_MODEL });
     res.status(500).json({ error: ANALYSIS_RETRY_MESSAGE });
@@ -863,7 +946,7 @@ async function analyzeCv(cvText, jobDescription, opts = {}) {
   }
 
   const jdContext = jobDescription && jobDescription.trim()
-    ? `\n\nThe candidate is applying for a role with this job description:\n---\n${jobDescription.slice(0, 8000)}\n---\nScore keyword relevance against this specific job description.`
+    ? `\n\nThe candidate is applying for a role with this job description:\n---\n${jobDescription.slice(0, MAX_JOB_DESCRIPTION_CHARS)}\n---\nScore keyword relevance against this specific job description.`
     : '\nNo specific job description provided. Score keywords based on the detected role and general industry expectations.';
 
   const systemPrompt = `You are a direct, evidence-led ATS and recruiter evaluator. Your job is to give the most accurate, specific, actionable CV analysis possible. You do not flatter candidates.
@@ -1009,20 +1092,78 @@ ${cvSlice}
 
 // ── Privacy / Terms pages ─────────────────────────────────────────────────────
 app.get('/privacy', (_req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'privacy.html'));
+  res.sendFile(path.join(VIEWS_DIR, 'privacy.html'));
 });
 app.get('/terms', (_req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'terms.html'));
+  res.sendFile(path.join(VIEWS_DIR, 'terms.html'));
 });
 
 // ── Success redirect page ─────────────────────────────────────────────────────
 app.get('/success', (_req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+  res.sendFile(path.join(VIEWS_DIR, 'index.html'));
+});
+
+// ── Clean-path redirects ──────────────────────────────────────────────────────
+// express.static also answers /privacy.html and /terms.html. Both carry correct
+// canonicals, but a 301 keeps one URL per document.
+app.get(['/privacy.html', '/terms.html', '/index.html'], (req, res) => {
+  const target = req.path === '/index.html' ? '/' : req.path.replace(/\.html$/, '');
+  res.redirect(301, target);
+});
+
+// ── API 404 ───────────────────────────────────────────────────────────────────
+// Without this the SPA fallback answers unknown /api/* GETs with 200 + the
+// landing page, so a typo'd endpoint looks like a success to any client.
+app.use('/api', (req, res) => {
+  res.status(404).json({ error: 'Not found' });
 });
 
 // ── SPA fallback ──────────────────────────────────────────────────────────────
-app.get('{*path}', (_req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+// Only extensionless paths get the app shell. A request for a missing asset —
+// /_vercel/insights/script.js when running outside Vercel, a renamed stylesheet,
+// a stale image URL — must 404 rather than return HTML with a 200, which the
+// browser then refuses on MIME grounds and which hides broken links from us.
+app.get('{*path}', (req, res) => {
+  if (path.extname(req.path)) {
+    return res.status(404).type('text/plain').send('Not found');
+  }
+  res.sendFile(path.join(VIEWS_DIR, 'index.html'));
+});
+
+// ── Terminal error handler ────────────────────────────────────────────────────
+// Multer rejects oversized uploads and form fields by throwing, and without a
+// handler here Express answers with an HTML error page that the client parses as
+// an empty body — so the user sees "try again" for a limit that retrying can
+// never clear. Map the limits we set to specific, actionable JSON.
+const MULTER_LIMIT_MESSAGES = {
+  LIMIT_FILE_SIZE: 'That file is larger than 5 MB. Please upload a smaller PDF or DOCX.',
+  LIMIT_FIELD_VALUE: `That job description is too long. Please trim it to about ${MAX_JOB_DESCRIPTION_CHARS.toLocaleString('en-US')} characters.`,
+  LIMIT_FILE_COUNT: 'Please upload a single file.',
+  LIMIT_UNEXPECTED_FILE: 'Unexpected upload field. Please use the upload button on the page.',
+  LIMIT_FIELD_COUNT: 'Too many form fields in that request.',
+  LIMIT_PART_COUNT: 'Too many parts in that upload.',
+  LIMIT_FIELD_KEY: 'Malformed upload request.',
+};
+
+// Four arguments: that arity is how Express identifies an error handler.
+app.use((err, req, res, next) => {
+  const reqId = req.requestId;
+  // Once the response has started there is nothing useful left to send. Hand it
+  // back to Express so it closes the connection, rather than returning quietly
+  // and leaving the socket open until it times out.
+  if (res.headersSent) return next(err);
+
+  if (err?.name === 'MulterError') {
+    const message = MULTER_LIMIT_MESSAGES[err.code] || 'That upload could not be accepted.';
+    log('warn', 'upload.limit_rejected', { requestId: reqId, code: err.code, field: err.field });
+    return res.status(413).json({ error: message });
+  }
+
+  logError('unhandled.error', err, { requestId: reqId, path: req.path });
+  if (req.path.startsWith('/api/')) {
+    return res.status(500).json({ error: `Something went wrong. Quote ref ${reqId}.` });
+  }
+  res.status(500).type('text/plain').send('Something went wrong.');
 });
 
 // ── Cleanup (dev/test fallback rate-limit entries only) ───────────────────────
@@ -1053,6 +1194,16 @@ app.__test = {
   extractText,
   ATS_OUTPUT_SCHEMA,
   LLM_TIMEOUT_MS,
+  clientIp,
+  normalizeIp,
+  // The live Redis handle, so the money-path suite can assert on claim state
+  // instead of reaching through a second client.
+  redisForTests: redis,
+  analysisSupportMessage,
+  SUPPORT_EMAIL,
+  MAX_UPLOAD_BYTES,
+  MAX_JOB_DESCRIPTION_CHARS,
+  MAX_JOB_DESCRIPTION_BYTES,
 };
 
 // ── Start ─────────────────────────────────────────────────────────────────────
