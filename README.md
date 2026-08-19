@@ -189,8 +189,16 @@ BASE=https://your-deployment.vercel.app npm run smoke:routes
 ```
 
 Read-only, no payment, safe against production. Exits non-zero on any failure and
-names what broke. It also detects the degraded boot mode — a 503 on `/api/*` means
-required environment variables are missing, and the server logs name which.
+names what broke. It also detects two situations where the result would otherwise
+be misleading:
+
+- **Deployment Protection.** Vercel preview URLs sit behind SSO by default, and
+  answer every request with their own login page. The script detects this and
+  stops rather than reporting fifteen failures that describe the gate, not the
+  app. Create a Protection Bypass for Automation secret under Project Settings,
+  Deployment Protection, then re-run with `VERCEL_BYPASS_TOKEN=<secret>`.
+- **Degraded boot.** A 503 on `/api/*` means the deployment is missing required
+  environment variables. The server logs name which ones.
 
 ## Production Smoke Script
 

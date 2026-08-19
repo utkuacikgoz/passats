@@ -15,6 +15,13 @@
  */
 const BASE = (process.env.BASE || process.env.PASSATS_BASE_URL || 'http://localhost:3000').replace(/\/$/, '');
 
+// Vercel Deployment Protection sits in front of preview URLs and answers every
+// request with its own SSO page. Without a bypass the checks below prove nothing: they
+// see Vercel's HTML, its CSP, and its redirects. Set a Protection Bypass for
+// Automation secret (Project Settings, Deployment Protection) and pass it here.
+const BYPASS = process.env.VERCEL_BYPASS_TOKEN || process.env.VERCEL_AUTOMATION_BYPASS_SECRET || '';
+const HEADERS = BYPASS ? { 'x-vercel-protection-bypass': BYPASS, 'x-vercel-set-bypass-cookie': 'true' } : {};
+
 const CHECKS = [
   {
     name: 'landing page is served by the function',
@@ -47,7 +54,7 @@ async function run(check) {
   const failures = [];
   let res;
   try {
-    res = await fetch(BASE + check.path, { redirect: check.redirect || 'follow' });
+    res = await fetch(BASE + check.path, { redirect: check.redirect || 'follow', headers: HEADERS });
   } catch (err) {
     return [`request failed: ${err.message}`];
   }
@@ -81,8 +88,34 @@ async function run(check) {
   return failures;
 }
 
+// Returns a reason string when the origin is gated, so 15 confusing failures are
+// not reported as if the application were broken.
+async function detectProtection() {
+  try {
+    const res = await fetch(BASE + '/robots.txt', { redirect: 'manual', headers: HEADERS });
+    const location = res.headers.get('location') || '';
+    if (/vercel\.com\/sso-api/.test(location)) return 'Vercel Deployment Protection (SSO)';
+    if (res.status === 401) return 'the origin returned 401 Unauthorized';
+    const cookies = res.headers.get('set-cookie') || '';
+    if (/_vercel_sso_nonce/.test(cookies)) return 'Vercel Deployment Protection (SSO)';
+  } catch { /* connection problems surface per-check below */ }
+  return null;
+}
+
 (async () => {
   console.log(`Routing smoke check against ${BASE}\n`);
+
+  const gate = await detectProtection();
+  if (gate) {
+    console.error(`Blocked by ${gate}.\n`);
+    console.error('Every request is answered by the protection layer, so these checks');
+    console.error('would report the gate rather than the application. Either:\n');
+    console.error('  1. Project Settings > Deployment Protection > Protection Bypass for');
+    console.error('     Automation, then re-run with VERCEL_BYPASS_TOKEN=<secret>, or');
+    console.error('  2. disable protection for preview deployments, or');
+    console.error('  3. run this against production once deployed.\n');
+    process.exit(2);
+  }
   let failed = 0;
   let degraded = false;
 
