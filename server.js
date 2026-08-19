@@ -939,6 +939,41 @@ const normalizeScore = s => {
   return Math.max(0, Math.min(100, Math.round(scaled)));
 };
 
+// This mock is what every developer and every owner UI smoke test looks at,
+// so it obeys the same rules as the system prompt: no banned hedging words,
+// no claims about visual layout the model cannot see from extracted text, no
+// dash characters, and findings that quote specific sections.
+function devReport() {
+  return {
+    overallScore: 72,
+    verdict: "Needs Work",
+    verdictDetail: "Your Revolut role has 3 quantified bullets, but no Skills section exists, which costs you the keyword score.",
+    detectedRole: "Software Engineer",
+    metrics: {
+      keywords: { score: 65, note: "No Skills section detected. CI/CD and Docker appear nowhere in the text." },
+      formatting: { score: 78, note: "Your EXPERIENCE, EDUCATION, and PROJECTS headings are standard. Dates read as Month YYYY throughout." },
+      readability: { score: 80, note: "Bullets average 14 words. No sentence runs past two lines." },
+      contactInfo: { score: 90, note: "Email and phone are present. No LinkedIn or portfolio URL." }
+    },
+    issues: [
+      { severity: "critical", title: "No Skills section", detail: "Your CV jumps from the summary straight to EXPERIENCE. Add a Skills section listing the tools named in your bullets." },
+      { severity: "critical", title: "Keyword gaps for this role", detail: "CI/CD, Docker, and REST API do not appear anywhere, though your Revolut bullets describe deployment work." },
+      { severity: "warning", title: "Abstract verbs in the Accenture entry", detail: "3 of 4 bullets open with led, drove, or managed and carry no number." },
+      { severity: "warning", title: "No LinkedIn or portfolio URL", detail: "Your contact line stops at the phone number. Add one profile URL." },
+      { severity: "pass", title: "Quantified results at Revolut", detail: "Three bullets name a figure, including the 40 percent deploy time reduction." },
+      { severity: "pass", title: "Standard section headings", detail: "EXPERIENCE, EDUCATION, and PROJECTS are all named the way a parser expects." }
+    ],
+    keywordsFound: ["JavaScript", "React", "Node.js", "Git", "SQL", "TypeScript"],
+    keywordsMissing: ["CI/CD", "Docker", "REST API", "AWS", "Testing", "Agile"],
+    topFixes: [
+      "Add a Skills section after your summary: list TypeScript, React, Node.js, SQL, Git, and the deployment tools your Revolut bullets already describe. Expected score impact: +12 points.",
+      "Rewrite the 2nd Accenture bullet, 'Drove platform migration across teams', as 'Migrated 14 services to the new platform across 3 teams, cutting release time from 5 days to 1.' Expected score impact: +9 points.",
+      "Add your LinkedIn URL to the contact line beside your phone number. Expected score impact: +6 points.",
+      "Name the outcome in the 4th Accenture bullet. It states the activity and stops before the result. Expected score impact: +5 points."
+    ]
+    };
+}
+
 // client/model are injectable so the real (non-DEV_MODE) path is unit-testable
 // with a fake Anthropic client; production callers use the module defaults.
 async function analyzeCv(cvText, jobDescription, opts = {}) {
@@ -946,35 +981,7 @@ async function analyzeCv(cvText, jobDescription, opts = {}) {
   const model = opts.model || LLM_MODEL;
   if (DEV_MODE) {
     await new Promise(r => setTimeout(r, 1500));
-    return {
-      overallScore: 72,
-      verdict: "Needs Work",
-      verdictDetail: "Your CV has solid experience but ATS parsers will struggle with the formatting.",
-      detectedRole: "Software Engineer",
-      metrics: {
-        keywords: { score: 65, note: "Missing some industry-standard keywords for this role." },
-        formatting: { score: 78, note: "Clean layout but consider removing tables and columns." },
-        readability: { score: 80, note: "Good sentence length and structure overall." },
-        contactInfo: { score: 90, note: "Email and phone detected. Add LinkedIn URL." }
-      },
-      issues: [
-        { severity: "critical", title: "No ATS-friendly section headers", detail: "Use standard headers like 'Work Experience', 'Education', 'Skills'." },
-        { severity: "critical", title: "Missing keywords", detail: "Add role-specific keywords like 'CI/CD', 'agile', 'REST API'." },
-        { severity: "warning", title: "Date format inconsistent", detail: "Mix of 'Jan 2023' and '01/2023'. Pick one format." },
-        { severity: "warning", title: "No measurable achievements", detail: "Quantify impact: 'Reduced deploy time by 40%' beats 'Improved deployment process'." },
-        { severity: "pass", title: "Contact information present", detail: "Email and phone number are clearly visible at the top." },
-        { severity: "pass", title: "Single page length", detail: "CV fits on one page \u2014 optimal for ATS and recruiters." }
-      ],
-      keywordsFound: ["JavaScript", "React", "Node.js", "Git", "SQL", "TypeScript"],
-      keywordsMissing: ["CI/CD", "Agile/Scrum", "REST API", "Docker", "AWS", "Testing"],
-      topFixes: [
-        "Add 'Skills' section with exact keywords from the job posting",
-        "Replace creative headers with standard ones (Work Experience, Education, Skills)",
-        "Quantify at least 3 achievements with numbers or percentages",
-        "Add LinkedIn profile URL to contact section",
-        "Use consistent date format throughout (e.g., 'Jan 2023 \u2013 Present')"
-      ]
-    };
+    return devReport();
   }
 
   const jdContext = jobDescription && jobDescription.trim()
@@ -1238,6 +1245,8 @@ app.__test = {
   LLM_TIMEOUT_MS,
   clientIp,
   normalizeIp,
+  // The DEV_MODE report, so its copy can be held to the same rules as the prompt.
+  devReport,
   analysisSupportMessage,
   SUPPORT_EMAIL,
   MAX_UPLOAD_BYTES,
