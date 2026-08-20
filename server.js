@@ -74,7 +74,7 @@ const CHECKOUT_CONSENT_MESSAGE =
   `You are asking us to start your analysis immediately, so you lose the 14-day right of withdrawal once your report is delivered. If anything fails, email ${SUPPORT_EMAIL} for a full refund.`;
 const analysisSupportMessage = reqId =>
   `We couldn't complete your analysis. Email ${SUPPORT_EMAIL} with reference ${reqId} and we'll refund or fix it.`;
-const APP_SCRIPT_CSP_HASH = "'sha256-OKkx0C2SmdeyYl/sumLmfbVSINJNBxD/6gl18n7VMwo='";
+const APP_SCRIPT_CSP_HASH = "'sha256-IFI2KOU8AhpnTgqVY5XXrm+IeKYn7giDRUFVDH9jIfE='";
 const VERCEL_ANALYTICS_CSP_HASH = "'sha256-rbTaSdDD+Sd+K8IZ66VS79bdI78bN8AwXXyN0/lD5fY='";
 // Hashes of individual onclick handler bodies (required for 'unsafe-hashes' to allow them)
 const APP_HANDLER_CSP_HASHES = [
@@ -534,7 +534,13 @@ app.post('/api/checkout', async (req, res) => {
       logError('checkout.custom_text_rejected', err, { requestId: req.requestId, ip });
       session = await stripe.checkout.sessions.create(baseParams);
     }
-    capturePosthog('checkout_initiated', { requestId: req.requestId, stripe_session_id: session.id }, session.id);
+    const anonymousId = ANONYMOUS_ID.test(String(req.body?.anonymousId || '')) ? req.body.anonymousId : null;
+    capturePosthog('checkout_initiated', {
+      requestId: req.requestId,
+      stripe_session_id: session.id,
+      anonymous_id: anonymousId,
+    }, session.id);
+    await flushPosthog();
     res.json({ url: session.url });
   } catch (err) {
     logError('checkout.error', err, { requestId: req.requestId, ip });
@@ -676,6 +682,43 @@ app.get('/api/test-token', async (req, res) => {
     { expiresIn: '30m' }
   );
   res.json({ token });
+});
+
+// ── Client funnel events ──────────────────────────────────────────────────────
+// Server events already cover money and outcomes. What was missing is the half
+// that decides the business: how many visitors press the button, how many who
+// pay actually upload. Those only exist in the browser.
+//
+// They are relayed through this endpoint rather than a third-party script on the
+// page, which keeps three promises at once: the CSP stays at connect-src 'self'
+// with no vendor domains, no tracking script or cookie is loaded, and the privacy
+// policy's claim that analytics never sees resume content stays true by
+// construction — the allowlist below is the complete set of what can be sent.
+const CLIENT_EVENTS = new Set([
+  'landing_viewed',
+  'checkout_clicked',
+  'upload_view_reached',
+  'analysis_started',
+  'report_viewed',
+  'report_saved',
+]);
+// A random per-tab id, so a funnel can be stitched without identifying anyone.
+const ANONYMOUS_ID = /^[0-9a-f-]{36}$/i;
+
+app.post('/api/event', async (req, res) => {
+  if (!checkOrigin(req, res)) return;
+  if (!await enforceRateLimit(req, res, 'event:' + clientIp(req), 60, 60000)) return;
+
+  const { event, anonymousId } = req.body || {};
+  if (!CLIENT_EVENTS.has(event) || !ANONYMOUS_ID.test(String(anonymousId || ''))) {
+    return res.status(400).json({ error: 'Unknown event' });
+  }
+
+  // Deliberately no pass-through of caller-supplied properties: an open bag is
+  // how resume text ends up in an analytics tool by accident.
+  capturePosthog(event, { requestId: req.requestId, source: 'client' }, anonymousId);
+  await flushPosthog();
+  res.status(204).end();
 });
 
 // ── Pre-multer auth — origin + rate limit + JWT verify before file upload ─────
@@ -1005,7 +1048,7 @@ ABSOLUTE RULES. Violating these makes the analysis worthless:
 OUTPUT WRITING RULES. This text goes directly to someone who paid for an honest answer. Every word must earn its place:
 - Write in second person. "Your Skills section is missing" not "The Skills section is missing."
 - Use short sentences. Subject. Verb. Object. Cut every word that adds no information.
-- Do not use a dash character in user facing prose. Do not use an em dash, en dash, hyphen, or double hyphen. If the CV uses one, paraphrase it. Use a period, comma, or colon instead.
+- Never use an em dash, an en dash, or a double hyphen in user facing prose. Use a period, comma, or colon instead. If the CV uses one, paraphrase it. Ordinary hyphens inside compound words are correct English and must be kept: write cross-functional, front-end, full-stack, data-driven, go-to-market, follow-up, decision-making. Never split a hyphenated compound to avoid the character.
 - State findings directly. "Add a Skills section" not "Consider adding a Skills section." "Remove the table" not "You might want to remove the table." "Your header is invisible to ATS" not "It appears your header may be difficult for ATS to parse."
 - Name the exact section or bullet every time. "The 3rd bullet in your Accenture entry" not "some of your bullets." "Your 'Professional History' header" not "your experience section header."
 - These phrases are banned. Delete any sentence that contains one and rewrite it: "it's worth noting", "overall", "in order to", "to some extent", "keep in mind", "consider", "it appears", "seems like", "you might want to", "there is room for improvement", "well structured", "however", "that being said", "moving forward", "leverage", "utilize".
@@ -1252,6 +1295,7 @@ app.__test = {
   MAX_UPLOAD_BYTES,
   MAX_JOB_DESCRIPTION_CHARS,
   MAX_JOB_DESCRIPTION_BYTES,
+  CLIENT_EVENTS,
   CHECKOUT_CONSENT_MESSAGE,
   isInvalidRequest,
 };
