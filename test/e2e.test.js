@@ -366,6 +366,47 @@ describe('Upload limits return actionable JSON', () => {
   });
 });
 
+describe('Client funnel events', () => {
+  const anon = '3f2504e0-4f89-11d3-9a0c-0305e82c3301';
+
+  it('accepts an allowlisted event', async () => {
+    const res = await request.post('/api/event').send({ event: 'landing_viewed', anonymousId: anon });
+    assert.equal(res.status, 204);
+  });
+
+  it('rejects an event name that is not on the list', async () => {
+    const res = await request.post('/api/event').send({ event: 'resume_text', anonymousId: anon });
+    assert.equal(res.status, 400);
+  });
+
+  it('rejects a malformed anonymous id', async () => {
+    const res = await request.post('/api/event').send({ event: 'landing_viewed', anonymousId: 'person@example.com' });
+    assert.equal(res.status, 400);
+  });
+
+  it('ignores any extra properties a caller tries to attach', async () => {
+    // An open property bag is how resume text reaches an analytics tool by
+    // accident. The endpoint takes a name and an id, and nothing else.
+    const res = await request.post('/api/event').send({
+      event: 'report_viewed',
+      anonymousId: anon,
+      properties: { cvText: 'John Doe, Software Engineer' },
+    });
+    assert.equal(res.status, 204);
+    assert.equal(res.text, '');
+  });
+
+  it('covers the whole funnel, with no event that could carry content', async () => {
+    const events = [...app.__test.CLIENT_EVENTS];
+    for (const step of ['landing_viewed', 'checkout_clicked', 'upload_view_reached', 'analysis_started', 'report_viewed']) {
+      assert.ok(events.includes(step), `funnel is missing ${step}`);
+    }
+    for (const name of events) {
+      assert.match(name, /^[a-z_]+$/, `${name} should be a fixed step name`);
+    }
+  });
+});
+
 describe('Routing', () => {
   it('404s an unknown API route as JSON instead of returning the landing page', async () => {
     const res = await request.get('/api/definitely-not-a-route');
