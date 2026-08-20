@@ -843,6 +843,36 @@
     try { sessionStorage.removeItem(STORE_KEY); } catch {}
   }
 
+  // ── Funnel events ──────────────────────────────────────────────────────────
+  // Relayed to our own endpoint, which forwards to analytics server side. No
+  // third-party script, no cookie, nothing about the CV ever leaves here: the
+  // server takes an event name from a fixed list and an anonymous id, and
+  // ignores anything else. The id is random and lives for one tab only.
+  const ANON_KEY = 'passats.anon.v1';
+
+  function anonymousId() {
+    try {
+      let id = sessionStorage.getItem(ANON_KEY);
+      if (!id) {
+        id = (crypto.randomUUID && crypto.randomUUID()) || String(Date.now());
+        sessionStorage.setItem(ANON_KEY, id);
+      }
+      return id;
+    } catch { return null; }
+  }
+
+  function track(event) {
+    const id = anonymousId();
+    if (!id) return;
+    // keepalive so the event survives the navigation to Stripe.
+    fetch('/api/event', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ event, anonymousId: id }),
+      keepalive: true,
+    }).catch(() => {});
+  }
+
   // ── View Router ────────────────────────────────────────────────────────────
   function showView(id) {
     document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
@@ -855,8 +885,14 @@
     const btn = document.getElementById('heroCtaBtn');
     btn.disabled = true;
     btn.textContent = 'Redirecting…';
+    track('checkout_clicked');
     try {
-      const res = await fetch('/api/checkout', { method: 'POST' });
+      const res = await fetch('/api/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        // Lets the browser funnel and the payment events be joined later.
+        body: JSON.stringify({ anonymousId: anonymousId() }),
+      });
       const data = await res.json();
       if (data.url) {
         window.location.href = data.url;
@@ -896,6 +932,7 @@
       // Keep session_id out of the visible URL, but keep it recoverable: it is
       // the only way to re-issue a token inside Stripe's one-hour window.
       window.history.replaceState({}, '', '/');
+      track('upload_view_reached');
       showView('upload');
     } catch (err) {
       showLandingError('Payment verification failed: ' + err.message);
@@ -984,6 +1021,7 @@
     const btn = document.getElementById('analyzeBtn');
     btn.disabled = true;
     btn.textContent = 'Analyzing…';
+    track('analysis_started');
 
     showView('loading');
     resetLoadingSteps();
@@ -1026,6 +1064,7 @@
       // never be restored against a newer session.
       saveSession({ report: data, fileName: uploadedFile.name, reportSessionId: (loadSession() || {}).sessionId });
       renderDashboard(data, uploadedFile.name);
+      track('report_viewed');
       showView('dashboard');
     } catch (err) {
       showView('upload');
@@ -1124,6 +1163,7 @@
   // The report is the product. Print-to-PDF is the one export every browser
   // already has, needs no new endpoint, and works offline once rendered.
   function saveReport() {
+    track('report_saved');
     window.print();
   }
 
@@ -1202,6 +1242,7 @@
       } catch {}
       showView('landing');
     } else {
+      track('landing_viewed');
       showView('landing');
     }
   })();

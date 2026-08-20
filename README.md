@@ -79,6 +79,60 @@ Four files are generated, never hand-edited. CI fails if the first two are stale
 `views/index.html`: the policy has no `'unsafe-inline'` fallback, so a stale hash
 does not degrade the page, it blocks the entire application script.
 
+## Prompt Evaluation
+
+The analysis prompt is the product, and every question about it — does the same
+CV score the same twice, did an edit help or hurt — needs measurement rather than
+opinion.
+
+```
+ANTHROPIC_API_KEY=... npm run eval               # all fixtures, 3 runs each
+ANTHROPIC_API_KEY=... npm run eval -- --runs 5
+ANTHROPIC_API_KEY=... npm run eval -- --only nurse
+ANTHROPIC_API_KEY=... npm run eval -- --json before.json
+```
+
+Fixtures live in `eval/cvs/*.txt` as plain CV text, which isolates prompt quality
+from document parsing. Three ship by default: a strong software engineer CV, a
+weak marketing one, and a nurse — the last deliberately outside the five job
+families the prompt lists keywords for.
+
+The harness reports two things and exits non-zero on either:
+
+- **Score spread** across identical runs. Default budget is 3 points; raise it
+  with `--max-spread`. A wide spread is the known open finding: the prompt's
+  PENALTIES and BONUSES never state whether they apply to a component score or
+  to the weighted total, and the two readings differ by a factor of three.
+- **Rule compliance**, checked mechanically: banned hedging phrases, em and en
+  dashes, layout claims rule 8 forbids, list lengths, missing score impacts, and
+  issue details too short to be specific.
+
+It does not judge whether the advice is good. Read a sample by hand for that.
+Each run costs roughly $0.03. To compare two prompt versions, write `--json` on
+each side and diff the summaries.
+
+The harness's judgement is unit-tested in `test/eval.test.js`, which runs without
+an API key — a checker that silently passes everything would certify a
+regression as clean.
+
+## Analytics
+
+Server-side events cover money and outcomes: `checkout_initiated`,
+`payment_completed`, `cv_analysis_completed`, `cv_analysis_failed`,
+`token_replay_blocked`, `server_error`.
+
+Browser-side funnel events are relayed through `POST /api/event` rather than a
+third-party script, which keeps the CSP at `connect-src 'self'`, loads no
+tracking script or cookie, and makes it structurally impossible for resume
+content to reach an analytics tool: the endpoint accepts an event name from a
+fixed allowlist plus a tab-scoped random id, and nothing else.
+
+`landing_viewed` · `checkout_clicked` · `upload_view_reached` ·
+`analysis_started` · `report_viewed` · `report_saved`
+
+The id is passed to `/api/checkout` as well, so the browser funnel and the
+payment events can be joined in PostHog.
+
 ## Where To Get Environment Variables
 
 - `ANTHROPIC_API_KEY`: Anthropic Console, API keys page.
