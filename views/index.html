@@ -606,7 +606,7 @@
 <!-- NAV -->
 <nav>
   <div class="logo" onclick="showView('landing')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();showView('landing')}" role="link" tabindex="0" aria-label="PassATS home">Pass<span>ATS</span></div>
-  <button class="nav-pill" onclick="startCheckout()" aria-label="Score your resume for ATS compatibility">Check My Resume. $2.99</button>
+  <button class="nav-pill" id="navCtaBtn" onclick="ctaClick(this)" aria-label="Score your resume for ATS compatibility">Check My Resume. $2.99</button>
 </nav>
 </header>
 
@@ -619,7 +619,7 @@
       <p class="hero-explainer">Get an ATS score, find missing keywords, and fix the lines that weaken your CV.</p>
       <p class="hero-flow">No signup. No login. Pay. Upload. Get your result. Then leave.</p>
       <div class="cta-row">
-        <button class="btn-primary" onclick="startCheckout()" id="heroCtaBtn">Check My Resume. $2.99</button>
+        <button class="btn-primary" onclick="ctaClick(this)" id="heroCtaBtn">Check My Resume. $2.99</button>
       </div>
       <div class="error-msg" id="landingError" role="alert" aria-live="assertive" style="max-width:480px;margin:0 auto;"></div>
     </div>
@@ -877,12 +877,43 @@
   function showView(id) {
     document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
     document.getElementById(id).classList.add('active');
+    syncCtas(id);
     window.scrollTo(0, 0);
   }
 
+  // The nav CTA is fixed and lives outside every view, so without this it stays
+  // on screen after payment and a second click starts a second Stripe checkout.
+  // Off the landing view it is hidden; while a paid token is held, both CTAs
+  // point back at the upload screen instead of at checkout.
+  const CTA_BUY = 'Check My Resume. $2.99';
+  const CTA_RESUME = 'Continue to upload';
+  function syncCtas(viewId) {
+    const label = uploadToken ? CTA_RESUME : CTA_BUY;
+    const nav = document.getElementById('navCtaBtn');
+    const hero = document.getElementById('heroCtaBtn');
+    if (nav) {
+      nav.hidden = viewId !== 'landing';
+      nav.textContent = label;
+      nav.disabled = false;
+    }
+    if (hero) {
+      hero.textContent = label;
+      hero.disabled = false;
+    }
+  }
+
+  function ctaClick(btn) {
+    if (uploadToken) {
+      showView('upload');
+      return;
+    }
+    startCheckout(btn);
+  }
+
   // ── Stripe Checkout ────────────────────────────────────────────────────────
-  async function startCheckout() {
-    const btn = document.getElementById('heroCtaBtn');
+  async function startCheckout(clicked) {
+    const btn = clicked || document.getElementById('heroCtaBtn');
+    const restore = btn.textContent;
     btn.disabled = true;
     btn.textContent = 'Redirecting…';
     track('checkout_clicked');
@@ -902,7 +933,7 @@
     } catch (err) {
       showLandingError('Could not start checkout: ' + err.message);
       btn.disabled = false;
-      btn.textContent = 'Score My Resume \u2014 $2.99';
+      btn.textContent = restore;
     }
   }
 
