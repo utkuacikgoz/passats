@@ -12,7 +12,7 @@
     "sync:faq": "node scripts/sync-structured-data.js",
     "sync:csp": "node scripts/sync-csp-hashes.js",
     "sync:sitemap": "node scripts/build-sitemap.js",
-    "sync:seo": "npm run sync:faq && npm run sync:sitemap && npm run sync:csp",
+    "sync:seo": "npm run sync:domain && npm run sync:faq && npm run sync:sitemap && npm run sync:csp",
     "build:og": "node scripts/build-og-image.js",
     "smoke:routes": "node scripts/smoke-routes.js",
     "smoke:prod": "node scripts/smoke-test.js",
@@ -20,11 +20,12 @@
     "owner:analyze": "bash scripts/owner-analyze.sh",
     "owner:ui": "bash scripts/owner-ui.sh",
     "test": "npm run test:node && npm run test:browser",
-    "test:node": "node --test test/unit.test.js test/e2e.test.js test/payment.test.js test/contract.test.js test/eval.test.js test/quality-benchmark.test.js",
+    "test:node": "node --test test/unit.test.js test/e2e.test.js test/payment.test.js test/contract.test.js test/eval.test.js test/quality-benchmark.test.js test/domain.test.js",
     "test:browser": "node --test test/browser.test.js",
     "quality:check": "node scripts/quality-benchmark.js",
     "quality:live": "node scripts/quality-benchmark.js --live",
-    "runtime:check": "node scripts/runtime-config-check.js"
+    "runtime:check": "node scripts/runtime-config-check.js",
+    "sync:domain": "node scripts/sync-domain.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.120.0",
