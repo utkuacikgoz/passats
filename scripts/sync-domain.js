@@ -38,16 +38,32 @@ const BARE_HOST_RE = new RegExp(String.raw`(?<![@\w])(?:www\.)?${HOST}(?![\w@-])
 const EMAIL_RE = new RegExp(String.raw`\b([a-z][a-z0-9._-]*)@${HOST}\b`, 'gi');
 
 const host = new URL(site.CANONICAL_ORIGIN).host;
+
+// Trader identity placeholders on the legal pages. The address clause appears
+// only when an address is configured, so an unset value produces a correct
+// sentence rather than a visible [PLACEHOLDER] on a live legal page.
+const addressClause = site.REGISTERED_ADDRESS ? ` at <strong>${site.REGISTERED_ADDRESS}</strong>` : '';
+const LEGAL = [
+  [/\[LEGAL ENTITY NAME\]/g, site.LEGAL_ENTITY],
+  [/\[JURISDICTION\]/g, site.JURISDICTION],
+  // The placeholder sits inside <strong> tags, so the clause has to be matched
+  // with its markup: replacing the token alone leaves a stray empty <strong>.
+  [/ at <strong>\[REGISTERED ADDRESS\]<\/strong>/g, addressClause],
+  // Repairs an already-emptied clause, and keeps a second run a no-op.
+  [/ at <strong><\/strong>/g, addressClause],
+];
+
 let changed = 0;
 
 for (const relative of FILES) {
   const absolute = path.join(ROOT, relative);
   if (!fs.existsSync(absolute)) continue;
   const before = fs.readFileSync(absolute, 'utf8');
-  const after = before
+  let after = before
     .replace(ORIGIN_RE, site.CANONICAL_ORIGIN)
     .replace(BARE_HOST_RE, host)
     .replace(EMAIL_RE, (_, local) => `${local}@${site.MAIL_DOMAIN}`);
+  for (const [pattern, value] of LEGAL) after = after.replace(pattern, value);
   if (after !== before) {
     fs.writeFileSync(absolute, after);
     console.log(`rewrote ${relative}`);
