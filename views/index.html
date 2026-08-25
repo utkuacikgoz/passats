@@ -1203,7 +1203,17 @@
     document.getElementById('dashIssues').innerHTML = (r.issues || []).map(issue => {
       const iconMap = { critical: '\uD83D\uDEA8', warning: '\u26A0\uFE0F', pass: '\u2713' };
       const clsMap  = { critical: 'icon-err', warning: 'icon-warn', pass: 'icon-ok' };
-      return `<div class="issue-item"><div class="issue-icon ${clsMap[issue.severity]}">${iconMap[issue.severity]}</div><div class="issue-text"><strong>${esc(issue.title)}</strong><p>${esc(issue.detail)}</p></div></div>`;
+      // Own-property lookup with an explicit default. severity is an enum in the
+      // output schema, but a plain object literal also answers for prototype
+      // keys: clsMap['constructor'] returns a function, not undefined, and its
+      // string form would land unescaped inside a class attribute. This is the
+      // only value on this screen not already passed through esc() or
+      // textContent, so it resolves safely on its own terms rather than
+      // depending on the API to constrain it.
+      const severity = Object.prototype.hasOwnProperty.call(clsMap, issue.severity)
+        ? issue.severity
+        : 'warning';
+      return `<div class="issue-item"><div class="issue-icon ${clsMap[severity]}">${iconMap[severity]}</div><div class="issue-text"><strong>${esc(issue.title)}</strong><p>${esc(issue.detail)}</p></div></div>`;
     }).join('');
 
     // Keywords
