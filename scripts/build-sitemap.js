@@ -14,7 +14,7 @@ const path = require('path');
 const { execFileSync } = require('child_process');
 
 const ROOT = path.join(__dirname, '..');
-const ORIGIN = process.env.CANONICAL_ORIGIN || 'https://passats.vercel.app';
+const { CANONICAL_ORIGIN: ORIGIN } = require('../config/site');
 
 const PAGES = [
   { url: '/',        source: 'views/index.html',   changefreq: 'weekly',  priority: '1.0' },

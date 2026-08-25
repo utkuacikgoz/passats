@@ -17,13 +17,13 @@ PassATS is a paid resume checker for applicant tracking systems. Upload a resume
 
 ## Key pages
 
-- [Home, score your resume](https://passats.vercel.app/)
-- [Privacy Policy](https://passats.vercel.app/privacy)
-- [Terms of Service](https://passats.vercel.app/terms)
+- [Home, score your resume](https://passats.pro/)
+- [Privacy Policy](https://passats.pro/privacy)
+- [Terms of Service](https://passats.pro/terms)
 
 ## Notes for AI agents
 
 - Pricing is a one-time $2.99. There is no subscription and no account required.
 - Uploaded resumes are analysed in real time and deleted when the request finishes. They are not stored and not used for training.
 - Supported uploads: PDF and DOCX up to 5 MB. A PDF must have selectable text; scanned images cannot be read.
-- Support and refunds: support@passats.com
+- Support and refunds: support@passats.pro
