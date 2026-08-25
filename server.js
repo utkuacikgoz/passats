@@ -81,13 +81,15 @@ const CHECKOUT_CONSENT_MESSAGE =
   `You are asking us to start your analysis immediately, so you lose the 14-day right of withdrawal once your report is delivered. If anything fails, email ${SUPPORT_EMAIL} for a full refund.`;
 const analysisSupportMessage = reqId =>
   `We couldn't complete your analysis. Email ${SUPPORT_EMAIL} with reference ${reqId} and we'll refund or fix it.`;
-const APP_SCRIPT_CSP_HASH = "'sha256-btQacNOlTQ/DCCyH5qPqT7MT7EiXMvIZrB1uDca7he8='";
+const APP_SCRIPT_CSP_HASH = "'sha256-PLUY/h98/6VIBdqPUOV2z3hcKeaRjr3BX/RCUyHTzd8='";
 const VERCEL_ANALYTICS_CSP_HASH = "'sha256-rbTaSdDD+Sd+K8IZ66VS79bdI78bN8AwXXyN0/lD5fY='";
 // Hashes of individual onclick handler bodies (required for 'unsafe-hashes' to allow them)
 const APP_HANDLER_CSP_HASHES = [
   "'sha256-PNSBC4eKT981jWU7VUWY1rrkVVj0fQGd8duewJsZptY='", // showView('landing')
   "'sha256-pZxCg0aN1aHaHQ1BG9oYaJobxEoXaUIZRu3Sm8pT2YQ='", // if(event.key==='Enter'||event.key===' '){event…
   "'sha256-Op416lafelF6r46K41qci4UFbdmOE4RaU5LYTxaRdzM='", // ctaClick(this)
+  "'sha256-tePsZXoEwTNBIHxIZYIxwQPETKoqTgoaVtdqhey1Wg0='", // toggleCoupon()
+  "'sha256-S6u6PMHFZMWTTwy8L9dqZ5pIk4IXTTGeQwd3v9bQSGs='", // redeemCoupon()
   "'sha256-yUeu/Jy2O5YqLCuSJr5FKGy2nSjYppMdbMmVYC1WdF0='", // fileSelected(this)
   "'sha256-CbVHLCnwV427HrcwsLdbh491k6FiycGp+zMMQLbnrTA='", // this.style.borderColor='var(--accent)'
   "'sha256-yU03ONm8LtlVoSfPslmrL0rnGnT5Tp47xH1aB2Dr9Xs='", // this.style.borderColor='var(--border)'
@@ -537,6 +539,124 @@ async function releaseAnalysisClaim(sessionId, store = redis) {
   return store.del(analysisClaimKey(sessionId));
 }
 
+// ── Coupon codes — free analyses for testers ─────────────────────────────────
+// A coupon mints the same upload token a payment does, so everything downstream
+// is unchanged: each redemption gets its own sessionId, so the Redis claim gives
+// it exactly one analysis and the retry ladder behaves identically.
+//
+// This grants paid product for free, so every decision here fails closed:
+//   - codes live only in the deployment env, never in the repo
+//   - each code carries its own redemption cap, counted atomically in Redis
+//   - the cap counter has no TTL: a coupon that has been spent stays spent
+//   - a Redis outage denies redemption rather than allowing it, which is the
+//     opposite of the retry counter's behaviour and deliberately so
+//   - the raw code is never logged, never stored, and never sent to analytics
+//
+// COUPON_CODES=FRIENDS-7XK2Q:5,LAUNCH-9QM4Z:1   (code:maxRedemptions, default 1)
+// COUPON_EXPIRES_AT=2026-10-01T00:00:00Z        (optional, kills every code)
+const COUPON_CODES = (() => {
+  const map = new Map();
+  for (const entry of (process.env.COUPON_CODES || '').split(',')) {
+    const trimmed = entry.trim();
+    if (!trimmed) continue;
+    const [rawCode, rawMax] = trimmed.split(':');
+    const code = normalizeCoupon(rawCode);
+    if (!code) continue;
+    const max = Number.parseInt(rawMax, 10);
+    map.set(code, Number.isInteger(max) && max > 0 ? max : 1);
+  }
+  return map;
+})();
+const COUPON_EXPIRES_AT = process.env.COUPON_EXPIRES_AT
+  ? Date.parse(process.env.COUPON_EXPIRES_AT)
+  : null;
+
+function normalizeCoupon(value) {
+  if (typeof value !== 'string') return '';
+  // Case and spacing are how people mistype a code read off a message, not a
+  // security boundary. Length is capped so a huge body cannot be walked.
+  return value.trim().toUpperCase().replace(/\s+/g, '').slice(0, 64);
+}
+
+// Redis keys and log lines carry a hash, never the live code: an analytics
+// export or a log dump must not hand someone a working coupon.
+const couponRef = code => crypto.createHash('sha256').update(code).digest('hex').slice(0, 16);
+const couponKey = code => `passats:coupon:${couponRef(code)}`;
+
+// Compare against every configured code with a constant-time equality, so the
+// response time does not narrow down which code was close.
+function matchCoupon(candidate) {
+  let found = null;
+  for (const [code, max] of COUPON_CODES) {
+    if (safeSecretEqual(candidate, code)) found = { code, max };
+  }
+  return found;
+}
+
+// Free analyses must be separable from sold ones in every revenue chart.
+function analysisSource(sessionId) {
+  if (typeof sessionId !== 'string') return 'unknown';
+  if (sessionId.startsWith('coupon_')) return 'coupon';
+  if (sessionId.startsWith('test_')) return 'owner_test';
+  return 'payment';
+}
+
+function couponsExpired(now = Date.now()) {
+  return Number.isFinite(COUPON_EXPIRES_AT) && now > COUPON_EXPIRES_AT;
+}
+
+app.post('/api/redeem-coupon', async (req, res) => {
+  if (!checkOrigin(req, res)) return;
+
+  const ip = clientIp(req);
+  // Two limiters. The per-IP one stops one machine walking the space; the global
+  // one bounds a distributed attempt, which per-IP limiting alone cannot see.
+  if (!await enforceRateLimit(req, res, 'coupon:' + ip, 5, 60000)) return;
+  if (!await enforceRateLimit(req, res, 'coupon:global', 60, 60000)) return;
+
+  const code = normalizeCoupon(req.body?.code);
+  const match = code && !couponsExpired() ? matchCoupon(code) : null;
+
+  // One response for every rejection: an unknown code, an expired programme and
+  // a spent code are indistinguishable from outside.
+  const reject = () => res.status(404).json({ error: 'That code is not valid.' });
+
+  if (!match) {
+    log('warn', 'coupon.rejected', { requestId: req.requestId, reason: 'unknown_or_expired' });
+    return reject();
+  }
+
+  let used;
+  try {
+    used = Number(await redis.incr(couponKey(match.code)));
+  } catch (err) {
+    // Fail closed. Free product is not something to hand out because a counter
+    // was unreachable — the opposite call from the analysis retry counter.
+    logError('coupon.counter_failed', err, { requestId: req.requestId, couponRef: couponRef(match.code) });
+    return res.status(503).json({ error: `Service temporarily unavailable. Quote ref ${req.requestId}.` });
+  }
+
+  if (used > match.max) {
+    // Put the count back so it stays an honest redemption tally. Concurrent
+    // attempts that all overshoot all decrement, so the cap still holds.
+    await redis.decr(couponKey(match.code)).catch(() => {});
+    log('warn', 'coupon.exhausted', { requestId: req.requestId, couponRef: couponRef(match.code), max: match.max });
+    return reject();
+  }
+
+  const sessionId = 'coupon_' + crypto.randomUUID();
+  const token = jwt.sign({ sessionId, jti: crypto.randomUUID() }, JWT_SECRET, { expiresIn: UPLOAD_TOKEN_EXPIRES_IN });
+  log('info', 'coupon.redeemed', { requestId: req.requestId, couponRef: couponRef(match.code), used, max: match.max });
+  capturePosthog('coupon_redeemed', {
+    requestId: req.requestId,
+    coupon_ref: couponRef(match.code),
+    redemption: used,
+    max_redemptions: match.max,
+  }, analyticsId(sessionId));
+  await flushPosthog();
+  res.json({ token });
+});
+
 // ── Stripe: Create Checkout Session ───────────────────────────────────────────
 app.post('/api/checkout', async (req, res) => {
   if (!checkOrigin(req, res)) return;
@@ -873,6 +993,7 @@ app.post('/api/analyze', analyzeAuth, upload.single('cv'), async (req, res) => {
     log('info', 'analyze.completed', { requestId: reqId, overallScore: result.overallScore, model: LLM_MODEL });
     capturePosthog('cv_analysis_completed', {
       requestId: reqId,
+      source: analysisSource(tokenPayload.sessionId),
       overall_score: result.overallScore,
       verdict: result.verdict,
       detected_role: result.detectedRole,
@@ -1366,6 +1487,13 @@ app.__test = {
   DOCUMENT_PARSE_TIMEOUT_MS,
   ANALYSIS_BUDGET_MS,
   PAYMENT_VERIFY_WINDOW_MS,
+  normalizeCoupon,
+  matchCoupon,
+  couponsExpired,
+  couponKey,
+  couponRef,
+  analysisSource,
+  COUPON_CODES,
   UPLOAD_TOKEN_TTL_SECONDS,
   ANALYSIS_CLAIM_TTL_SECONDS,
   clientIp,
