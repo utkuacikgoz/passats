@@ -36,10 +36,11 @@ jobs:
       # come from git history and would differ on the very commit that fixes them.
       - name: Generated files are current
         run: |
+          npm run sync:domain
           npm run sync:faq
           npm run sync:csp
-          git diff --exit-code -- views/index.html server.js \
-            || (echo "::error::Run 'npm run sync:faq && npm run sync:csp' and commit the result." && exit 1)
+          git diff --exit-code -- views/ public/robots.txt public/llms.txt server.js \
+            || (echo "::error::Run 'npm run sync:seo' and commit the result." && exit 1)
       - name: Quality fixture validation
         run: npm run quality:check
       # Guards the invocation budget: a platform timeout kills the request

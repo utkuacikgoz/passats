@@ -240,10 +240,25 @@ describe('verify-payment', () => {
     assert.equal(res.status, 402);
   });
 
-  it('refuses a paid session older than the one-hour window (410)', async () => {
-    stripeState.session = paidSession({ created: Math.floor(Date.now() / 1000) - 3 * 3600 });
-    const res = await request.get('/api/verify-payment?session_id=cs_test_paid').set('x-vercel-forwarded-for', nextIp());
+  it('still redeems a payment the customer comes back to later the same day', async () => {
+    // The window used to be one hour from session creation. Stripe closes
+    // payment at +30 minutes, so someone who paid late had barely half an hour
+    // to return before being told to purchase again, after paying.
+    stripeState.session = paidSession({ id: 'cs_late', metadata: {}, created: Math.floor(Date.now() / 1000) - 8 * 3600 });
+    const res = await request.get('/api/verify-payment?session_id=cs_late').set('x-vercel-forwarded-for', nextIp());
+    assert.equal(res.status, 200, 'eight hours later is a normal customer, not an attacker');
+    assert.ok(res.body.token);
+  });
+
+  it('refuses a payment past the window without telling them to pay twice', async () => {
+    stripeState.session = paidSession({ id: 'cs_ancient', metadata: {}, created: Math.floor(Date.now() / 1000) - 48 * 3600 });
+    const res = await request.get('/api/verify-payment?session_id=cs_ancient').set('x-vercel-forwarded-for', nextIp());
     assert.equal(res.status, 410);
+    // They paid. The money is real and no analysis was ever claimed, so the
+    // copy must route them to a human, never back to the checkout button.
+    assert.doesNotMatch(res.body.error, /purchase again|buy again/i);
+    assert.match(res.body.error, new RegExp(app.__test.SUPPORT_EMAIL.replace(/\./g, '\\.')));
+    assert.match(res.body.error, /reference [0-9a-f-]{36}/i);
   });
 
   it('issues a token for a fresh paid session and persists it to Stripe metadata', async () => {
