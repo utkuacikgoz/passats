@@ -81,7 +81,7 @@ const CHECKOUT_CONSENT_MESSAGE =
   `You are asking us to start your analysis immediately, so you lose the 14-day right of withdrawal once your report is delivered. If anything fails, email ${SUPPORT_EMAIL} for a full refund.`;
 const analysisSupportMessage = reqId =>
   `We couldn't complete your analysis. Email ${SUPPORT_EMAIL} with reference ${reqId} and we'll refund or fix it.`;
-const APP_SCRIPT_CSP_HASH = "'sha256-yK6/+dq8LWoFotJ6Im4seVvp9Ud2LsmmdJb4XnCAQ8g='";
+const APP_SCRIPT_CSP_HASH = "'sha256-btQacNOlTQ/DCCyH5qPqT7MT7EiXMvIZrB1uDca7he8='";
 const VERCEL_ANALYTICS_CSP_HASH = "'sha256-rbTaSdDD+Sd+K8IZ66VS79bdI78bN8AwXXyN0/lD5fY='";
 // Hashes of individual onclick handler bodies (required for 'unsafe-hashes' to allow them)
 const APP_HANDLER_CSP_HASHES = [
@@ -503,9 +503,19 @@ function checkOrigin(req, res) {
 }
 
 // ── Atomic payment-session single-use via Redis SET NX ────────────────────────
-// Claims outlive the one-hour payment verification window plus the final
-// 30-minute JWT, preventing token refreshes or concurrent verification requests
-// from turning one Stripe payment into multiple analyses.
+// These three constants form one invariant, asserted in test/unit.test.js:
+//
+//   ANALYSIS_CLAIM_TTL  >  PAYMENT_VERIFY_WINDOW + UPLOAD_TOKEN_TTL
+//
+// The claim is what stops one payment buying two analyses. If it can expire
+// while the payment is still verifiable, a customer can come back, be issued a
+// fresh token against the now-unclaimed session, and take a second analysis for
+// free. There is no error and no failed request when that happens: it shows up
+// only as revenue that quietly does not arrive, which is why it is pinned by a
+// test rather than left to this comment.
+const PAYMENT_VERIFY_WINDOW_MS = 60 * 60 * 1000;
+const UPLOAD_TOKEN_TTL_SECONDS = 30 * 60;
+const UPLOAD_TOKEN_EXPIRES_IN = `${UPLOAD_TOKEN_TTL_SECONDS}s`;
 const ANALYSIS_CLAIM_TTL_SECONDS = 2 * 60 * 60;
 const analysisClaimKey = sessionId => `passats:analysis:${sessionId}`;
 const analysisRetryKey = sessionId => `passats:retry:${sessionId}`;
@@ -536,7 +546,7 @@ app.post('/api/checkout', async (req, res) => {
 
   if (DEV_MODE) {
     const fakeSessionId = 'dev_' + crypto.randomBytes(12).toString('hex');
-    const token = jwt.sign({ sessionId: fakeSessionId, jti: crypto.randomUUID() }, JWT_SECRET, { expiresIn: '30m' });
+    const token = jwt.sign({ sessionId: fakeSessionId, jti: crypto.randomUUID() }, JWT_SECRET, { expiresIn: UPLOAD_TOKEN_EXPIRES_IN });
     if (devSessions) devSessions.set(fakeSessionId, { token, used: false });
     return res.json({ url: `${BASE_URL}/success?session_id=${fakeSessionId}` });
   }
@@ -614,7 +624,7 @@ async function handleWebhook(req, res) {
     const token = jwt.sign(
       { sessionId: checkoutSession.id, jti: crypto.randomUUID() },
       JWT_SECRET,
-      { expiresIn: '30m' }
+      { expiresIn: UPLOAD_TOKEN_EXPIRES_IN }
     );
     await stripe.checkout.sessions.update(checkoutSession.id, {
       metadata: { passats_token: token }
@@ -641,7 +651,7 @@ app.get('/api/verify-payment', async (req, res) => {
   if (DEV_MODE) {
     const devEntry = devSessions ? devSessions.get(session_id) : null;
     if (devEntry && devEntry.token) return res.json({ token: devEntry.token });
-    const newToken = jwt.sign({ sessionId: session_id, jti: crypto.randomUUID() }, JWT_SECRET, { expiresIn: '30m' });
+    const newToken = jwt.sign({ sessionId: session_id, jti: crypto.randomUUID() }, JWT_SECRET, { expiresIn: UPLOAD_TOKEN_EXPIRES_IN });
     return res.json({ token: newToken });
   }
 
@@ -653,7 +663,7 @@ app.get('/api/verify-payment', async (req, res) => {
 
     // Cap token refresh window — session must be < 1 hour old
     const sessionAgeMs = Date.now() - (checkoutSession.created * 1000);
-    if (sessionAgeMs > 60 * 60 * 1000) {
+    if (sessionAgeMs > PAYMENT_VERIFY_WINDOW_MS) {
       return res.status(410).json({ error: 'Session expired. Please purchase again.' });
     }
 
@@ -678,7 +688,7 @@ app.get('/api/verify-payment', async (req, res) => {
     token = jwt.sign(
       { sessionId: checkoutSession.id, jti: crypto.randomUUID() },
       JWT_SECRET,
-      { expiresIn: '30m' }
+      { expiresIn: UPLOAD_TOKEN_EXPIRES_IN }
     );
     await stripe.checkout.sessions.update(checkoutSession.id, {
       metadata: { passats_token: token }
@@ -698,7 +708,7 @@ if (DEV_MODE) {
   }
   console.log('\u26a0\ufe0f  DEV MODE \u2014 payments and analysis are mocked');
   app.get('/api/dev-token', (req, res) => {
-    const token = jwt.sign({ sessionId: 'dev', jti: crypto.randomUUID() }, JWT_SECRET, { expiresIn: '30m' });
+    const token = jwt.sign({ sessionId: 'dev', jti: crypto.randomUUID() }, JWT_SECRET, { expiresIn: UPLOAD_TOKEN_EXPIRES_IN });
     if (devSessions) devSessions.set('dev', { token, used: false });
     res.json({ token });
   });
@@ -714,7 +724,7 @@ app.get('/api/test-token', async (req, res) => {
   const token = jwt.sign(
     { sessionId: 'test_' + crypto.randomUUID(), jti: crypto.randomUUID() },
     JWT_SECRET,
-    { expiresIn: '30m' }
+    { expiresIn: UPLOAD_TOKEN_EXPIRES_IN }
   );
   res.json({ token });
 });
@@ -752,8 +762,14 @@ app.post('/api/event', async (req, res) => {
   // Deliberately no pass-through of caller-supplied properties: an open bag is
   // how resume text ends up in an analytics tool by accident.
   capturePosthog(event, { requestId: req.requestId, source: 'client' }, anonymousId);
-  await flushPosthog();
+  // Answer first, then flush. The money and outcome events await their flush
+  // because a frozen instance losing one of those loses the record that matters.
+  // These six browser funnel events fire for every visitor, including everyone
+  // who never reaches checkout, and losing one costs nothing — so they do not
+  // get to hold a serverless invocation open on a third party. The client sends
+  // them with keepalive, so nothing here was ever visible to the customer.
   res.status(204).end();
+  flushPosthog().catch(() => {});
 });
 
 // ── Pre-multer auth — origin + rate limit + JWT verify before file upload ─────
@@ -1349,6 +1365,9 @@ app.__test = {
   LLM_TIMEOUT_MS,
   DOCUMENT_PARSE_TIMEOUT_MS,
   ANALYSIS_BUDGET_MS,
+  PAYMENT_VERIFY_WINDOW_MS,
+  UPLOAD_TOKEN_TTL_SECONDS,
+  ANALYSIS_CLAIM_TTL_SECONDS,
   clientIp,
   normalizeIp,
   // The DEV_MODE report, so its copy can be held to the same rules as the prompt.
