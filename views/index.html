@@ -240,6 +240,41 @@
   }
   .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; transform: none; box-shadow: none; }
 
+  /* ── COUPON ── */
+  /* Deliberately quiet. This is for a handful of testers, so it must not read
+     as a discount hunt to everyone else and pull them out of the paid flow. */
+  .coupon-row { margin-top: 18px; }
+  .coupon-toggle {
+    background: none; border: none; padding: 0;
+    font-family: inherit; font-size: 0.84rem; color: var(--muted);
+    text-decoration: underline; text-underline-offset: 3px; cursor: pointer;
+  }
+  .coupon-toggle:hover { color: var(--ink); }
+  .coupon-form { display: flex; gap: 8px; margin-top: 12px; max-width: 380px; }
+  .coupon-form[hidden] { display: none; }
+  .coupon-form input {
+    flex: 1 1 auto; min-width: 0;
+    padding: 11px 14px; font-family: inherit; font-size: 0.88rem;
+    border: 1px solid var(--border); border-radius: 10px;
+    background: var(--card); color: var(--ink);
+    text-transform: uppercase; letter-spacing: 0.04em;
+  }
+  .coupon-form input:focus-visible { outline: none; border-color: var(--accent); }
+  /* Uppercase helps a typed code read back correctly; applying it to the
+     placeholder just shouts an instruction at everyone who opened the field. */
+  .coupon-form input::placeholder { text-transform: none; letter-spacing: 0; }
+  .coupon-submit {
+    flex: 0 0 auto;
+    padding: 11px 20px; font-family: inherit; font-size: 0.88rem; font-weight: 600;
+    color: #fff; background: var(--ink); border: none; border-radius: 10px; cursor: pointer;
+  }
+  .coupon-submit:hover { opacity: 0.85; }
+  .coupon-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+  .sr-only {
+    position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+    overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+  }
+
   /* ── REPORT PREVIEW ── */
   .value-section {
     max-width: 660px; margin: 0 auto; padding: 0 40px 60px;
@@ -656,6 +691,16 @@
       <div class="cta-row">
         <button class="btn-primary" onclick="ctaClick(this)" id="heroCtaBtn">Check My Resume. $2.99</button>
       </div>
+      <div class="coupon-row">
+        <button type="button" class="coupon-toggle" id="couponToggle" onclick="toggleCoupon()"
+                aria-expanded="false" aria-controls="couponForm">Have a code?</button>
+        <div class="coupon-form" id="couponForm" hidden>
+          <label class="sr-only" for="couponInput">Coupon code</label>
+          <input id="couponInput" type="text" inputmode="latin" autocomplete="off"
+                 spellcheck="false" maxlength="64" placeholder="Enter your code">
+          <button type="button" class="coupon-submit" id="couponSubmit" onclick="redeemCoupon()">Redeem</button>
+        </div>
+      </div>
       <div class="error-msg" id="landingError" role="alert" aria-live="assertive" style="max-width:480px;margin:0 auto;"></div>
     </div>
     <aside class="hero-report" aria-label="Example of a PassATS report">
@@ -936,6 +981,45 @@
     if (hero) {
       hero.textContent = label;
       hero.disabled = false;
+    }
+  }
+
+  function toggleCoupon() {
+    const form = document.getElementById('couponForm');
+    const toggle = document.getElementById('couponToggle');
+    const open = form.hidden;
+    form.hidden = !open;
+    toggle.setAttribute('aria-expanded', String(open));
+    if (open) document.getElementById('couponInput').focus();
+  }
+
+  async function redeemCoupon() {
+    const input = document.getElementById('couponInput');
+    const btn = document.getElementById('couponSubmit');
+    const code = input.value.trim();
+    if (!code) { input.focus(); return; }
+
+    btn.disabled = true;
+    const restore = btn.textContent;
+    btn.textContent = 'Checking…';
+    try {
+      const res = await fetch('/api/redeem-coupon', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'That code is not valid.');
+      uploadToken = data.token;
+      // Same shape a payment produces, so a refresh recovers it identically.
+      saveSession({ sessionId: 'coupon', token: data.token });
+      input.value = '';
+      showView('upload');
+    } catch (err) {
+      showLandingError(err.message);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = restore;
     }
   }
 
