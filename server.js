@@ -210,6 +210,21 @@ function log(level, event, fields = {}) {
   else console.log(line);
 }
 
+// A Stripe checkout session id is a payment reference: using it as the analytics
+// distinct id made every behavioural profile in PostHog directly pivotable to a
+// payment, and from there through Stripe to a name and an email. Analytics does
+// not need that, it only needs a stable key to join one customer's events.
+//
+// HMAC with the JWT secret gives a per-payment identifier that is stable across
+// the events of one purchase, useless to anyone who only has PostHog access, and
+// not reversible without a secret that never leaves the deployment. Support
+// correlation runs on requestId, which is in the logs and in the error copy the
+// customer is shown.
+function analyticsId(sessionId) {
+  if (typeof sessionId !== 'string' || !sessionId) return 'server';
+  return 'a_' + crypto.createHmac('sha256', JWT_SECRET).update(sessionId).digest('hex').slice(0, 32);
+}
+
 function capturePosthog(event, properties = {}, distinctId = 'server') {
   if (!posthog || DEV_MODE) return;
   try {
@@ -410,12 +425,17 @@ const upload = multer({
     },
   }),
   limits: { fileSize: MAX_UPLOAD_BYTES, fieldSize: MAX_JOB_DESCRIPTION_BYTES, fields: 5 },
-  fileFilter: (_req, file, cb) => {
+  fileFilter: (req, file, cb) => {
     const allowed = [
       'application/pdf',
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
     ];
-    cb(null, allowed.includes(file.mimetype));
+    const ok = allowed.includes(file.mimetype);
+    // multer drops a rejected file silently, so the handler would otherwise see
+    // an empty req.file and tell the customer "No file uploaded" — which is not
+    // what happened and gives them nothing to act on. Record the real reason.
+    if (!ok) req.rejectedMimeType = file.mimetype || 'unknown';
+    cb(null, ok);
   }
 });
 
@@ -465,12 +485,17 @@ function checkOrigin(req, res) {
   if (DEV_MODE) return true;
   const origin = req.headers['origin'];
   if (!origin) {
-    console.warn('[csrf] missing origin ip=' + clientIp(req) + ' path=' + req.path);
-    res.status(403).json({ error: 'Forbidden' });
+    // Usually a privacy extension or a hardened browser stripping the header,
+    // not an attack. A bare "Forbidden" left those customers stuck after paying
+    // with nothing to act on, so name the cause and the fix.
+    log('warn', 'csrf.missing_origin', { requestId: req.requestId, path: req.path });
+    res.status(403).json({
+      error: 'Your browser did not send an origin header, so we could not verify this request came from PassATS. This is usually a privacy extension or a strict privacy setting. Disable it for this site, or try another browser, and your payment will still be waiting.',
+    });
     return false;
   }
   if (!ALLOWED_ORIGINS.has(origin)) {
-    console.warn('[csrf] rejected origin=' + origin + ' allowed=' + [...ALLOWED_ORIGINS].join(','));
+    log('warn', 'csrf.rejected_origin', { requestId: req.requestId, origin, path: req.path });
     res.status(403).json({ error: 'Forbidden' });
     return false;
   }
@@ -549,7 +574,7 @@ app.post('/api/checkout', async (req, res) => {
       requestId: req.requestId,
       stripe_session_id: session.id,
       anonymous_id: anonymousId,
-    }, session.id);
+    }, analyticsId(session.id));
     await flushPosthog();
     res.json({ url: session.url });
   } catch (err) {
@@ -598,7 +623,7 @@ async function handleWebhook(req, res) {
       stripe_session_id: checkoutSession.id,
       amount_total: checkoutSession.amount_total,
       currency: checkoutSession.currency,
-    }, checkoutSession.id);
+    }, analyticsId(checkoutSession.id));
     await flushPosthog();
   }
 
@@ -767,7 +792,15 @@ app.post('/api/analyze', analyzeAuth, upload.single('cv'), async (req, res) => {
       if (devEntry) devEntry.used = true;
     }
 
-    if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+    if (!req.file) {
+      if (req.rejectedMimeType) {
+        log('warn', 'upload.type_rejected', { requestId: reqId, mimeType: req.rejectedMimeType });
+        return res.status(415).json({
+          error: 'That file type is not supported. Please upload a PDF or a DOCX.',
+        });
+      }
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
 
     const uploadedBuffer = await readUploadedFileBuffer(req.file);
 
@@ -788,7 +821,7 @@ app.post('/api/analyze', analyzeAuth, upload.single('cv'), async (req, res) => {
     }
     if (!claimed) {
       log('warn', 'token.replay_blocked', { requestId: reqId, sessionId: tokenPayload.sessionId });
-      capturePosthog('token_replay_blocked', { requestId: reqId }, tokenPayload.sessionId);
+      capturePosthog('token_replay_blocked', { requestId: reqId }, analyticsId(tokenPayload.sessionId));
       await flushPosthog();
       return res.status(403).json({ error: 'Token already used' });
     }
@@ -829,7 +862,7 @@ app.post('/api/analyze', analyzeAuth, upload.single('cv'), async (req, res) => {
       detected_role: result.detectedRole,
       has_job_description: !!jobDescription,
       file_type: req.file?.mimetype,
-    }, tokenPayload.sessionId);
+    }, analyticsId(tokenPayload.sessionId));
     await flushPosthog();
     res.json(result);
   } catch (err) {
@@ -859,14 +892,14 @@ app.post('/api/analyze', analyzeAuth, upload.single('cv'), async (req, res) => {
           logError('redis.release_token_failed', delErr, { requestId: reqId, sessionId: tokenPayload.sessionId });
         });
         logError('analyze.retryable_error', err, { requestId: reqId, retries, sessionId: tokenPayload.sessionId, model: LLM_MODEL });
-        capturePosthog('cv_analysis_failed', { requestId: reqId, retries, retryable: true }, tokenPayload.sessionId);
-        if (posthog && !DEV_MODE) posthog.captureException(err, tokenPayload.sessionId, { requestId: reqId, retries });
+        capturePosthog('cv_analysis_failed', { requestId: reqId, retries, retryable: true }, analyticsId(tokenPayload.sessionId));
+        if (posthog && !DEV_MODE) posthog.captureException(err, analyticsId(tokenPayload.sessionId), { requestId: reqId, retries });
         await flushPosthog();
         return res.status(500).json({ error: ANALYSIS_RETRY_MESSAGE });
       }
       logError('analyze.retries_exhausted', err, { requestId: reqId, retries, sessionId: tokenPayload.sessionId, model: LLM_MODEL });
-      capturePosthog('cv_analysis_failed', { requestId: reqId, retries, retryable: false }, tokenPayload.sessionId);
-      if (posthog && !DEV_MODE) posthog.captureException(err, tokenPayload.sessionId, { requestId: reqId, retries });
+      capturePosthog('cv_analysis_failed', { requestId: reqId, retries, retryable: false }, analyticsId(tokenPayload.sessionId));
+      if (posthog && !DEV_MODE) posthog.captureException(err, analyticsId(tokenPayload.sessionId), { requestId: reqId, retries });
       await flushPosthog();
       return res.status(500).json({ error: analysisSupportMessage(reqId) });
     }
