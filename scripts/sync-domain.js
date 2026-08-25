@@ -39,18 +39,22 @@ const EMAIL_RE = new RegExp(String.raw`\b([a-z][a-z0-9._-]*)@${HOST}\b`, 'gi');
 
 const host = new URL(site.CANONICAL_ORIGIN).host;
 
-// Trader identity placeholders on the legal pages. The address clause appears
-// only when an address is configured, so an unset value produces a correct
-// sentence rather than a visible [PLACEHOLDER] on a live legal page.
+// Trader identity on the legal pages. The address clause appears only when an
+// address is configured, so an unset value produces a correct sentence rather
+// than a visible [PLACEHOLDER] on a live legal page.
+//
+// This is rebuilt from a stable anchor rather than matched as a placeholder.
+// The first version replaced ` at <strong>[REGISTERED ADDRESS]</strong>` with an
+// empty string when no address was set, which deleted the anchor along with the
+// clause — so setting REGISTERED_ADDRESS afterwards was a permanent no-op, with
+// an empty diff and no error. Anchoring on the jurisdiction span, which always
+// survives, makes the clause reversible in both directions.
 const addressClause = site.REGISTERED_ADDRESS ? ` at <strong>${site.REGISTERED_ADDRESS}</strong>` : '';
+const TRADER_RE = /registered in <strong>[^<]*<\/strong>(?: at <strong>[^<]*<\/strong>)?\./g;
 const LEGAL = [
   [/\[LEGAL ENTITY NAME\]/g, site.LEGAL_ENTITY],
   [/\[JURISDICTION\]/g, site.JURISDICTION],
-  // The placeholder sits inside <strong> tags, so the clause has to be matched
-  // with its markup: replacing the token alone leaves a stray empty <strong>.
-  [/ at <strong>\[REGISTERED ADDRESS\]<\/strong>/g, addressClause],
-  // Repairs an already-emptied clause, and keeps a second run a no-op.
-  [/ at <strong><\/strong>/g, addressClause],
+  [TRADER_RE, `registered in <strong>${site.JURISDICTION}</strong>${addressClause}.`],
 ];
 
 let changed = 0;
