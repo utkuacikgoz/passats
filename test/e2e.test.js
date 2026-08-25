@@ -270,6 +270,14 @@ describe('Rate limiting', () => {
 });
 
 describe('Security headers', () => {
+  it('does not advertise the framework, and locks form submission to this origin', async () => {
+    const res = await request.get('/');
+    assert.equal(res.headers['x-powered-by'], undefined, 'X-Powered-By names the framework on every response');
+    // default-src does not cover form-action, so an omission here is silent:
+    // injected markup could post a form to an attacker's origin.
+    assert.match(res.headers['content-security-policy'], /form-action 'self'/);
+  });
+
   it('sets security headers on HTML responses', async () => {
     const res = await request.get('/');
     assert.equal(res.headers['x-content-type-options'], 'nosniff');
