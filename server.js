@@ -36,6 +36,9 @@ if (!DEV_MODE) {
 }
 
 const app = express();
+// Nothing needs this header, and it names the framework and therefore the CVE
+// list worth trying on every single response.
+app.disable('x-powered-by');
 // HTML documents are deliberately outside public/ — see the express.static note.
 const VIEWS_DIR = path.join(__dirname, 'views');
 const PORT = process.env.PORT || 3000;
@@ -342,6 +345,9 @@ app.use((req, res, next) => {
     "connect-src 'self'",
     "object-src 'none'",
     "base-uri 'self'",
+    // Not covered by default-src: without it, injected markup could still post
+    // a form to an attacker's origin.
+    "form-action 'self'",
     "frame-ancestors 'none'",
   ].join('; '));
   next();
