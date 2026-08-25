@@ -1,0 +1,13 @@
+{
+  "name": "PassATS",
+  "short_name": "PassATS",
+  "description": "ATS resume checker. One report, $2.99, no account.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#F4EEE5",
+  "theme_color": "#D85D43",
+  "icons": [
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/apple-touch-icon.png", "sizes": "180x180", "type": "image/png" }
+  ]
+}

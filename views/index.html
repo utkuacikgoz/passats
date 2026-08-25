@@ -127,7 +127,13 @@
 <!-- Robots -->
 <meta name="robots" content="index, follow">
 <meta name="theme-color" content="#D85D43">
+<!-- SVG first for browsers that take it; .ico is the fallback and is also what
+     a browser requests implicitly at /favicon.ico, which the SPA rewrite would
+     otherwise answer with the 404 page. -->
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/favicon.ico" sizes="16x16 32x32 48x48">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="manifest" href="/site.webmanifest">
 
 <!-- Vercel Web Analytics -->
 <script>
