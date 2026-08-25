@@ -85,6 +85,44 @@ describe('canonical domain', () => {
     }
   });
 
+  it('can add and remove the registered address, not just delete it once', () => {
+    // The first version replaced the whole ` at <strong>[REGISTERED ADDRESS]</strong>`
+    // span with an empty string when no address was configured. That deleted the
+    // anchor along with the clause, so setting REGISTERED_ADDRESS afterwards
+    // changed nothing — an empty diff, no error, and a legal page permanently
+    // missing a trader address the law asks for.
+    const scratch = fs.mkdtempSync(path.join(require('node:os').tmpdir(), 'passats-addr-'));
+    const target = path.join(scratch, 'terms.html');
+    const sentence = j => `<p>PassATS is operated by <strong>Acme LLC</strong>, registered in <strong>${j}</strong>. More text.</p>`;
+    const script = path.join(ROOT, 'scripts', 'sync-domain.js');
+    const run = address => {
+      const source = fs.readFileSync(script, 'utf8')
+        .replace(/const FILES = \[[\s\S]*?\];/, `const FILES = [${JSON.stringify(path.relative(ROOT, target))}];`)
+        .replace("require('../config/site')", `require(${JSON.stringify(path.join(ROOT, 'config', 'site.js'))})`);
+      const patched = path.join(scratch, 'sync.js');
+      fs.writeFileSync(patched, source);
+      execFileSync(process.execPath, [patched], {
+        cwd: ROOT,
+        env: { ...process.env, REGISTERED_ADDRESS: address },
+      });
+      return fs.readFileSync(target, 'utf8');
+    };
+
+    fs.writeFileSync(target, sentence(site.JURISDICTION));
+    const withAddress = run('12 Example St, Wilmington, DE');
+    assert.match(withAddress, / at <strong>12 Example St, Wilmington, DE<\/strong>\./, 'address was not added');
+
+    const without = run('');
+    assert.doesNotMatch(without, /12 Example St/, 'address was not removed');
+    assert.match(without, /registered in <strong>[^<]+<\/strong>\./, 'the sentence must stay well formed');
+
+    // The anchor has to survive the empty pass, or the next set is a no-op.
+    const readded = run('9 Second Ave, Dover, DE');
+    assert.match(readded, / at <strong>9 Second Ave, Dover, DE<\/strong>\./, 'the anchor did not survive an empty sync');
+
+    fs.rmSync(scratch, { recursive: true, force: true });
+  });
+
   it('keeps the support address on the canonical domain', () => {
     assert.equal(site.SUPPORT_EMAIL, `support@${new URL(site.CANONICAL_ORIGIN).hostname}`);
     assert.match(read('views/terms.html'), new RegExp(site.SUPPORT_EMAIL.replace('.', '\\.')));
