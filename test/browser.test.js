@@ -190,7 +190,10 @@ describe('the paid journey', () => {
     await page.emulateMedia({ media: 'print' });
     assert.equal(await page.isVisible('.print-footnote'), true, 'printed report is anonymous');
     assert.equal(await page.isVisible('#dashFileName'), true, 'printed report loses the file and date');
-    assert.match(await page.textContent('.print-footnote'), /support@passats\.com/);
+    // Read from config rather than pinning a literal: this assertion went stale
+    // the moment the domain moved, and a stale test is a false alarm at exactly
+    // the moment you need the suite to be trustworthy.
+    assert.match(await page.textContent('.print-footnote'), new RegExp(require('../config/site').SUPPORT_EMAIL.replace(/\./g, '\\.')));
     assert.equal(await page.isVisible('.cta-again'), false, 'buttons must not print');
     await page.emulateMedia({ media: 'screen' });
 
