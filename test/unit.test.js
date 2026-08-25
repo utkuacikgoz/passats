@@ -44,6 +44,9 @@ const {
   ATS_OUTPUT_SCHEMA,
   LLM_TIMEOUT_MS,
   DOCUMENT_PARSE_TIMEOUT_MS,
+  PAYMENT_VERIFY_WINDOW_MS,
+  UPLOAD_TOKEN_TTL_SECONDS,
+  ANALYSIS_CLAIM_TTL_SECONDS,
   checkoutFunnelProperties,
 } = app.__test;
 
@@ -156,6 +159,38 @@ describe('owner test-token authorization', () => {
     assert.equal(isOwnerTestAuthorized('wrong', 'secret', '203.0.113.10', new Set(['203.0.113.10'])), false);
     assert.equal(isOwnerTestAuthorized('secret', 'secret', '203.0.113.11', new Set(['203.0.113.10'])), false);
     assert.equal(isOwnerTestAuthorized('secret', 'secret', '::ffff:203.0.113.10', new Set(['203.0.113.10'])), true);
+  });
+});
+
+describe('one payment buys exactly one analysis', () => {
+  // The claim is the only thing preventing a second free analysis. If it can
+  // expire while the payment is still verifiable, a customer returning inside
+  // the verification window is issued a fresh token against a session that no
+  // longer holds a claim, and takes another analysis for nothing.
+  //
+  // Nothing about that failure is visible at runtime: no error, no failed
+  // request, just revenue that does not arrive. It has to be a test, because
+  // tuning any one of these three numbers in isolation reopens it silently.
+  it('keeps the claim alive longer than a payment can be redeemed', () => {
+    const claimMs = ANALYSIS_CLAIM_TTL_SECONDS * 1000;
+    const redeemableMs = PAYMENT_VERIFY_WINDOW_MS + UPLOAD_TOKEN_TTL_SECONDS * 1000;
+
+    assert.ok(
+      claimMs > redeemableMs,
+      `Claim TTL (${claimMs}ms) must outlive the window in which a payment can still ` +
+      `produce a working token (${redeemableMs}ms = ${PAYMENT_VERIFY_WINDOW_MS}ms verify ` +
+      `+ ${UPLOAD_TOKEN_TTL_SECONDS * 1000}ms token life). Raise ANALYSIS_CLAIM_TTL_SECONDS ` +
+      `whenever PAYMENT_VERIFY_WINDOW_MS grows, or one payment buys two analyses.`,
+    );
+  });
+
+  it('leaves headroom rather than sitting exactly on the boundary', () => {
+    // A token minted in the final millisecond of the verification window is
+    // still valid for its full life, so equality is already a bug. Require a
+    // real margin so clock skew between Stripe and Redis cannot close the gap.
+    const claimMs = ANALYSIS_CLAIM_TTL_SECONDS * 1000;
+    const redeemableMs = PAYMENT_VERIFY_WINDOW_MS + UPLOAD_TOKEN_TTL_SECONDS * 1000;
+    assert.ok(claimMs - redeemableMs >= 5 * 60 * 1000, 'want at least 5 minutes of headroom');
   });
 });
 
