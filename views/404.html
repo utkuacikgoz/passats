@@ -30,6 +30,18 @@
   :focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; border-radius: 4px; }
   footer { padding: 20px 40px 40px; text-align: center; font-size: 0.78rem; color: var(--muted); }
   footer a { color: var(--accent); }
+
+  /* Touch targets: 44px is the minimum both Apple and Google publish, and every
+     link on this page measured under it at 390px. */
+  @media (max-width: 640px) {
+    .logo, footer a, .nav-cta, .btn, .cta a.btn {
+      min-height: 44px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    footer p { line-height: 2.4; }
+  }
 </style>
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="/favicon.ico" sizes="16x16 32x32 48x48">
