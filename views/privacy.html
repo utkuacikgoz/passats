@@ -80,6 +80,7 @@
   <h2>Cookies and tracking</h2>
   <p>PassATS uses Vercel Web Analytics for basic page traffic and may use PostHog for server-side operational events and error diagnostics. Neither sets advertising cookies, and neither receives your resume text or job description.</p>
   <p>We load no third-party analytics script on the page. To understand where people get stuck, the site tells our own server which step you reached, from a fixed list of step names, alongside the tab-scoped random identifier described above. The server accepts nothing else, so no part of your resume or job description can reach an analytics tool through it.</p>
+  <p>Server-side events about a purchase are grouped under a one-way cryptographic hash of your checkout reference, not the reference itself. This lets us see that one purchase produced one report without our analytics tool holding anything that can be traced back to your payment or your identity. The hash cannot be reversed without a secret that stays in our deployment.</p>
 
   <h2>Data sharing and international transfers</h2>
   <p>We do not sell or rent your data. We use service providers only to operate PassATS: Stripe for payments, Anthropic for resume analysis, Vercel for hosting and web analytics, and PostHog for optional operational telemetry. Resume text and job descriptions are sent to Anthropic for analysis and are subject to their data processing terms.</p>
