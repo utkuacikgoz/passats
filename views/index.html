@@ -237,6 +237,9 @@
     gap: 16px; flex-wrap: wrap;
   }
 
+  .ph-badge { display: inline-block; margin-top: 22px; line-height: 0; border-radius: 10px; }
+  .ph-badge img { display: block; width: 250px; height: 54px; }
+
   .btn-primary {
     background: var(--accent-warm); color: #fff; border: none;
     border-radius: 12px; padding: 16px 36px;
@@ -670,6 +673,7 @@
     .hero-copy { text-align: center; }
     .hero-explainer, .hero-flow { margin-left: auto; margin-right: auto; }
     .cta-row { justify-content: center; }
+    .ph-badge { margin-left: auto; margin-right: auto; }
   }
   @media (max-width: 640px) {
     nav { padding: 16px 20px; }
@@ -680,6 +684,30 @@
     .upload-card { padding: 32px 24px; }
     .hero { padding: 60px 20px 40px; }
     .how { padding: 40px 20px 60px; }
+
+    /* Anything a finger has to hit gets 44px of height, the figure both Apple
+       and Google publish as the minimum. Measured at 390px, the nav pill, the
+       coupon toggle, the footer links and both report buttons were under it. */
+    .nav-pill,
+    .coupon-toggle,
+    .coupon-submit,
+    .save-report-btn,
+    .cta-again button,
+    footer a {
+      min-height: 44px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    /* Inline links in a sentence must not become blocks, so give the footer row
+       breathing room instead of stacking it. */
+    footer p { line-height: 2.4; }
+
+    /* Labels set at 0.66rem to 0.72rem land at 10.5px to 11.5px on a phone.
+       Nothing a paying customer has to read should be under 12px. */
+    .report-eyebrow,
+    .report-total span,
+    .field-counter { font-size: 0.78rem; }
   }
 </style>
 </head>
@@ -723,6 +751,13 @@
         </div>
       </div>
       <div class="error-msg" id="landingError" role="alert" aria-live="assertive" style="max-width:480px;margin:0 auto;"></div>
+      <!-- Launch badge. width and height are set so the reserved space matches
+           the image exactly: a third-party asset that loads late must not shove
+           the hero around, and this one sits directly under the CTA. -->
+      <a class="ph-badge" href="https://www.producthunt.com/products/passats?embed=true&amp;utm_source=badge-featured&amp;utm_medium=badge&amp;utm_campaign=badge-passats" target="_blank" rel="noopener noreferrer">
+        <img src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1232349&amp;theme=light&amp;t=1787691900055"
+             alt="PassATS on Product Hunt" width="250" height="54">
+      </a>
     </div>
     <aside class="hero-report" aria-label="Example of a PassATS report">
       <p class="report-eyebrow">Example report</p>
