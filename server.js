@@ -36,6 +36,8 @@ if (!DEV_MODE) {
 }
 
 const app = express();
+// HTML documents are deliberately outside public/ — see the express.static note.
+const VIEWS_DIR = path.join(__dirname, 'views');
 const PORT = process.env.PORT || 3000;
 const BASE_URL = process.env.BASE_URL || `http://localhost:${PORT}`;
 // Analysis model. Claude Sonnet 5 is the launch default — best quality/latency
@@ -43,22 +45,48 @@ const BASE_URL = process.env.BASE_URL || `http://localhost:${PORT}`;
 // (e.g. claude-haiku-4-5 to trade a little copy sharpness for lower cost/latency).
 const LLM_MODEL = process.env.LLM_MODEL || 'claude-sonnet-5';
 const POSTHOG_HOST = process.env.POSTHOG_HOST || 'https://us.i.posthog.com';
-// Leave a small buffer below a 60-second serverless invocation while allowing
+// Leave a small buffer below the 60-second invocation ceiling declared in
+// vercel.json (`functions["api/index.js"].maxDuration`), while allowing
 // structured-output grammar compilation and normal model latency to complete.
+// If that ceiling ever changes, change this with it — a platform timeout kills
+// the request outside our catch block, so the analysis claim is never released
+// and the customer is locked out of the analysis they paid for.
 const LLM_TIMEOUT_MS = 55000;
+// A full report runs about 1,200 output tokens; this leaves generous headroom.
+// Hitting the cap truncates the JSON mid-object, so a max_tokens stop reason is
+// treated as its own failure rather than being reported as a malformed response.
+const LLM_MAX_TOKENS = 3000;
+// Support contact is a single source of truth: the failure messages below, the
+// footer, and the legal pages all read it from here so a customer who paid can
+// always reach a mailbox that exists. Verify the mailbox before opening traffic.
+const SUPPORT_EMAIL = process.env.SUPPORT_EMAIL || 'support@passats.com';
+// Upload limits live here so the multer ceiling, the textarea maxlength rendered
+// into the page, the error copy, and the prompt slice can never drift apart.
+const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
+const MAX_JOB_DESCRIPTION_CHARS = 12000;
+// Byte ceiling sits above the character limit: multer counts bytes and a job
+// description with accented or CJK characters costs more than one byte each.
+const MAX_JOB_DESCRIPTION_BYTES = 20000;
 const ANALYSIS_RETRY_MESSAGE = 'We couldn\'t complete your analysis right now. Please try again shortly.';
-const ANALYSIS_SUPPORT_MESSAGE = 'We couldn\'t complete your analysis. Please contact support so we can help.';
-const APP_SCRIPT_CSP_HASH = "'sha256-6zedb/zvFvDCb42WPxGfnC3sESF7tNURGuVMk8xDQJA='";
+// Shown on the Stripe Checkout submit button. Kept beside the other customer
+// copy so the wording cannot drift from the matching clause in the terms page.
+const CHECKOUT_CONSENT_MESSAGE =
+  `You are asking us to start your analysis immediately, so you lose the 14-day right of withdrawal once your report is delivered. If anything fails, email ${SUPPORT_EMAIL} for a full refund.`;
+const analysisSupportMessage = reqId =>
+  `We couldn't complete your analysis. Email ${SUPPORT_EMAIL} with reference ${reqId} and we'll refund or fix it.`;
+const APP_SCRIPT_CSP_HASH = "'sha256-IFI2KOU8AhpnTgqVY5XXrm+IeKYn7giDRUFVDH9jIfE='";
 const VERCEL_ANALYTICS_CSP_HASH = "'sha256-rbTaSdDD+Sd+K8IZ66VS79bdI78bN8AwXXyN0/lD5fY='";
 // Hashes of individual onclick handler bodies (required for 'unsafe-hashes' to allow them)
 const APP_HANDLER_CSP_HASHES = [
   "'sha256-PNSBC4eKT981jWU7VUWY1rrkVVj0fQGd8duewJsZptY='", // showView('landing')
-  "'sha256-pZxCg0aN1aHaHQ1BG9oYaJobxEoXaUIZRu3Sm8pT2YQ='", // onkeydown handler
+  "'sha256-pZxCg0aN1aHaHQ1BG9oYaJobxEoXaUIZRu3Sm8pT2YQ='", // if(event.key==='Enter'||event.key===' '){event…
   "'sha256-+sHL2zzQtByQnCf19Rv5VOUrN+15Fh04dw8mLo3Yo4I='", // startCheckout()
-  "'sha256-xs8BTA3IhBcadubj5lWdCRekTpMssl1EMbUL1T57oNE='", // startAnalysis()
   "'sha256-yUeu/Jy2O5YqLCuSJr5FKGy2nSjYppMdbMmVYC1WdF0='", // fileSelected(this)
-  "'sha256-CbVHLCnwV427HrcwsLdbh491k6FiycGp+zMMQLbnrTA='", // textarea focus style
-  "'sha256-yU03ONm8LtlVoSfPslmrL0rnGnT5Tp47xH1aB2Dr9Xs='", // textarea blur style
+  "'sha256-CbVHLCnwV427HrcwsLdbh491k6FiycGp+zMMQLbnrTA='", // this.style.borderColor='var(--accent)'
+  "'sha256-yU03ONm8LtlVoSfPslmrL0rnGnT5Tp47xH1aB2Dr9Xs='", // this.style.borderColor='var(--border)'
+  "'sha256-xs8BTA3IhBcadubj5lWdCRekTpMssl1EMbUL1T57oNE='", // startAnalysis()
+  "'sha256-69fqArDChhwIvqDXgQ7c23hHwIuhavhryq9Rg925ftM='", // saveReport()
+  "'sha256-z6hAwjmUwzyDoRXTD/Tu8VhZfB4g35x4QNvjBfH6sgg='", // startOver()
 ].join(' ');
 const TEST_ALLOWED_IPS = new Set(
   (process.env.TEST_ALLOWED_IPS || '')
@@ -96,9 +124,25 @@ function safeSecretEqual(provided, expected) {
   return crypto.timingSafeEqual(a, b);
 }
 
+// Stripe signals a parameter it will not accept with a 400 / invalid_request_error.
+// Used to tell "this account cannot have that field" apart from a real outage.
+function isInvalidRequest(err) {
+  return err?.type === 'StripeInvalidRequestError' || err?.statusCode === 400 || err?.status === 400;
+}
+
 function normalizeIp(ip) {
   if (!ip) return '';
   return ip.replace(/^::ffff:/, '').trim();
+}
+
+// Rate limits and the owner-test allowlist are only as trustworthy as the IP
+// they key on. `x-forwarded-for` is client-writable and Express hands us its
+// last hop, so prefer `x-vercel-forwarded-for` — Vercel sets it at the edge and
+// strips any inbound copy. Fall back to req.ip for local dev and self-hosting.
+function clientIp(req) {
+  const vercelIp = req?.headers?.['x-vercel-forwarded-for'];
+  if (typeof vercelIp === 'string' && vercelIp.trim()) return normalizeIp(vercelIp.split(',')[0]);
+  return normalizeIp(req?.ip);
 }
 
 function isAllowedTestIp(ip, allowedIps = TEST_ALLOWED_IPS) {
@@ -109,7 +153,8 @@ function isOwnerTestAuthorized(providedSecret, expectedSecret, ip, allowedIps = 
   return safeSecretEqual(providedSecret, expectedSecret) && allowedIps.size > 0 && isAllowedTestIp(ip, allowedIps);
 }
 
-// Trust Vercel's proxy layer so req.ip is the real client IP
+// Trust Vercel's proxy layer so req.ip is usable locally; clientIp() is what
+// every security decision keys on (see H3 note above).
 app.set('trust proxy', 1);
 
 let   stripe = null;
@@ -171,6 +216,24 @@ function capturePosthog(event, properties = {}, distinctId = 'server') {
   }
 }
 
+// A serverless instance can freeze the moment the response is written, dropping
+// whatever PostHog still has in flight. Await a flush before responding on the
+// paths whose telemetry we actually rely on — payment, analysis outcome, replay.
+// Telemetry must never fail a request, so every error is swallowed, and the
+// flush is bounded so a slow PostHog can't eat the invocation budget.
+const POSTHOG_FLUSH_TIMEOUT_MS = 2000;
+async function flushPosthog() {
+  if (!posthog || DEV_MODE) return;
+  try {
+    await Promise.race([
+      posthog.flush(),
+      new Promise(resolve => setTimeout(resolve, POSTHOG_FLUSH_TIMEOUT_MS)),
+    ]);
+  } catch (err) {
+    log('warn', 'posthog.flush_failed', { message: err.message });
+  }
+}
+
 function logError(event, err, fields = {}) {
   const properties = {
     ...fields,
@@ -185,12 +248,23 @@ function logError(event, err, fields = {}) {
 const rateLimits = new Map();
 async function isRateLimited(key, maxRequests, windowMs) {
   if (!DEV_MODE && redis) {
-    const redisKey = `passats:ratelimit:${key}`;
-    const count = await redis.incr(redisKey);
-    if (count === 1) {
-      await redis.expire(redisKey, Math.ceil(windowMs / 1000));
+    // Bucket by window so a key that misses its EXPIRE still ages out instead of
+    // blocking that caller forever, and pipeline both writes into one round trip.
+    const bucket = Math.floor(Date.now() / windowMs);
+    const redisKey = `passats:ratelimit:${key}:${bucket}`;
+    const ttlSeconds = Math.ceil(windowMs / 1000) + 1;
+    const pipeline = redis.pipeline();
+    pipeline.incr(redisKey);
+    pipeline.expire(redisKey, ttlSeconds);
+    const [count] = await pipeline.exec();
+    const used = Number(count);
+    if (!Number.isFinite(used)) {
+      // Throwing lands in enforceRateLimit's catch, which returns 503. Never let
+      // an unreadable counter read as "under the limit" — that would disable
+      // every rate limit in production without a single error in the logs.
+      throw new Error(`Rate limit counter was not a number: ${JSON.stringify(count)}`);
     }
-    return count > maxRequests;
+    return used > maxRequests;
   }
 
   const now = Date.now();
@@ -280,7 +354,11 @@ app.use(compression());
 
 app.use(express.json({ limit: '50kb' }));
 
-// Static assets with cache headers
+// Static assets with cache headers.
+// public/ holds only fingerprint-free assets (icons, OG image, robots, sitemap).
+// The HTML documents live in views/ and are always served by this function, so
+// the security headers and hashed CSP above apply to every page a browser renders
+// — Vercel's static layer would have served them bare.
 app.use(express.static(path.join(__dirname, 'public'), {
   maxAge: '7d',
   etag: true,
@@ -321,7 +399,7 @@ const upload = multer({
       cb(null, `passats-${suffix}`);
     },
   }),
-  limits: { fileSize: 5 * 1024 * 1024, fieldSize: 20000, fields: 5 },
+  limits: { fileSize: MAX_UPLOAD_BYTES, fieldSize: MAX_JOB_DESCRIPTION_BYTES, fields: 5 },
   fileFilter: (_req, file, cb) => {
     const allowed = [
       'application/pdf',
@@ -377,7 +455,7 @@ function checkOrigin(req, res) {
   if (DEV_MODE) return true;
   const origin = req.headers['origin'];
   if (!origin) {
-    console.warn('[csrf] missing origin ip=' + req.ip + ' path=' + req.path);
+    console.warn('[csrf] missing origin ip=' + clientIp(req) + ' path=' + req.path);
     res.status(403).json({ error: 'Forbidden' });
     return false;
   }
@@ -418,7 +496,7 @@ async function releaseAnalysisClaim(sessionId, store = redis) {
 app.post('/api/checkout', async (req, res) => {
   if (!checkOrigin(req, res)) return;
 
-  const ip = req.ip;
+  const ip = clientIp(req);
   if (!await enforceRateLimit(req, res, 'checkout:' + ip, 10, 60000)) return;
 
   if (DEV_MODE) {
@@ -428,15 +506,41 @@ app.post('/api/checkout', async (req, res) => {
     return res.json({ url: `${BASE_URL}/success?session_id=${fakeSessionId}` });
   }
 
+  const baseParams = {
+    mode: 'payment',
+    line_items: [{ price: process.env.STRIPE_PRICE_ID, quantity: 1 }],
+    success_url: `${BASE_URL}/success?session_id={CHECKOUT_SESSION_ID}`,
+    cancel_url: `${BASE_URL}/?cancelled=1`,
+    expires_at: Math.floor(Date.now() / 1000) + 30 * 60,
+  };
+
   try {
-    const session = await stripe.checkout.sessions.create({
-      mode: 'payment',
-      line_items: [{ price: process.env.STRIPE_PRICE_ID, quantity: 1 }],
-      success_url: `${BASE_URL}/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${BASE_URL}/?cancelled=1`,
-      expires_at: Math.floor(Date.now() / 1000) + 30 * 60,
-    });
-    capturePosthog('checkout_initiated', { requestId: req.requestId, stripe_session_id: session.id }, session.id);
+    let session;
+    try {
+      session = await stripe.checkout.sessions.create({
+        ...baseParams,
+        // EU and UK consumers have a 14-day right of withdrawal on digital
+        // services unless they request immediate performance and acknowledge
+        // losing that right. Saying so at the point of payment is what makes the
+        // waiver valid; the terms page carries the same wording.
+        custom_text: { submit: { message: CHECKOUT_CONSENT_MESSAGE } },
+      });
+    } catch (err) {
+      // Never let the consent copy take checkout down. If this account or API
+      // version rejects custom_text, sell the analysis anyway and shout about it
+      // in the logs: the terms page still carries the waiver, and a broken
+      // checkout costs far more than a weaker one.
+      if (!isInvalidRequest(err)) throw err;
+      logError('checkout.custom_text_rejected', err, { requestId: req.requestId, ip });
+      session = await stripe.checkout.sessions.create(baseParams);
+    }
+    const anonymousId = ANONYMOUS_ID.test(String(req.body?.anonymousId || '')) ? req.body.anonymousId : null;
+    capturePosthog('checkout_initiated', {
+      requestId: req.requestId,
+      stripe_session_id: session.id,
+      anonymous_id: anonymousId,
+    }, session.id);
+    await flushPosthog();
     res.json({ url: session.url });
   } catch (err) {
     logError('checkout.error', err, { requestId: req.requestId, ip });
@@ -459,8 +563,17 @@ async function handleWebhook(req, res) {
 
   if (event.type === 'checkout.session.completed') {
     const checkoutSession = event.data.object;
-    // Idempotency: if webhook re-fires (Stripe retries on 5xx), don't overwrite existing token
-    if (checkoutSession.metadata?.passats_token) {
+    // Idempotency: Stripe replays the ORIGINAL event payload on retry, so the
+    // metadata on `event.data.object` is a pre-write snapshot and can never show
+    // our own token. Re-read the live session to make the guard meaningful. The
+    // authoritative single-use control is still the session-keyed analysis claim.
+    let liveSession = checkoutSession;
+    try {
+      liveSession = await stripe.checkout.sessions.retrieve(checkoutSession.id);
+    } catch (err) {
+      log('warn', 'webhook.session_reread_failed', { sessionId: checkoutSession.id, message: err.message });
+    }
+    if (liveSession.metadata?.passats_token) {
       return res.json({ received: true });
     }
     const token = jwt.sign(
@@ -476,6 +589,7 @@ async function handleWebhook(req, res) {
       amount_total: checkoutSession.amount_total,
       currency: checkoutSession.currency,
     }, checkoutSession.id);
+    await flushPosthog();
   }
 
   res.json({ received: true });
@@ -483,7 +597,7 @@ async function handleWebhook(req, res) {
 
 // ── Verify payment & get upload token ─────────────────────────────────────────
 app.get('/api/verify-payment', async (req, res) => {
-  const ip = req.ip;
+  const ip = clientIp(req);
   if (!await enforceRateLimit(req, res, 'verify:' + ip, 20, 60000)) return;
 
   const { session_id } = req.query;
@@ -558,10 +672,10 @@ if (DEV_MODE) {
 // ── Owner test token — bypass payment in production for smoke testing ─────────
 app.get('/api/test-token', async (req, res) => {
   const secret = process.env.TEST_SECRET;
-  if (!isOwnerTestAuthorized(req.headers['x-test-secret'], secret, req.ip)) {
+  if (!isOwnerTestAuthorized(req.headers['x-test-secret'], secret, clientIp(req))) {
     return res.status(404).json({ error: 'Not found' });
   }
-  if (!await enforceRateLimit(req, res, 'test-token:' + normalizeIp(req.ip), 5, 60000)) return;
+  if (!await enforceRateLimit(req, res, 'test-token:' + clientIp(req), 5, 60000)) return;
   const token = jwt.sign(
     { sessionId: 'test_' + crypto.randomUUID(), jti: crypto.randomUUID() },
     JWT_SECRET,
@@ -570,10 +684,47 @@ app.get('/api/test-token', async (req, res) => {
   res.json({ token });
 });
 
+// ── Client funnel events ──────────────────────────────────────────────────────
+// Server events already cover money and outcomes. What was missing is the half
+// that decides the business: how many visitors press the button, how many who
+// pay actually upload. Those only exist in the browser.
+//
+// They are relayed through this endpoint rather than a third-party script on the
+// page, which keeps three promises at once: the CSP stays at connect-src 'self'
+// with no vendor domains, no tracking script or cookie is loaded, and the privacy
+// policy's claim that analytics never sees resume content stays true by
+// construction — the allowlist below is the complete set of what can be sent.
+const CLIENT_EVENTS = new Set([
+  'landing_viewed',
+  'checkout_clicked',
+  'upload_view_reached',
+  'analysis_started',
+  'report_viewed',
+  'report_saved',
+]);
+// A random per-tab id, so a funnel can be stitched without identifying anyone.
+const ANONYMOUS_ID = /^[0-9a-f-]{36}$/i;
+
+app.post('/api/event', async (req, res) => {
+  if (!checkOrigin(req, res)) return;
+  if (!await enforceRateLimit(req, res, 'event:' + clientIp(req), 60, 60000)) return;
+
+  const { event, anonymousId } = req.body || {};
+  if (!CLIENT_EVENTS.has(event) || !ANONYMOUS_ID.test(String(anonymousId || ''))) {
+    return res.status(400).json({ error: 'Unknown event' });
+  }
+
+  // Deliberately no pass-through of caller-supplied properties: an open bag is
+  // how resume text ends up in an analytics tool by accident.
+  capturePosthog(event, { requestId: req.requestId, source: 'client' }, anonymousId);
+  await flushPosthog();
+  res.status(204).end();
+});
+
 // ── Pre-multer auth — origin + rate limit + JWT verify before file upload ─────
 async function analyzeAuth(req, res, next) {
   if (!checkOrigin(req, res)) return;
-  if (!await enforceRateLimit(req, res, 'analyze:' + req.ip, 10, 60000)) return;
+  if (!await enforceRateLimit(req, res, 'analyze:' + clientIp(req), 10, 60000)) return;
   const tokenHeader = req.headers['x-passats-token'];
   if (!tokenHeader) return res.status(401).json({ error: 'Missing token' });
   try {
@@ -623,6 +774,7 @@ app.post('/api/analyze', analyzeAuth, upload.single('cv'), async (req, res) => {
     if (!claimed) {
       log('warn', 'token.replay_blocked', { requestId: reqId, sessionId: tokenPayload.sessionId });
       capturePosthog('token_replay_blocked', { requestId: reqId }, tokenPayload.sessionId);
+      await flushPosthog();
       return res.status(403).json({ error: 'Token already used' });
     }
 
@@ -648,7 +800,10 @@ app.post('/api/analyze', analyzeAuth, upload.single('cv'), async (req, res) => {
     }
 
     // Job description from multipart form field
-    const jobDescription = req.body?.jobDescription || '';
+    // Defensive trim: the textarea enforces this too, but a direct API caller
+    // can send more, and silently paying for text we never read is worse than
+    // cutting it at the documented limit.
+    const jobDescription = (req.body?.jobDescription || '').slice(0, MAX_JOB_DESCRIPTION_CHARS);
     log('info', 'analyze.started', { requestId: reqId, model: LLM_MODEL, hasJobDescription: !!jobDescription });
     const result = await analyzeCv(text, jobDescription);
     log('info', 'analyze.completed', { requestId: reqId, overallScore: result.overallScore, model: LLM_MODEL });
@@ -660,6 +815,7 @@ app.post('/api/analyze', analyzeAuth, upload.single('cv'), async (req, res) => {
       has_job_description: !!jobDescription,
       file_type: req.file?.mimetype,
     }, tokenPayload.sessionId);
+    await flushPosthog();
     res.json(result);
   } catch (err) {
     // Password-protected PDF — release token (user mistake, not adversarial)
@@ -683,12 +839,14 @@ app.post('/api/analyze', analyzeAuth, upload.single('cv'), async (req, res) => {
         logError('analyze.retryable_error', err, { requestId: reqId, retries, sessionId: tokenPayload.sessionId, model: LLM_MODEL });
         capturePosthog('cv_analysis_failed', { requestId: reqId, retries, retryable: true }, tokenPayload.sessionId);
         if (posthog && !DEV_MODE) posthog.captureException(err, tokenPayload.sessionId, { requestId: reqId, retries });
+        await flushPosthog();
         return res.status(500).json({ error: ANALYSIS_RETRY_MESSAGE });
       }
       logError('analyze.retries_exhausted', err, { requestId: reqId, retries, sessionId: tokenPayload.sessionId, model: LLM_MODEL });
       capturePosthog('cv_analysis_failed', { requestId: reqId, retries, retryable: false }, tokenPayload.sessionId);
       if (posthog && !DEV_MODE) posthog.captureException(err, tokenPayload.sessionId, { requestId: reqId, retries });
-      return res.status(500).json({ error: ANALYSIS_SUPPORT_MESSAGE });
+      await flushPosthog();
+      return res.status(500).json({ error: analysisSupportMessage(reqId) });
     }
     logError('analyze.error', err, { requestId: reqId, model: LLM_MODEL });
     res.status(500).json({ error: ANALYSIS_RETRY_MESSAGE });
@@ -789,7 +947,7 @@ const ATS_RESULT_SCHEMA = {
       },
       keywordsFound: { type: 'array', items: { type: 'string' }, maxItems: 8, description: 'Max 8 keywords found' },
       keywordsMissing: { type: 'array', items: { type: 'string' }, maxItems: 6, description: 'Max 6 missing keywords' },
-      topFixes: { type: 'array', items: { type: 'string' }, maxItems: 5, description: '5 actionable fix strings' },
+      topFixes: { type: 'array', items: { type: 'string' }, maxItems: 5, description: '3 to 5 actionable fix strings, ranked by impact' },
     }
   }
 };
@@ -824,6 +982,41 @@ const normalizeScore = s => {
   return Math.max(0, Math.min(100, Math.round(scaled)));
 };
 
+// This mock is what every developer and every owner UI smoke test looks at,
+// so it obeys the same rules as the system prompt: no banned hedging words,
+// no claims about visual layout the model cannot see from extracted text, no
+// dash characters, and findings that quote specific sections.
+function devReport() {
+  return {
+    overallScore: 72,
+    verdict: "Needs Work",
+    verdictDetail: "Your Revolut role has 3 quantified bullets, but no Skills section exists, which costs you the keyword score.",
+    detectedRole: "Software Engineer",
+    metrics: {
+      keywords: { score: 65, note: "No Skills section detected. CI/CD and Docker appear nowhere in the text." },
+      formatting: { score: 78, note: "Your EXPERIENCE, EDUCATION, and PROJECTS headings are standard. Dates read as Month YYYY throughout." },
+      readability: { score: 80, note: "Bullets average 14 words. No sentence runs past two lines." },
+      contactInfo: { score: 90, note: "Email and phone are present. No LinkedIn or portfolio URL." }
+    },
+    issues: [
+      { severity: "critical", title: "No Skills section", detail: "Your CV jumps from the summary straight to EXPERIENCE. Add a Skills section listing the tools named in your bullets." },
+      { severity: "critical", title: "Keyword gaps for this role", detail: "CI/CD, Docker, and REST API do not appear anywhere, though your Revolut bullets describe deployment work." },
+      { severity: "warning", title: "Abstract verbs in the Accenture entry", detail: "3 of 4 bullets open with led, drove, or managed and carry no number." },
+      { severity: "warning", title: "No LinkedIn or portfolio URL", detail: "Your contact line stops at the phone number. Add one profile URL." },
+      { severity: "pass", title: "Quantified results at Revolut", detail: "Three bullets name a figure, including the 40 percent deploy time reduction." },
+      { severity: "pass", title: "Standard section headings", detail: "EXPERIENCE, EDUCATION, and PROJECTS are all named the way a parser expects." }
+    ],
+    keywordsFound: ["JavaScript", "React", "Node.js", "Git", "SQL", "TypeScript"],
+    keywordsMissing: ["CI/CD", "Docker", "REST API", "AWS", "Testing", "Agile"],
+    topFixes: [
+      "Add a Skills section after your summary: list TypeScript, React, Node.js, SQL, Git, and the deployment tools your Revolut bullets already describe. Expected score impact: +12 points.",
+      "Rewrite the 2nd Accenture bullet, 'Drove platform migration across teams', as 'Migrated 14 services to the new platform across 3 teams, cutting release time from 5 days to 1.' Expected score impact: +9 points.",
+      "Add your LinkedIn URL to the contact line beside your phone number. Expected score impact: +6 points.",
+      "Name the outcome in the 4th Accenture bullet. It states the activity and stops before the result. Expected score impact: +5 points."
+    ]
+    };
+}
+
 // client/model are injectable so the real (non-DEV_MODE) path is unit-testable
 // with a fake Anthropic client; production callers use the module defaults.
 async function analyzeCv(cvText, jobDescription, opts = {}) {
@@ -831,39 +1024,11 @@ async function analyzeCv(cvText, jobDescription, opts = {}) {
   const model = opts.model || LLM_MODEL;
   if (DEV_MODE) {
     await new Promise(r => setTimeout(r, 1500));
-    return {
-      overallScore: 72,
-      verdict: "Needs Work",
-      verdictDetail: "Your CV has solid experience but ATS parsers will struggle with the formatting.",
-      detectedRole: "Software Engineer",
-      metrics: {
-        keywords: { score: 65, note: "Missing some industry-standard keywords for this role." },
-        formatting: { score: 78, note: "Clean layout but consider removing tables and columns." },
-        readability: { score: 80, note: "Good sentence length and structure overall." },
-        contactInfo: { score: 90, note: "Email and phone detected. Add LinkedIn URL." }
-      },
-      issues: [
-        { severity: "critical", title: "No ATS-friendly section headers", detail: "Use standard headers like 'Work Experience', 'Education', 'Skills'." },
-        { severity: "critical", title: "Missing keywords", detail: "Add role-specific keywords like 'CI/CD', 'agile', 'REST API'." },
-        { severity: "warning", title: "Date format inconsistent", detail: "Mix of 'Jan 2023' and '01/2023'. Pick one format." },
-        { severity: "warning", title: "No measurable achievements", detail: "Quantify impact: 'Reduced deploy time by 40%' beats 'Improved deployment process'." },
-        { severity: "pass", title: "Contact information present", detail: "Email and phone number are clearly visible at the top." },
-        { severity: "pass", title: "Single page length", detail: "CV fits on one page \u2014 optimal for ATS and recruiters." }
-      ],
-      keywordsFound: ["JavaScript", "React", "Node.js", "Git", "SQL", "TypeScript"],
-      keywordsMissing: ["CI/CD", "Agile/Scrum", "REST API", "Docker", "AWS", "Testing"],
-      topFixes: [
-        "Add 'Skills' section with exact keywords from the job posting",
-        "Replace creative headers with standard ones (Work Experience, Education, Skills)",
-        "Quantify at least 3 achievements with numbers or percentages",
-        "Add LinkedIn profile URL to contact section",
-        "Use consistent date format throughout (e.g., 'Jan 2023 \u2013 Present')"
-      ]
-    };
+    return devReport();
   }
 
   const jdContext = jobDescription && jobDescription.trim()
-    ? `\n\nThe candidate is applying for a role with this job description:\n---\n${jobDescription.slice(0, 8000)}\n---\nScore keyword relevance against this specific job description.`
+    ? `\n\nThe candidate is applying for a role with this job description:\n---\n${jobDescription.slice(0, MAX_JOB_DESCRIPTION_CHARS)}\n---\nScore keyword relevance against this specific job description.`
     : '\nNo specific job description provided. Score keywords based on the detected role and general industry expectations.';
 
   const systemPrompt = `You are a direct, evidence-led ATS and recruiter evaluator. Your job is to give the most accurate, specific, actionable CV analysis possible. You do not flatter candidates.
@@ -883,7 +1048,7 @@ ABSOLUTE RULES. Violating these makes the analysis worthless:
 OUTPUT WRITING RULES. This text goes directly to someone who paid for an honest answer. Every word must earn its place:
 - Write in second person. "Your Skills section is missing" not "The Skills section is missing."
 - Use short sentences. Subject. Verb. Object. Cut every word that adds no information.
-- Do not use a dash character in user facing prose. Do not use an em dash, en dash, hyphen, or double hyphen. If the CV uses one, paraphrase it. Use a period, comma, or colon instead.
+- Never use an em dash, an en dash, or a double hyphen in user facing prose. Use a period, comma, or colon instead. If the CV uses one, paraphrase it. Ordinary hyphens inside compound words are correct English and must be kept: write cross-functional, front-end, full-stack, data-driven, go-to-market, follow-up, decision-making. Never split a hyphenated compound to avoid the character.
 - State findings directly. "Add a Skills section" not "Consider adding a Skills section." "Remove the table" not "You might want to remove the table." "Your header is invisible to ATS" not "It appears your header may be difficult for ATS to parse."
 - Name the exact section or bullet every time. "The 3rd bullet in your Accenture entry" not "some of your bullets." "Your 'Professional History' header" not "your experience section header."
 - These phrases are banned. Delete any sentence that contains one and rewrite it: "it's worth noting", "overall", "in order to", "to some extent", "keep in mind", "consider", "it appears", "seems like", "you might want to", "there is room for improvement", "well structured", "however", "that being said", "moving forward", "leverage", "utilize".
@@ -955,7 +1120,7 @@ ${cvSlice}
   try {
     response = await client.messages.create({
       model,
-      max_tokens: 3000,
+      max_tokens: LLM_MAX_TOKENS,
       system: systemPrompt,
       thinking: { type: 'disabled' },
       output_config: {
@@ -978,6 +1143,11 @@ ${cvSlice}
   if (response.stop_reason === 'refusal') {
     log('error', 'llm.refusal', { model, category: response.stop_details?.category });
     throw new Error('Analysis returned invalid format. Please try again.');
+  }
+
+  if (response.stop_reason === 'max_tokens') {
+    log('error', 'llm.truncated', { model, maxTokens: LLM_MAX_TOKENS });
+    throw new Error('Analysis was cut off before it finished. Please try again.');
   }
 
   // output_config.format guarantees the first text block is valid JSON.
@@ -1009,20 +1179,83 @@ ${cvSlice}
 
 // ── Privacy / Terms pages ─────────────────────────────────────────────────────
 app.get('/privacy', (_req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'privacy.html'));
+  res.sendFile(path.join(VIEWS_DIR, 'privacy.html'));
 });
 app.get('/terms', (_req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'terms.html'));
+  res.sendFile(path.join(VIEWS_DIR, 'terms.html'));
 });
 
 // ── Success redirect page ─────────────────────────────────────────────────────
 app.get('/success', (_req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+  res.sendFile(path.join(VIEWS_DIR, 'index.html'));
 });
 
-// ── SPA fallback ──────────────────────────────────────────────────────────────
-app.get('{*path}', (_req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+// ── Clean-path redirects ──────────────────────────────────────────────────────
+// express.static also answers /privacy.html and /terms.html. Both carry correct
+// canonicals, but a 301 keeps one URL per document.
+app.get(['/privacy.html', '/terms.html', '/index.html'], (req, res) => {
+  const target = req.path === '/index.html' ? '/' : req.path.replace(/\.html$/, '');
+  res.redirect(301, target);
+});
+
+// ── API 404 ───────────────────────────────────────────────────────────────────
+// Without this the SPA fallback answers unknown /api/* GETs with 200 + the
+// landing page, so a typo'd endpoint looks like a success to any client.
+app.use('/api', (req, res) => {
+  res.status(404).json({ error: 'Not found' });
+});
+
+// ── Home ──────────────────────────────────────────────────────────────────────
+app.get('/', (_req, res) => {
+  res.sendFile(path.join(VIEWS_DIR, 'index.html'));
+});
+
+// ── 404 ───────────────────────────────────────────────────────────────────────
+// There is no client-side router: every real URL has an explicit route above.
+// A catch-all that served the app shell instead answered 200 for /jobs, /blog,
+// and anything else a crawler guessed, which is an unbounded set of soft-404s
+// competing with the real pages. Everything unmatched is genuinely not found.
+app.use((req, res) => {
+  if (req.method === 'GET' && req.accepts('html') && !path.extname(req.path)) {
+    return res.status(404).sendFile(path.join(VIEWS_DIR, '404.html'));
+  }
+  res.status(404).type('text/plain').send('Not found');
+});
+
+// ── Terminal error handler ────────────────────────────────────────────────────
+// Multer rejects oversized uploads and form fields by throwing, and without a
+// handler here Express answers with an HTML error page that the client parses as
+// an empty body — so the user sees "try again" for a limit that retrying can
+// never clear. Map the limits we set to specific, actionable JSON.
+const MULTER_LIMIT_MESSAGES = {
+  LIMIT_FILE_SIZE: 'That file is larger than 5 MB. Please upload a smaller PDF or DOCX.',
+  LIMIT_FIELD_VALUE: `That job description is too long. Please trim it to about ${MAX_JOB_DESCRIPTION_CHARS.toLocaleString('en-US')} characters.`,
+  LIMIT_FILE_COUNT: 'Please upload a single file.',
+  LIMIT_UNEXPECTED_FILE: 'Unexpected upload field. Please use the upload button on the page.',
+  LIMIT_FIELD_COUNT: 'Too many form fields in that request.',
+  LIMIT_PART_COUNT: 'Too many parts in that upload.',
+  LIMIT_FIELD_KEY: 'Malformed upload request.',
+};
+
+// Four arguments: that arity is how Express identifies an error handler.
+app.use((err, req, res, next) => {
+  const reqId = req.requestId;
+  // Once the response has started there is nothing useful left to send. Hand it
+  // back to Express so it closes the connection, rather than returning quietly
+  // and leaving the socket open until it times out.
+  if (res.headersSent) return next(err);
+
+  if (err?.name === 'MulterError') {
+    const message = MULTER_LIMIT_MESSAGES[err.code] || 'That upload could not be accepted.';
+    log('warn', 'upload.limit_rejected', { requestId: reqId, code: err.code, field: err.field });
+    return res.status(413).json({ error: message });
+  }
+
+  logError('unhandled.error', err, { requestId: reqId, path: req.path });
+  if (req.path.startsWith('/api/')) {
+    return res.status(500).json({ error: `Something went wrong. Quote ref ${reqId}.` });
+  }
+  res.status(500).type('text/plain').send('Something went wrong.');
 });
 
 // ── Cleanup (dev/test fallback rate-limit entries only) ───────────────────────
@@ -1053,6 +1286,18 @@ app.__test = {
   extractText,
   ATS_OUTPUT_SCHEMA,
   LLM_TIMEOUT_MS,
+  clientIp,
+  normalizeIp,
+  // The DEV_MODE report, so its copy can be held to the same rules as the prompt.
+  devReport,
+  analysisSupportMessage,
+  SUPPORT_EMAIL,
+  MAX_UPLOAD_BYTES,
+  MAX_JOB_DESCRIPTION_CHARS,
+  MAX_JOB_DESCRIPTION_BYTES,
+  CLIENT_EVENTS,
+  CHECKOUT_CONSENT_MESSAGE,
+  isInvalidRequest,
 };
 
 // ── Start ─────────────────────────────────────────────────────────────────────

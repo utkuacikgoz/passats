@@ -11,20 +11,41 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-latest
+    # Without this the job default is six hours. The browser install step below
+    # hung once already; a hang should fail fast, not burn a runner all day.
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
-          node-version: "20.x"
+          # Single source of truth, shared with local dev via nvm. Do not inline
+          # a version here: CI must run what the repo declares.
+          node-version-file: .nvmrc
           cache: npm
       - run: npm ci
+      - name: Install Chromium for the browser journey tests
+        # No --with-deps: the ubuntu-latest image already carries the shared
+        # libraries the headless shell needs, and the apt step it adds hung for
+        # 13 minutes on a run where the identical workflow had passed in under
+        # two. A missing library now fails fast and legibly instead.
+        run: npx playwright install chromium
       - name: Tests (node:test)
         run: npm test
+      # Both of these derive purely from page content, so a diff here means the
+      # committed output is stale. The sitemap is deliberately excluded: its dates
+      # come from git history and would differ on the very commit that fixes them.
+      - name: Generated files are current
+        run: |
+          npm run sync:faq
+          npm run sync:csp
+          git diff --exit-code -- views/index.html server.js \
+            || (echo "::error::Run 'npm run sync:faq && npm run sync:csp' and commit the result." && exit 1)
       - name: Dependency audit (high+)
         run: npm audit --audit-level=high
 
   secret-scan:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
         with:

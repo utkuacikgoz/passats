@@ -1,12 +1,11 @@
 {
-  "version": 2,
-  "builds": [
-    { "src": "server.js", "use": "@vercel/node" },
-    { "src": "public/**", "use": "@vercel/static" }
-  ],
-  "routes": [
-    { "src": "/api/(.*)", "dest": "server.js" },
-    { "src": "/(favicon\\.svg|favicon\\.ico|robots\\.txt|sitemap\\.xml|og-image\\.png|og-image\\.svg|llms\\.txt)", "dest": "/public/$1" },
-    { "src": "/(.*)", "dest": "server.js" }
+  "functions": {
+    "api/index.js": {
+      "maxDuration": 60,
+      "includeFiles": "views/**"
+    }
+  },
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/api/index" }
   ]
 }
