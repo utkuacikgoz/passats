@@ -322,10 +322,135 @@ describe('Removed email capture', () => {
 });
 
 describe('Customer-facing analysis failures', () => {
-  it('does not render raw server error details in the upload view', async () => {
+  it('shows the server message only for 4xx, and stays generic for 5xx', async () => {
     const res = await request.get('/');
-    assert.doesNotMatch(res.text, /Analysis failed: ' \+ err\.message/);
+    // 4xx bodies are written for the customer ("remove the PDF password") and are
+    // the difference between a fixable problem and a dead end. 5xx bodies can
+    // carry internals, so those are replaced with the generic line.
+    assert.match(res.text, /err\.userFacing = res\.status >= 400 && res\.status < 500/);
+    assert.match(res.text, /err && err\.userFacing/);
     assert.match(res.text, /We couldn\\'t complete your analysis just now\. Please try again in a moment\./);
+    assert.doesNotMatch(res.text, /Analysis failed: ' \+ err\.message/);
+  });
+});
+
+describe('Upload limits return actionable JSON', () => {
+  it('rejects an oversized file with 413 JSON, not an HTML error page', async () => {
+    const token = await getDevToken();
+    // Just over the 5 MB ceiling: large enough to trip multer, small enough that
+    // the request body finishes before the server closes the socket.
+    const oversized = Buffer.concat([Buffer.from('%PDF-'), Buffer.alloc(5 * 1024 * 1024)]);
+    const res = await request
+      .post('/api/analyze')
+      .set('x-vercel-forwarded-for', '198.51.100.201')
+      .set('x-passats-token', token)
+      .attach('cv', oversized, { filename: 'big.pdf', contentType: 'application/pdf' });
+
+    assert.equal(res.status, 413);
+    assert.match(res.headers['content-type'], /application\/json/);
+    assert.match(res.body.error, /larger than 5 MB/i);
+  });
+
+  it('rejects an oversized job description with 413 JSON', async () => {
+    const token = await getDevToken();
+    const res = await request
+      .post('/api/analyze')
+      .set('x-vercel-forwarded-for', '198.51.100.202')
+      .set('x-passats-token', token)
+      .field('jobDescription', 'J'.repeat(25000))
+      .attach('cv', makePdf(), { filename: 'cv.pdf', contentType: 'application/pdf' });
+
+    assert.equal(res.status, 413);
+    assert.match(res.headers['content-type'], /application\/json/);
+    assert.match(res.body.error, /job description is too long/i);
+  });
+});
+
+describe('Client funnel events', () => {
+  const anon = '3f2504e0-4f89-11d3-9a0c-0305e82c3301';
+
+  it('accepts an allowlisted event', async () => {
+    const res = await request.post('/api/event').send({ event: 'landing_viewed', anonymousId: anon });
+    assert.equal(res.status, 204);
+  });
+
+  it('rejects an event name that is not on the list', async () => {
+    const res = await request.post('/api/event').send({ event: 'resume_text', anonymousId: anon });
+    assert.equal(res.status, 400);
+  });
+
+  it('rejects a malformed anonymous id', async () => {
+    const res = await request.post('/api/event').send({ event: 'landing_viewed', anonymousId: 'person@example.com' });
+    assert.equal(res.status, 400);
+  });
+
+  it('ignores any extra properties a caller tries to attach', async () => {
+    // An open property bag is how resume text reaches an analytics tool by
+    // accident. The endpoint takes a name and an id, and nothing else.
+    const res = await request.post('/api/event').send({
+      event: 'report_viewed',
+      anonymousId: anon,
+      properties: { cvText: 'John Doe, Software Engineer' },
+    });
+    assert.equal(res.status, 204);
+    assert.equal(res.text, '');
+  });
+
+  it('covers the whole funnel, with no event that could carry content', async () => {
+    const events = [...app.__test.CLIENT_EVENTS];
+    for (const step of ['landing_viewed', 'checkout_clicked', 'upload_view_reached', 'analysis_started', 'report_viewed']) {
+      assert.ok(events.includes(step), `funnel is missing ${step}`);
+    }
+    for (const name of events) {
+      assert.match(name, /^[a-z_]+$/, `${name} should be a fixed step name`);
+    }
+  });
+});
+
+describe('Routing', () => {
+  it('404s an unknown API route as JSON instead of returning the landing page', async () => {
+    const res = await request.get('/api/definitely-not-a-route');
+    assert.equal(res.status, 404);
+    assert.match(res.headers['content-type'], /application\/json/);
+    assert.equal(res.body.error, 'Not found');
+  });
+
+  it('404s a missing asset instead of answering 200 with HTML', async () => {
+    const res = await request.get('/_vercel/insights/script.js');
+    assert.equal(res.status, 404);
+    assert.doesNotMatch(res.headers['content-type'] || '', /html/);
+  });
+
+  it('404s unknown pages instead of serving the app shell', async () => {
+    // A catch-all that returned the landing page answered 200 for /jobs, /blog,
+    // and every other guessed path: an unbounded set of soft-404s competing with
+    // the real pages in search results.
+    for (const route of ['/jobs', '/blog', '/a/b/c']) {
+      const res = await request.get(route);
+      assert.equal(res.status, 404, `${route} should not exist`);
+      assert.match(res.text, /That page does not exist/);
+      assert.match(res.text, /noindex/);
+    }
+  });
+
+  it('still serves the real pages', async () => {
+    for (const route of ['/', '/success', '/privacy', '/terms']) {
+      assert.equal((await request.get(route)).status, 200, `${route} must be served`);
+    }
+  });
+
+  it('301s the .html variants to their canonical clean paths', async () => {
+    for (const [from, to] of [['/privacy.html', '/privacy'], ['/terms.html', '/terms'], ['/index.html', '/']]) {
+      const res = await request.get(from);
+      assert.equal(res.status, 301, `${from} should redirect`);
+      assert.equal(res.headers.location, to);
+    }
+  });
+
+  it('serves the shared design tokens', async () => {
+    const res = await request.get('/tokens.css');
+    assert.equal(res.status, 200);
+    assert.match(res.headers['content-type'], /text\/css/);
   });
 });
 

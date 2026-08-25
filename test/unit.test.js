@@ -283,7 +283,12 @@ describe('analyzeCv (real path, injected fake client)', () => {
     assert.match(request.system, /Never claim that the PDF is single-column, visually clean, table-free/);
     assert.match(request.system, /Never pad either list with cosmetic preferences/);
     assert.doesNotMatch(request.system, /email address is professional/);
-    assert.match(request.system, /Do not use a dash character in user facing prose/);
+    // The dash rule used to ban the hyphen alongside the em and en dash, which
+    // forbids ordinary English compounds: cross-functional, front-end,
+    // data-driven. Assert the intent, not the sentence.
+    assert.match(request.system, /Never use an em dash, an en dash, or a double hyphen/);
+    assert.match(request.system, /Ordinary hyphens inside compound words are correct English/);
+    assert.doesNotMatch(request.system, /em dash, en dash, hyphen, or double hyphen/);
   });
 
   it('parses a valid response and normalizes 0-1 scores', async () => {
