@@ -203,6 +203,53 @@ describe('the paid journey', () => {
   });
 });
 
+describe('the waiting room', () => {
+  it('rotates reading material and stops the timer when the report arrives', async () => {
+    const page = await browser.newPage();
+    try {
+      await page.goto(`${origin}/?dev=1`);
+      await page.waitForSelector('#upload.active', { timeout: 15000 });
+      await page.setInputFiles('#fileInput', cvPath);
+      await page.click('#analyzeBtn');
+      await page.waitForSelector('#loading.active', { timeout: 10000 });
+
+      const seen = new Set();
+      const poll = setInterval(async () => {
+        try {
+          const line = (await page.textContent('#loadingJoke') || '').trim();
+          if (line) seen.add(line);
+        } catch { /* page navigated */ }
+      }, 250);
+
+      await page.waitForSelector('#dashboard.active', { timeout: 40000 });
+      clearInterval(poll);
+
+      assert.ok(seen.size >= 2, `expected the line to change at least once, saw ${seen.size}`);
+
+      // The real risk is a leaked setInterval ticking behind the report the
+      // customer is reading. Both exits from startAnalysis leave the loading
+      // view, so the text must be frozen once the dashboard is up.
+      const settled = await page.textContent('#loadingJoke');
+      await page.waitForTimeout(4200);
+      assert.equal(await page.textContent('#loadingJoke'), settled, 'the rotation timer outlived the loading view');
+    } finally {
+      await page.close();
+    }
+  });
+
+  it('gives the report a headline about the customer, not about the machine', async () => {
+    const page = await browser.newPage();
+    try {
+      await runAnalysis(page);
+      const heading = (await page.textContent('.dash-hero h2')).trim();
+      assert.match(heading, /your best work/i);
+      assert.doesNotMatch(heading, /robots see/i);
+    } finally {
+      await page.close();
+    }
+  });
+});
+
 describe('client-side guards', () => {
   it('rejects an unsupported file before any request is made', async () => {
     const page = await browser.newPage();

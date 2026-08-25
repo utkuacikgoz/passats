@@ -524,6 +524,16 @@
   .loading-steps { font-size: 0.9rem; color: var(--muted); line-height: 2; }
   .loading-step { opacity: 0.3; transition: opacity .5s; }
   .loading-step.done { opacity: 1; }
+  .loading-joke {
+    margin: 28px auto 0; max-width: 30rem; min-height: 3.2em;
+    font-size: 0.95rem; line-height: 1.6; color: var(--muted);
+    font-style: italic; text-wrap: balance;
+    opacity: 0; transition: opacity .45s ease;
+  }
+  .loading-joke.show { opacity: 1; }
+  @media (prefers-reduced-motion: reduce) {
+    .loading-joke { transition: none; }
+  }
 
   /* ── DASHBOARD ── */
   #dashboard { padding-top: 80px; min-height: 100vh; padding-bottom: 60px; }
@@ -849,12 +859,16 @@
       <div class="loading-step" id="ls4">Scoring against ATS compatibility rules</div>
       <div class="loading-step" id="ls5">Writing your honest report</div>
     </div>
+    <!-- aria-hidden: this is diversion, not status. The loader ring already
+         carries role="status", and a line swapping every few seconds would talk
+         over it for anyone on a screen reader. -->
+    <p class="loading-joke" id="loadingJoke" aria-hidden="true"></p>
   </div>
 </div>
 
 <!-- ═══ DASHBOARD ═══ -->
 <div id="dashboard" class="view">
-  <div class="dash-hero"><h2>Here's what the robots see.</h2><p id="dashFileName">Analyzed just now</p></div>
+  <div class="dash-hero"><h2>Here's what's hiding your best work.</h2><p id="dashFileName">Analyzed just now</p></div>
   <div class="dash-content">
     <div class="score-overview">
       <div class="big-ring">
@@ -1190,6 +1204,7 @@
     resetLoadingSteps();
     const loadingStarted = Date.now();
     animateLoadingSteps();
+    startJokes();
 
     try {
       const formData = new FormData();
@@ -1235,10 +1250,69 @@
         ? err.message
         : 'We couldn\'t complete your analysis just now. Please try again in a moment.');
     } finally {
+      // Both exits leave the loading view, so the timer is cleared here rather
+      // than in each branch. Left running it would tick forever behind the
+      // report the customer is reading.
+      stopJokes();
       const btn = document.getElementById('analyzeBtn');
       btn.disabled = false;
       btn.textContent = 'Analyze My CV →';
     }
+  }
+
+  // ── Something to read while the model works ────────────────────────────────
+  // The wait is a few seconds at best and most of a minute at worst, and the
+  // five steps run on fixed timers, so there is nothing to watch. These are dry
+  // and industry-true rather than jokey: the customer paid for an honest read,
+  // and cheap gags here would undercut the report that follows.
+  const WAITING_ROOM = [
+    'The average recruiter spends about seven seconds on a resume. We are taking a little longer.',
+    'Somewhere, a hiring manager is pressing Ctrl+F for a word you did not use.',
+    '"Rockstar ninja guru" has never once been an actual job title.',
+    '"We will keep your CV on file" is where CVs go to retire.',
+    'The posting asked for five years with a framework that has existed for three.',
+    '"Competitive salary" usually means they would rather you named a number first.',
+    'Nobody has ever been hired because "excellent communication skills" appeared on a page.',
+    '"Fast-paced environment" is doing an enormous amount of work in that sentence.',
+    'Your resume is being read more carefully right now than it has been all year.',
+    'Three rounds, a take-home, and a culture fit chat. For a six-month contract.',
+    '"Wearing many hats" is one person doing three jobs, and you knew that.',
+    'The job was posted internally, filled internally, and advertised anyway.',
+  ];
+
+  let jokeTimer = null;
+  function startJokes() {
+    const el = document.getElementById('loadingJoke');
+    if (!el) return;
+    // Fisher-Yates, so a customer who runs two analyses does not read the same
+    // opening line twice.
+    const deck = WAITING_ROOM.slice();
+    for (let i = deck.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [deck[i], deck[j]] = [deck[j], deck[i]];
+    }
+    let i = 0;
+    const show = () => {
+      el.classList.remove('show');
+      // Let the fade finish before swapping the text, or the line changes
+      // mid-fade and reads as a glitch.
+      setTimeout(() => {
+        el.textContent = deck[i % deck.length];
+        el.classList.add('show');
+        i++;
+      }, 260);
+    };
+    show();
+    stopJokes();
+    // 3300ms, not longer: the loading view has a 4800ms floor, so a 4200ms
+    // rotation swapped once and left the second line on screen for a third of a
+    // second before the dashboard replaced it. Two clean lines on the fastest
+    // run, and roughly one every three seconds on a slow model call.
+    jokeTimer = setInterval(show, 3300);
+  }
+
+  function stopJokes() {
+    if (jokeTimer) { clearInterval(jokeTimer); jokeTimer = null; }
   }
 
   function resetLoadingSteps() {
