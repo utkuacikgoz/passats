@@ -67,6 +67,24 @@ describe('canonical domain', () => {
     assert.deepEqual(STATIC_FILES.map(read), before, 'a second run must change nothing');
   });
 
+  it('leaves no unfilled placeholder on a legal page', () => {
+    // A live legal page reading "[LEGAL ENTITY NAME]" is worse than no page.
+    for (const file of ['views/terms.html', 'views/privacy.html']) {
+      const body = read(file);
+      const left = body.match(/\[[A-Z][A-Z ]{3,}\]/g) || [];
+      assert.deepEqual(left, [], `${file} still shows ${left.join(', ')}`);
+      assert.doesNotMatch(body, /<strong><\/strong>/, 'an emptied clause left a stray tag');
+    }
+  });
+
+  it('names the trading entity on both legal pages', () => {
+    // EU and UK consumer law requires a paid service to identify the trader.
+    for (const file of ['views/terms.html', 'views/privacy.html']) {
+      assert.match(read(file), new RegExp(site.LEGAL_ENTITY.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+      assert.match(read(file), new RegExp(site.JURISDICTION.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+    }
+  });
+
   it('keeps the support address on the canonical domain', () => {
     assert.equal(site.SUPPORT_EMAIL, `support@${new URL(site.CANONICAL_ORIGIN).hostname}`);
     assert.match(read('views/terms.html'), new RegExp(site.SUPPORT_EMAIL.replace('.', '\\.')));
