@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The ATS Resume Checklist: 18 Things to Fix Before You Apply | PassATS</title>
+<meta name="description" content="A specific, no-fluff checklist for making a resume readable by applicant tracking systems. What actually breaks parsing, what does not, and which myths to ignore.">
+<link rel="canonical" href="https://passats.pro/ats-checklist">
+
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://passats.pro/ats-checklist">
+<meta property="og:title" content="The ATS Resume Checklist: 18 Things to Fix Before You Apply">
+<meta property="og:description" content="What actually breaks resume parsing, what does not, and which myths to ignore.">
+<meta property="og:image" content="https://passats.pro/og-image.png">
+<meta property="og:site_name" content="PassATS">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="The ATS Resume Checklist: 18 Things to Fix Before You Apply">
+<meta name="twitter:description" content="What actually breaks resume parsing, what does not, and which myths to ignore.">
+<meta name="twitter:image" content="https://passats.pro/og-image.png">
+<meta name="robots" content="index, follow">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+
+<!-- Vercel Web Analytics -->
+<script>
+  window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
+</script>
+<script defer src="/_vercel/insights/script.js"></script>
+<link rel="stylesheet" href="/tokens.css">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: var(--bg); color: var(--ink); min-height: 100vh; }
+  nav { padding: 20px 40px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+  .logo { font-family: 'DM Serif Display', 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif; font-size: 1.4rem; text-decoration: none; color: var(--ink); }
+  .logo span { color: var(--accent); }
+  .nav-cta { background: var(--ink); color: #fff; padding: 8px 18px; border-radius: 100px; font-size: 0.82rem; font-weight: 500; text-decoration: none; white-space: nowrap; }
+  main { max-width: 680px; margin: 0 auto; padding: 56px 40px 40px; }
+  h1 { font-family: 'DM Serif Display', 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif; font-size: clamp(2rem, 5vw, 2.6rem); line-height: 1.15; margin-bottom: 18px; text-wrap: balance; }
+  .standfirst { font-size: 1.02rem; color: var(--ink); line-height: 1.65; margin-bottom: 10px; }
+  .meta { font-size: 0.8rem; color: var(--muted); margin-bottom: 36px; }
+  h2 { font-family: 'DM Serif Display', 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif; font-size: 1.5rem; margin: 44px 0 6px; line-height: 1.25; }
+  h3 { font-size: 1rem; font-weight: 600; margin: 26px 0 6px; color: var(--ink); }
+  p, li { font-size: 0.95rem; color: var(--muted); line-height: 1.75; margin-bottom: 12px; }
+  ul, ol { padding-left: 22px; }
+  a { color: var(--accent); }
+  strong { color: var(--ink); font-weight: 600; }
+  .lede { color: var(--muted); font-size: 0.95rem; line-height: 1.75; margin-bottom: 8px; }
+  .verdict { display: inline-block; font-size: 0.7rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; padding: 3px 9px; border-radius: 3px; margin-bottom: 8px; }
+  .v-fix { background: var(--danger-light); color: #8B3025; }
+  .v-myth { background: var(--positive-light); color: var(--positive); }
+  .item { border-top: 1px solid var(--border); padding-top: 20px; margin-top: 20px; }
+  .item:first-of-type { border-top: 0; }
+  .callout { background: var(--card); border: 1px solid var(--border); border-left: 3px solid var(--accent); border-radius: 4px; padding: 20px 22px; margin: 32px 0; }
+  .callout p:last-child { margin-bottom: 0; }
+  .cta { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 28px 26px; margin: 44px 0 0; text-align: center; }
+  .cta h2 { margin-top: 0; font-size: 1.4rem; }
+  .cta p { margin-bottom: 18px; }
+  .cta a.btn { display: inline-block; background: var(--accent); color: #fff; text-decoration: none; padding: 14px 30px; border-radius: 12px; font-weight: 600; font-size: 0.95rem; }
+  :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+  footer { max-width: 680px; margin: 0 auto; padding: 30px 40px 50px; text-align: center; font-size: 0.78rem; color: var(--muted); border-top: 1px solid var(--border); }
+  @media (max-width: 640px) {
+    nav { padding: 16px 20px; }
+    main { padding: 36px 20px 30px; }
+    footer { padding: 24px 20px 40px; }
+  }
+</style>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/favicon.ico" sizes="16x16 32x32 48x48">
+<meta name="theme-color" content="#D85D43">
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "The ATS Resume Checklist: 18 Things to Fix Before You Apply",
+  "description": "A specific, no-fluff checklist for making a resume readable by applicant tracking systems. What actually breaks parsing, what does not, and which myths to ignore.",
+  "image": "https://passats.pro/og-image.png",
+  "author": { "@type": "Organization", "name": "PassATS", "url": "https://passats.pro" },
+  "publisher": { "@type": "Organization", "name": "PassATS", "url": "https://passats.pro" },
+  "mainEntityOfPage": { "@type": "WebPage", "@id": "https://passats.pro/ats-checklist" }
+}
+</script>
+</head>
+<body>
+<nav>
+  <a class="logo" href="/">Pass<span>ATS</span></a>
+  <a class="nav-cta" href="/">Check My Resume. $2.99</a>
+</nav>
+<main>
+  <h1>The ATS Resume Checklist</h1>
+  <p class="standfirst">Eighteen things worth checking before you send another application. Most advice on this topic is either obvious or wrong, so each item below says what to do and why it matters. Four of them are myths you can stop worrying about.</p>
+  <p class="meta">Written by the team behind PassATS. Free to read, free to copy, no email required.</p>
+
+  <h2>Structure</h2>
+  <p class="lede">Parsers look for landmarks. Give them the ones they expect.</p>
+
+  <div class="item">
+    <span class="verdict v-fix">Fix this</span>
+    <h3>1. Use the section headers everyone else uses</h3>
+    <p><strong>Experience</strong>, <strong>Education</strong>, <strong>Skills</strong>, <strong>Summary</strong>. A parser matches on the words it knows. "Where I Have Made An Impact" is a nicer sentence and a worse header, because the section behind it stops being classifiable. Creative headers are the single most common self-inflicted wound.</p>
+  </div>
+
+  <div class="item">
+    <span class="verdict v-fix">Fix this</span>
+    <h3>2. One column, top to bottom</h3>
+    <p>Two-column layouts read left-to-right across both columns in extracted text, which interleaves your job titles with your skills list. The result is unreadable to a machine and often to a recruiter looking at the parsed version rather than your PDF.</p>
+  </div>
+
+  <div class="item">
+    <span class="verdict v-fix">Fix this</span>
+    <h3>3. Keep contact details out of the header and footer</h3>
+    <p>Some parsers ignore header and footer regions entirely. If your email lives there, you can be the strongest candidate in the pile and still be unreachable. Put contact details in the body of the first page.</p>
+  </div>
+
+  <div class="item">
+    <span class="verdict v-fix">Fix this</span>
+    <h3>4. Do not put content inside tables or text boxes</h3>
+    <p>A table of skills looks tidy and extracts as a run of cell fragments with no reading order. Text boxes are worse: many parsers skip them outright. Use plain paragraphs and simple bullet lists.</p>
+  </div>
+
+  <div class="item">
+    <span class="verdict v-fix">Fix this</span>
+    <h3>5. Never put words in a graphic</h3>
+    <p>A skills wheel, a rating chart, a logo containing your name. None of it is text, so none of it is read. If a piece of information matters, it has to exist as selectable characters somewhere.</p>
+  </div>
+
+  <h2>The file itself</h2>
+  <p class="lede">The document has to survive being opened by software that is not Word.</p>
+
+  <div class="item">
+    <span class="verdict v-fix">Fix this</span>
+    <h3>6. Check that your text is selectable</h3>
+    <p>Open your PDF, try to select a sentence, and copy it. If nothing highlights, your resume is an image and contains no text at all. This happens to anyone who scanned a printout or exported from a design tool. It is the most catastrophic and most invisible problem on this list.</p>
+  </div>
+
+  <div class="item">
+    <span class="verdict v-fix">Fix this</span>
+    <h3>7. PDF unless the posting says otherwise</h3>
+    <p>PDF preserves layout and is handled consistently. Use DOCX when the application form asks for it. Avoid .pages, .odt, and anything you exported from a browser.</p>
+  </div>
+
+  <div class="item">
+    <span class="verdict v-fix">Fix this</span>
+    <h3>8. Name the file like an adult</h3>
+    <p><code>Jane-Okafor-Product-Manager.pdf</code>. Not <code>resume-final-v4-USE-THIS-ONE.pdf</code>. It costs nothing and it is the first thing a human sees.</p>
+  </div>
+
+  <div class="item">
+    <span class="verdict v-fix">Fix this</span>
+    <h3>9. Remove the password</h3>
+    <p>An encrypted PDF cannot be parsed. If you protected the file at any point, export a clean copy.</p>
+  </div>
+
+  <h2>Words</h2>
+  <p class="lede">This is where most of your score actually lives.</p>
+
+  <div class="item">
+    <span class="verdict v-fix">Fix this</span>
+    <h3>10. Mirror the exact terms from the posting</h3>
+    <p>Matching is usually literal. If the posting says <strong>CI/CD</strong> and you wrote "continuous integration", that is a miss. Write both the acronym and the spelled-out form once: "CI/CD (continuous integration and delivery)". Only claim what is true.</p>
+  </div>
+
+  <div class="item">
+    <span class="verdict v-fix">Fix this</span>
+    <h3>11. Have a real Skills section</h3>
+    <p>Not a wall of every technology you have touched. Twelve to twenty terms that are genuinely yours and genuinely relevant to the role you are applying for. Its absence is one of the heaviest penalties there is, because there is nowhere obvious to match against.</p>
+  </div>
+
+  <div class="item">
+    <span class="verdict v-fix">Fix this</span>
+    <h3>12. Put a number in most bullets</h3>
+    <p>"Improved the deployment process" tells a reader nothing. "Cut deploy time from 40 minutes to 6" tells them what you can do. If you cannot find a number, name the scale: team size, user count, budget, how many countries.</p>
+  </div>
+
+  <div class="item">
+    <span class="verdict v-fix">Fix this</span>
+    <h3>13. Lead with the verb, not with "Responsible for"</h3>
+    <p>"Responsible for managing the migration" describes a job description. "Migrated 4TB of customer data with no downtime" describes you. Duties are what the role required. Outcomes are what you did with it.</p>
+  </div>
+
+  <div class="item">
+    <span class="verdict v-fix">Fix this</span>
+    <h3>14. Use one date format throughout</h3>
+    <p>Pick <code>Jan 2023 – Mar 2024</code> and use it everywhere. Mixing <code>01/2023</code> with <code>January 2023</code> makes your history harder to reconstruct, and a gap that is not really there looks like one that is.</p>
+  </div>
+
+  <div class="item">
+    <span class="verdict v-fix">Fix this</span>
+    <h3>15. Include a LinkedIn or portfolio URL</h3>
+    <p>Write it out in full so it is unambiguous. A resume with no link at all reads as thinner than it is, and a recruiter who wants to check you out should not have to search.</p>
+  </div>
+
+  <h2>Four things you can stop worrying about</h2>
+  <p class="lede">Widely repeated, mostly wrong. Ignoring these frees up attention for the items above.</p>
+
+  <div class="item">
+    <span class="verdict v-myth">Myth</span>
+    <h3>16. "White text keywords will beat the system"</h3>
+    <p>This one circulates every few months and it is actively harmful. Hidden text is trivially visible to any human who selects the page or opens the parsed output, and being caught doing it ends the application immediately. It is not a clever hack. It is the only item on this page that can get you rejected on integrity rather than fit.</p>
+  </div>
+
+  <div class="item">
+    <span class="verdict v-myth">Myth</span>
+    <h3>17. "One page or you are finished"</h3>
+    <p>One page is good discipline early on. With ten years of relevant history, two pages is normal and expected. Nobody is counting pages. They are counting whether the first third earns the second.</p>
+  </div>
+
+  <div class="item">
+    <span class="verdict v-myth">Myth</span>
+    <h3>18. "The ATS rejects you automatically"</h3>
+    <p>Most systems rank and filter. They do not usually issue rejections on their own. The realistic failure is quieter: you are sorted below the people whose resumes matched better, and nobody ever opens yours. That is worth fixing precisely because it is invisible.</p>
+  </div>
+
+  <div class="item">
+    <span class="verdict v-myth">Myth</span>
+    <h3>Bonus: "Fancy fonts and colour hurt your score"</h3>
+    <p>Colour is not parsed and does not hurt anything. An unusual font only matters if it embeds badly and produces broken characters, which you can check yourself with the copy test in item 6. Design your resume however you like, as long as the text comes out clean.</p>
+  </div>
+
+  <div class="callout">
+    <p><strong>The honest caveat.</strong> Every checker, ours included, reads extracted text rather than your rendered page. That means no tool can reliably tell you whether your columns interleave or whether something is hidden. Run item 6's copy test yourself. It takes ten seconds and it catches what software cannot.</p>
+  </div>
+
+  <div class="cta">
+    <h2>Want this checked against your actual resume?</h2>
+    <p>PassATS reads your file and tells you which of these apply to you, with the specific lines to change and what each fix is worth. One report, $2.99, no account, nothing stored.</p>
+    <a class="btn" href="/">Check My Resume. $2.99</a>
+  </div>
+</main>
+<footer>
+  &copy; 2026 PassATS &middot; <a href="/">Home</a> &middot; <a href="/privacy">Privacy</a> &middot; <a href="/terms">Terms</a>
+</footer>
+</body>
+</html>
