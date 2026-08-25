@@ -30,8 +30,14 @@ class FakeRedis {
   }
   async exists(key) { return this.store.has(key) ? 1 : 0; }
   async del(key) { return this.store.delete(key) ? 1 : 0; }
+  async get(key) { return this.store.has(key) ? this.store.get(key) : null; }
   async incr(key) {
     const next = Number(this.store.get(key) || 0) + 1;
+    this.store.set(key, String(next));
+    return next;
+  }
+  async decr(key) {
+    const next = Number(this.store.get(key) || 0) - 1;
     this.store.set(key, String(next));
     return next;
   }
@@ -161,6 +167,10 @@ Object.assign(process.env, {
 });
 delete process.env.POSTHOG_API_KEY;
 delete process.env.TEST_SECRET;
+// Two codes: one with headroom, one single-use, so the cap can be exhausted.
+// One code per test: a shared code makes these order-dependent, and a cap is
+// exactly the kind of state that leaks between them.
+process.env.COUPON_CODES = 'E2E-TEST,MINT-TEST,PAIR-TEST:2,SOLO-TEST,PROBE-TEST,TYPO-TEST,ORIGIN-TEST,FAIL-TEST';
 
 stub('stripe', FakeStripe);
 stub('@upstash/redis', { Redis: FakeRedis });
@@ -374,6 +384,117 @@ describe('analyze — the real path', () => {
       .set('x-passats-token', token)
       .attach('cv', makePdf(), { filename: 'cv.pdf', contentType: 'application/pdf' });
     assert.equal(res.status, 403);
+  });
+});
+
+describe('coupon redemption', () => {
+  const jwt = require('jsonwebtoken');
+  const redeem = (code, ip) => request
+    .post('/api/redeem-coupon')
+    .set('origin', BASE_URL)
+    .set('x-vercel-forwarded-for', ip)
+    .send({ code });
+
+  it('mints a working upload token and spends one redemption', async () => {
+    const res = await redeem('MINT-TEST', nextIp());
+    assert.equal(res.status, 200);
+    const payload = jwt.verify(res.body.token, process.env.JWT_SECRET);
+    assert.match(payload.sessionId, /^coupon_/, 'coupon sessions are their own namespace');
+    assert.equal(await redis().get(app.__test.couponKey('MINT-TEST')), '1');
+  });
+
+  it('gives every redemption its own analysis rather than sharing one claim', async () => {
+    // The whole design rests on this: a per-redemption sessionId means the
+    // existing Redis claim grants one analysis each, with no coupon-specific
+    // replay logic anywhere downstream.
+    const first = await redeem('PAIR-TEST', nextIp());
+    const second = await redeem('PAIR-TEST', nextIp());
+    assert.equal(first.status, 200);
+    assert.equal(second.status, 200);
+    const a = jwt.verify(first.body.token, process.env.JWT_SECRET).sessionId;
+    const b = jwt.verify(second.body.token, process.env.JWT_SECRET).sessionId;
+    assert.notEqual(a, b);
+    assert.equal(app.__test.analysisSource(a), 'coupon', 'free analyses stay separable from sold ones');
+  });
+
+  it('stops at the configured cap', async () => {
+    assert.equal((await redeem('SOLO-TEST', nextIp())).status, 200);
+    const second = await redeem('SOLO-TEST', nextIp());
+    assert.equal(second.status, 404, 'a spent code must not mint a second token');
+    // The tally stays honest: the rejected attempt is decremented back.
+    assert.equal(await redis().get(app.__test.couponKey('SOLO-TEST')), '1');
+  });
+
+  it('answers a spent code and an unknown code identically', async () => {
+    assert.equal((await redeem('PROBE-TEST', nextIp())).status, 200);
+    const spent = await redeem('PROBE-TEST', nextIp());
+    const unknown = await redeem('NO-SUCH-CODE', nextIp());
+    assert.equal(spent.status, unknown.status);
+    assert.deepEqual(spent.body, unknown.body, 'a probe must not learn that a code exists');
+  });
+
+  it('accepts the code as a person would type it', async () => {
+    const res = await redeem('  typo-test  ', nextIp());
+    assert.equal(res.status, 200, 'case and spacing are typos, not a security boundary');
+  });
+
+  it('refuses cross-origin redemption', async () => {
+    const res = await request
+      .post('/api/redeem-coupon')
+      .set('origin', 'https://evil.test')
+      .set('x-vercel-forwarded-for', nextIp())
+      .send({ code: 'ORIGIN-TEST' });
+    assert.equal(res.status, 403);
+    assert.equal(await redis().get(app.__test.couponKey('ORIGIN-TEST')), null, 'a refused request must not spend the code');
+  });
+
+  it('rate limits guessing from one address', async () => {
+    const ip = nextIp();
+    const results = [];
+    for (const code of ['A', 'B', 'C', 'D', 'E', 'F', 'G']) results.push((await redeem(code, ip)).status);
+    assert.ok(results.includes(429), `expected a 429 among ${results.join(',')}`);
+  });
+
+  it('denies rather than grants when the counter is unreachable', async () => {
+    // The opposite call from the analysis retry counter, and deliberately so:
+    // that one fails open to protect a customer who already paid, this one
+    // fails closed because it hands out product for free.
+    const store = redis();
+    const realIncr = store.incr.bind(store);
+    store.incr = async key => {
+      if (key === app.__test.couponKey('FAIL-TEST')) throw new Error('upstash unavailable');
+      return realIncr(key);
+    };
+    let res;
+    try {
+      res = await redeem('FAIL-TEST', nextIp());
+    } finally {
+      store.incr = realIncr;
+    }
+    assert.equal(res.status, 503);
+    assert.doesNotMatch(JSON.stringify(res.body), /token/i, 'no token may escape on the failure path');
+  });
+
+  it('runs a real analysis and then behaves exactly like a spent payment', async () => {
+    // End to end through the production path: the coupon token must buy one
+    // analysis and then hit the same claim that stops a paid token replaying.
+    const ip = nextIp();
+    const redeemed = await redeem('E2E-TEST', ip);
+    assert.equal(redeemed.status, 200);
+    const token = redeemed.body.token;
+    const sessionId = jwt.verify(token, process.env.JWT_SECRET).sessionId;
+
+    const first = await analyze(token, ip);
+    assert.equal(first.status, 200, `expected a report, got ${JSON.stringify(first.body)}`);
+    assert.ok(Number.isInteger(first.body.overallScore));
+    assert.equal(await app.__test.hasAnalysisClaim(sessionId, redis()), true, 'the analysis is claimed');
+
+    const replay = await analyze(token, ip);
+    assert.equal(replay.status, 403, 'a coupon token is single-use, same as a payment');
+  });
+
+  it('never puts the live code in the Redis key', () => {
+    assert.doesNotMatch(app.__test.couponKey('MINT-TEST'), /MINT-TEST/);
   });
 });
 
