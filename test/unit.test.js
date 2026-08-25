@@ -21,6 +21,7 @@ process.env.STRIPE_SECRET_KEY = 'sk_test_dummy';
 process.env.STRIPE_WEBHOOK_SECRET = 'whsec_dummy';
 process.env.STRIPE_PRICE_ID = 'price_dummy';
 process.env.ANTHROPIC_API_KEY = 'sk-ant-dummy';
+process.env.LLM_MODEL = 'test-model';
 process.env.JWT_SECRET = 'a'.repeat(64);
 process.env.UPSTASH_REDIS_REST_URL = 'https://example.upstash.io';
 process.env.UPSTASH_REDIS_REST_TOKEN = 'dummy-token';
@@ -42,6 +43,8 @@ const {
   extractText,
   ATS_OUTPUT_SCHEMA,
   LLM_TIMEOUT_MS,
+  DOCUMENT_PARSE_TIMEOUT_MS,
+  checkoutFunnelProperties,
 } = app.__test;
 
 // A well-formed report the fake model returns; overallScore as 0-1 decimal to
@@ -268,6 +271,7 @@ describe('analyzeCv (real path, injected fake client)', () => {
 
   it('allows sufficient time for structured model output in a serverless request', () => {
     assert.equal(LLM_TIMEOUT_MS, 55000);
+    assert.equal(DOCUMENT_PARSE_TIMEOUT_MS, 15000);
   });
 
   it('forbids unsupported ATS claims and cosmetic email advice in the evaluator prompt', async () => {

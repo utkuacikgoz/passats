@@ -86,6 +86,8 @@ describe('Health & Static', () => {
 });
 
 describe('Checkout flow (dev mode)', () => {
+
+
   it('POST /api/checkout returns redirect URL', async () => {
     const res = await request.post('/api/checkout');
     assert.equal(res.status, 200);
