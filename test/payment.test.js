@@ -321,6 +321,37 @@ describe('analyze — the real path', () => {
     assert.match(exhausted.body.error, /reference [0-9a-f-]{36}/i, 'quotes a request id support can search for');
   });
 
+  it('does not burn the payment when the retry counter itself is unreadable', async () => {
+    stripeState.session = paidSession({ id: 'cs_redis_blip', metadata: {} });
+    const ip = nextIp();
+    const token = await getToken(ip);
+
+    // A transient Upstash fault on the retry counter used to resolve to 999,
+    // which read as "retries exhausted" and consumed a paid analysis over an
+    // outage the customer had no part in. Fail open instead.
+    const store = redis();
+    const realIncr = store.incr.bind(store);
+    store.incr = async key => {
+      if (key === app.__test.analysisRetryKey('cs_redis_blip')) throw new Error('upstash unavailable');
+      return realIncr(key);
+    };
+
+    llmState.failures = 1;
+    let failed;
+    try {
+      failed = await analyze(token, ip);
+    } finally {
+      store.incr = realIncr;
+    }
+
+    assert.equal(failed.status, 500);
+    assert.match(failed.body.error, /try again shortly/i, 'stays retryable, does not hand over a support reference');
+    assert.equal(await app.__test.hasAnalysisClaim('cs_redis_blip', store), false, 'claim released despite the counter failing');
+
+    const retried = await analyze(token, ip);
+    assert.equal(retried.status, 200, 'the customer still gets the analysis they paid for');
+  });
+
   it('does not burn the payment when the document has too little text', async () => {
     stripeState.session = paidSession({ id: 'cs_thin', metadata: {} });
     const ip = nextIp();

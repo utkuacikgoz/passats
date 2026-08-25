@@ -830,8 +830,15 @@ app.post('/api/analyze', analyzeAuth, upload.single('cv'), async (req, res) => {
     // multiple JWTs for one payment from resetting the retry allowance.
     if (redis && tokenPayload.sessionId) {
       const retryKey = analysisRetryKey(tokenPayload.sessionId);
-      const retries = await redis.incr(retryKey).catch(() => 999);
-      if (retries <= 3) {
+      // Fail open. An unreadable counter must never read as "retries exhausted":
+      // that consumes an analysis the customer paid for over a transient Redis
+      // fault they had no part in, and the only remedy is a manual refund. A
+      // duplicated free retry is the cheaper side of this trade every time.
+      const retries = await redis.incr(retryKey).catch(err => {
+        logError('redis.retry_counter_failed', err, { requestId: reqId, sessionId: tokenPayload.sessionId });
+        return null;
+      });
+      if (retries === null || retries <= 3) {
         await redis.expire(retryKey, ANALYSIS_CLAIM_TTL_SECONDS).catch(() => {});
         await releaseAnalysisClaim(tokenPayload.sessionId).catch(delErr => {
           logError('redis.release_token_failed', delErr, { requestId: reqId, sessionId: tokenPayload.sessionId });
