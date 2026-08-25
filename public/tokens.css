@@ -1,0 +1,38 @@
+/*
+ * PassATS design tokens — the single source of truth for the brand.
+ *
+ * The landing page, the privacy policy, and the terms page all read from this
+ * file. They used to carry their own :root blocks, and the legal pages drifted
+ * onto a completely different palette (green accent, cooler paper) — which is a
+ * problem, because those are the two pages a cautious buyer opens before
+ * uploading their resume. One file, three pages, one brand.
+ *
+ * Balance is deliberate: ~60% warm canvas, ~30% paper and stone surfaces,
+ * ~10% coral for action. Coral is reserved for things the customer can act on.
+ */
+:root {
+  --bg: #F4EEE5;
+  --surface: #EAE1D6;
+  --card: #FFFCF8;
+  --ink: #201B17;
+  --muted: #6E655C;
+  --border: #DCD1C5;
+
+  /* The 10%. Action only. */
+  --accent: #D85D43;
+  --accent-light: #F7DCD5;
+  --accent-warm: #D85D43;
+
+  /* Semantic status — deliberately separate from the action colour, so a
+     failing score never reads as a button and a button never reads as a fault. */
+  --positive: #2F6A55;
+  --positive-light: #DDE9E1;
+  --warning: #A87522;
+  --warning-light: #F5E7C8;
+  --danger: #C94E3C;
+  --danger-light: #F7D9D4;
+
+  --score-high: var(--positive);
+  --score-mid: var(--warning);
+  --score-low: var(--danger);
+}
