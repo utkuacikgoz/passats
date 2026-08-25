@@ -210,6 +210,23 @@ describe('Analyze endpoint — token security', () => {
 });
 
 describe('Analyze endpoint — file validation', () => {
+  it('names the real problem when the file type is rejected, and does not burn the payment', async () => {
+    const token = await getDevToken();
+    const res = await request
+      .post('/api/analyze')
+      // Own rate-limit bucket: this suite shares the default IP and the analyze
+      // limiter is 10/min, so an extra request here would 429 a later test.
+      .set('x-forwarded-for', '198.51.100.31')
+      .set('x-passats-token', token)
+      .attach('cv', Buffer.from('GIF89a still not a resume'), { filename: 'cv.gif', contentType: 'image/gif' });
+
+    // multer drops a filtered file silently, so this used to surface as
+    // "No file uploaded" — true of req.file, but not of what the customer did.
+    assert.equal(res.status, 415);
+    assert.match(res.body.error, /file type is not supported/i);
+    assert.doesNotMatch(res.body.error, /no file uploaded/i);
+  });
+
   it('rejects request without file (400)', async () => {
     const token = await getDevToken();
     const res = await request
@@ -220,15 +237,17 @@ describe('Analyze endpoint — file validation', () => {
     assert.match(res.body.error, /no file/i);
   });
 
-  it('rejects file with wrong mimetype (silently filtered by multer)', async () => {
+  it('rejects a wrong mimetype with an unsupported-type status, not a generic 400', async () => {
     const token = await getDevToken();
     const res = await request
       .post('/api/analyze')
       .set('x-passats-token', token)
       .attach('cv', Buffer.from('not a real file'), { filename: 'resume.txt', contentType: 'text/plain' });
 
-    // multer fileFilter rejects non-allowed mimetypes — file won't be attached
-    assert.equal(res.status, 400);
+    // multer's fileFilter still drops the file; the handler now distinguishes
+    // "you sent a type we cannot read" from "you sent nothing at all".
+    assert.equal(res.status, 415);
+    assert.match(res.body.error, /PDF or a DOCX/i);
   });
 
   it('rejects legacy DOC uploads that the parser does not support', async () => {
@@ -240,7 +259,9 @@ describe('Analyze endpoint — file validation', () => {
       .set('x-passats-token', token)
       .attach('cv', legacyDoc, { filename: 'resume.doc', contentType: 'application/msword' });
 
-    assert.equal(res.status, 400);
+    // .doc is a different format from .docx, not a corrupt .docx — say so.
+    assert.equal(res.status, 415);
+    assert.match(res.body.error, /PDF or a DOCX/i);
   });
 
   it('rejects file with valid mimetype but wrong magic bytes', async () => {
