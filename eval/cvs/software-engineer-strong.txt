@@ -1,0 +1,37 @@
+DANIEL OKONKWO
+daniel.okonkwo@example.com | +44 7700 900142 | London, UK
+linkedin.com/in/danielokonkwo | github.com/dokonkwo
+
+PROFESSIONAL SUMMARY
+Senior software engineer with 8 years building payment and platform systems. Focused on
+reliability and developer experience across high-traffic services.
+
+SKILLS
+TypeScript, React, Node.js, PostgreSQL, Redis, Docker, Kubernetes, AWS, Terraform,
+CI/CD, REST API design, GraphQL, Jest, Playwright, Agile
+
+EXPERIENCE
+
+Senior Software Engineer, Revolut, London
+Mar 2022 - Present
+- Rebuilt the card authorisation service in TypeScript, cutting p99 latency from 340ms to 88ms
+- Led migration of 14 services to Kubernetes, reducing deploy time from 45 minutes to 6
+- Introduced contract testing across 9 teams, dropping integration incidents by 62 percent
+- Mentored 4 engineers, 2 of whom were promoted within 18 months
+
+Software Engineer, Monzo, London
+Jun 2019 - Feb 2022
+- Built the merchant enrichment pipeline processing 40 million transactions per month
+- Reduced database costs by 210,000 GBP annually by redesigning the ledger index strategy
+- Shipped the in-app dispute flow used by 300,000 customers in its first quarter
+
+Software Engineer, Accenture, Manchester
+Sep 2017 - May 2019
+- Delivered a claims portal for a national insurer, serving 1.2 million policyholders
+- Automated regression suite, cutting release testing from 3 days to 4 hours
+
+EDUCATION
+BSc Computer Science, University of Manchester, Sep 2014 - Jun 2017, First Class Honours
+
+PROJECTS
+openledger, an open source double entry accounting library, 1,400 GitHub stars
