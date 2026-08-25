@@ -18,6 +18,7 @@ const { CANONICAL_ORIGIN: ORIGIN } = require('../config/site');
 
 const PAGES = [
   { url: '/',        source: 'views/index.html',   changefreq: 'weekly',  priority: '1.0' },
+  { url: '/ats-checklist', source: 'views/checklist.html', changefreq: 'monthly', priority: '0.8' },
   { url: '/privacy', source: 'views/privacy.html', changefreq: 'monthly', priority: '0.3' },
   { url: '/terms',   source: 'views/terms.html',   changefreq: 'monthly', priority: '0.3' },
 ];
