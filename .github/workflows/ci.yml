@@ -40,6 +40,12 @@ jobs:
           npm run sync:csp
           git diff --exit-code -- views/index.html server.js \
             || (echo "::error::Run 'npm run sync:faq && npm run sync:csp' and commit the result." && exit 1)
+      - name: Quality fixture validation
+        run: npm run quality:check
+      # Guards the invocation budget: a platform timeout kills the request
+      # outside our catch block and strands the customer's paid claim.
+      - name: Runtime and serverless budget validation
+        run: npm run runtime:check
       - name: Dependency audit (high+)
         run: npm audit --audit-level=high
 

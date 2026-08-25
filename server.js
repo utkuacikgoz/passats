@@ -45,13 +45,17 @@ const BASE_URL = process.env.BASE_URL || `http://localhost:${PORT}`;
 // (e.g. claude-haiku-4-5 to trade a little copy sharpness for lower cost/latency).
 const LLM_MODEL = process.env.LLM_MODEL || 'claude-sonnet-5';
 const POSTHOG_HOST = process.env.POSTHOG_HOST || 'https://us.i.posthog.com';
-// Leave a small buffer below the 60-second invocation ceiling declared in
-// vercel.json (`functions["api/index.js"].maxDuration`), while allowing
-// structured-output grammar compilation and normal model latency to complete.
-// If that ceiling ever changes, change this with it — a platform timeout kills
-// the request outside our catch block, so the analysis claim is never released
-// and the customer is locked out of the analysis they paid for.
-const LLM_TIMEOUT_MS = 55000;
+// The invocation budget lives in config/runtime.js so the timeouts, the
+// vercel.json ceiling and the CI check that compares them cannot drift apart.
+// A platform timeout kills the request outside our catch block, so the analysis
+// claim is never released and the customer is locked out of what they paid for.
+// The two slow phases share ANALYSIS_BUDGET_MS rather than each holding its own
+// timeout: summing 15s of parsing and 55s of model time overruns a 60s ceiling.
+const {
+  DOCUMENT_PARSE_TIMEOUT_MS,
+  LLM_TIMEOUT_MS,
+  ANALYSIS_BUDGET_MS,
+} = require('./config/runtime');
 // A full report runs about 1,200 output tokens; this leaves generous headroom.
 // Hitting the cap truncates the JSON mid-object, so a max_tokens stop reason is
 // treated as its own failure rather than being reported as a malformed response.
@@ -743,6 +747,11 @@ async function analyzeAuth(req, res, next) {
 app.post('/api/analyze', analyzeAuth, upload.single('cv'), async (req, res) => {
   const reqId = req.requestId;
   const tokenPayload = req.tokenPayload;
+  // One deadline for both slow phases. Parsing and the model draw from the same
+  // allowance, so a slow parse shortens the model's window instead of pushing
+  // the request past the platform ceiling — where the kill lands outside our
+  // catch block and the customer's claim is never released.
+  const analysisDeadline = Date.now() + ANALYSIS_BUDGET_MS;
 
   try {
     // Dev mode: check in-memory
@@ -780,12 +789,12 @@ app.post('/api/analyze', analyzeAuth, upload.single('cv'), async (req, res) => {
 
     let text;
     if (DEV_MODE) {
-      try { text = await extractText(req.file); } catch { /* fall through */ }
+      try { text = await extractText(req.file, analysisDeadline - Date.now()); } catch { /* fall through */ }
       if (!text || text.trim().length < 50) {
         text = 'John Doe — Software Engineer with 5 years experience in JavaScript, React, Node.js, SQL, Git. Built scalable APIs and led CI/CD adoption.';
       }
     } else {
-      text = await extractText(req.file);
+      text = await extractText(req.file, analysisDeadline - Date.now());
     }
 
     if (!text || text.trim().length < 50) {
@@ -805,7 +814,7 @@ app.post('/api/analyze', analyzeAuth, upload.single('cv'), async (req, res) => {
     // cutting it at the documented limit.
     const jobDescription = (req.body?.jobDescription || '').slice(0, MAX_JOB_DESCRIPTION_CHARS);
     log('info', 'analyze.started', { requestId: reqId, model: LLM_MODEL, hasJobDescription: !!jobDescription });
-    const result = await analyzeCv(text, jobDescription);
+    const result = await analyzeCv(text, jobDescription, { budgetMs: analysisDeadline - Date.now() });
     log('info', 'analyze.completed', { requestId: reqId, overallScore: result.overallScore, model: LLM_MODEL });
     capturePosthog('cv_analysis_completed', {
       requestId: reqId,
@@ -863,10 +872,14 @@ app.post('/api/analyze', analyzeAuth, upload.single('cv'), async (req, res) => {
 });
 
 // ── Text extraction with 15s timeout ──────────────────────────────────────────
-async function extractText(file) {
+async function extractText(file, budgetMs = DOCUMENT_PARSE_TIMEOUT_MS) {
   let timeoutId;
+  // Never longer than the hard parse ceiling, and never longer than what is
+  // actually left of the invocation. At least 1ms so a spent budget rejects
+  // promptly rather than arming a timer that never fires.
+  const limit = Math.max(1, Math.min(DOCUMENT_PARSE_TIMEOUT_MS, budgetMs));
   const timeout = new Promise((_, reject) => {
-    timeoutId = setTimeout(() => reject(new Error('Document parsing timed out')), 15000);
+    timeoutId = setTimeout(() => reject(new Error('Document parsing timed out')), limit);
   });
 
   const parse = (async () => {
@@ -1029,6 +1042,8 @@ function devReport() {
 async function analyzeCv(cvText, jobDescription, opts = {}) {
   const client = opts.client || anthropic;
   const model = opts.model || LLM_MODEL;
+  // Whatever the parse left of the shared budget, capped at the model ceiling.
+  const llmBudgetMs = Math.max(1, Math.min(LLM_TIMEOUT_MS, opts.budgetMs ?? LLM_TIMEOUT_MS));
   if (DEV_MODE) {
     await new Promise(r => setTimeout(r, 1500));
     return devReport();
@@ -1121,7 +1136,7 @@ ${cvSlice}
 ---`;
 
   const abortController = new AbortController();
-  const timeoutId = setTimeout(() => abortController.abort(), LLM_TIMEOUT_MS);
+  const timeoutId = setTimeout(() => abortController.abort(), llmBudgetMs);
 
   let response;
   try {
@@ -1293,6 +1308,8 @@ app.__test = {
   extractText,
   ATS_OUTPUT_SCHEMA,
   LLM_TIMEOUT_MS,
+  DOCUMENT_PARSE_TIMEOUT_MS,
+  ANALYSIS_BUDGET_MS,
   clientIp,
   normalizeIp,
   // The DEV_MODE report, so its copy can be held to the same rules as the prompt.
