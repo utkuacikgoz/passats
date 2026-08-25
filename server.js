@@ -81,7 +81,7 @@ const CHECKOUT_CONSENT_MESSAGE =
   `You are asking us to start your analysis immediately, so you lose the 14-day right of withdrawal once your report is delivered. If anything fails, email ${SUPPORT_EMAIL} for a full refund.`;
 const analysisSupportMessage = reqId =>
   `We couldn't complete your analysis. Email ${SUPPORT_EMAIL} with reference ${reqId} and we'll refund or fix it.`;
-const APP_SCRIPT_CSP_HASH = "'sha256-0h1R4Qm+f1itod3CYQa5tCqyNNxdlXNqopD7eLOO3Gs='";
+const APP_SCRIPT_CSP_HASH = "'sha256-Ir9TpXVdeanH9RygJ/IfpzkWfCbu5C33JrIKCuiYbzg='";
 const VERCEL_ANALYTICS_CSP_HASH = "'sha256-rbTaSdDD+Sd+K8IZ66VS79bdI78bN8AwXXyN0/lD5fY='";
 // Hashes of individual onclick handler bodies (required for 'unsafe-hashes' to allow them)
 const APP_HANDLER_CSP_HASHES = [
