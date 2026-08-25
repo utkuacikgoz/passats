@@ -74,13 +74,13 @@ const CHECKOUT_CONSENT_MESSAGE =
   `You are asking us to start your analysis immediately, so you lose the 14-day right of withdrawal once your report is delivered. If anything fails, email ${SUPPORT_EMAIL} for a full refund.`;
 const analysisSupportMessage = reqId =>
   `We couldn't complete your analysis. Email ${SUPPORT_EMAIL} with reference ${reqId} and we'll refund or fix it.`;
-const APP_SCRIPT_CSP_HASH = "'sha256-IFI2KOU8AhpnTgqVY5XXrm+IeKYn7giDRUFVDH9jIfE='";
+const APP_SCRIPT_CSP_HASH = "'sha256-yK6/+dq8LWoFotJ6Im4seVvp9Ud2LsmmdJb4XnCAQ8g='";
 const VERCEL_ANALYTICS_CSP_HASH = "'sha256-rbTaSdDD+Sd+K8IZ66VS79bdI78bN8AwXXyN0/lD5fY='";
 // Hashes of individual onclick handler bodies (required for 'unsafe-hashes' to allow them)
 const APP_HANDLER_CSP_HASHES = [
   "'sha256-PNSBC4eKT981jWU7VUWY1rrkVVj0fQGd8duewJsZptY='", // showView('landing')
   "'sha256-pZxCg0aN1aHaHQ1BG9oYaJobxEoXaUIZRu3Sm8pT2YQ='", // if(event.key==='Enter'||event.key===' '){event…
-  "'sha256-+sHL2zzQtByQnCf19Rv5VOUrN+15Fh04dw8mLo3Yo4I='", // startCheckout()
+  "'sha256-Op416lafelF6r46K41qci4UFbdmOE4RaU5LYTxaRdzM='", // ctaClick(this)
   "'sha256-yUeu/Jy2O5YqLCuSJr5FKGy2nSjYppMdbMmVYC1WdF0='", // fileSelected(this)
   "'sha256-CbVHLCnwV427HrcwsLdbh491k6FiycGp+zMMQLbnrTA='", // this.style.borderColor='var(--accent)'
   "'sha256-yU03ONm8LtlVoSfPslmrL0rnGnT5Tp47xH1aB2Dr9Xs='", // this.style.borderColor='var(--border)'
@@ -830,8 +830,15 @@ app.post('/api/analyze', analyzeAuth, upload.single('cv'), async (req, res) => {
     // multiple JWTs for one payment from resetting the retry allowance.
     if (redis && tokenPayload.sessionId) {
       const retryKey = analysisRetryKey(tokenPayload.sessionId);
-      const retries = await redis.incr(retryKey).catch(() => 999);
-      if (retries <= 3) {
+      // Fail open. An unreadable counter must never read as "retries exhausted":
+      // that consumes an analysis the customer paid for over a transient Redis
+      // fault they had no part in, and the only remedy is a manual refund. A
+      // duplicated free retry is the cheaper side of this trade every time.
+      const retries = await redis.incr(retryKey).catch(err => {
+        logError('redis.retry_counter_failed', err, { requestId: reqId, sessionId: tokenPayload.sessionId });
+        return null;
+      });
+      if (retries === null || retries <= 3) {
         await redis.expire(retryKey, ANALYSIS_CLAIM_TTL_SECONDS).catch(() => {});
         await releaseAnalysisClaim(tokenPayload.sessionId).catch(delErr => {
           logError('redis.release_token_failed', delErr, { requestId: reqId, sessionId: tokenPayload.sessionId });
