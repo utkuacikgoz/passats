@@ -1457,6 +1457,9 @@ ${fence}`;
 app.get('/privacy', (_req, res) => {
   res.sendFile(path.join(VIEWS_DIR, 'privacy.html'));
 });
+app.get('/ats-checklist', (_req, res) => {
+  res.sendFile(path.join(VIEWS_DIR, 'checklist.html'));
+});
 app.get('/terms', (_req, res) => {
   res.sendFile(path.join(VIEWS_DIR, 'terms.html'));
 });

@@ -21,6 +21,7 @@ const ROOT = path.join(__dirname, '..');
 const FILES = [
   'views/index.html',
   'views/terms.html',
+  'views/checklist.html',
   'views/privacy.html',
   'views/404.html',
   'public/robots.txt',
