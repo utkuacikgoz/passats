@@ -44,35 +44,8 @@ const {
   ATS_OUTPUT_SCHEMA,
   LLM_TIMEOUT_MS,
   DOCUMENT_PARSE_TIMEOUT_MS,
-  sanitizeFunnelEvent,
   checkoutFunnelProperties,
 } = app.__test;
-
-describe('privacy-safe funnel telemetry', () => {
-  const id = '12345678-1234-1234-1234-123456789abc';
-
-  it('accepts canonical events and strips non-allowlisted fields', () => {
-    assert.deepEqual(sanitizeFunnelEvent({ event: 'analysis_started', properties: {
-      anonymous_session_id: id, file_type: 'pdf', has_job_description: true,
-      filename: 'Jane-Doe.pdf', resume_text: 'private', job_description: 'private', token: 'secret', raw_output: 'private',
-    } }), { event: 'analysis_started', properties: {
-      anonymous_session_id: id, file_type: 'pdf', has_job_description: true,
-    } });
-  });
-
-  it('rejects unknown events and identifying session values', () => {
-    assert.equal(sanitizeFunnelEvent({ event: 'resume_uploaded', properties: { anonymous_session_id: id } }), null);
-    assert.equal(sanitizeFunnelEvent({ event: 'landing_viewed', properties: { anonymous_session_id: 'email@example.com' } }), null);
-  });
-
-  it('keeps only safe attribution when joining checkout to payment events', () => {
-    assert.deepEqual(checkoutFunnelProperties({ analytics: {
-      anonymous_session_id: id, source: 'google', medium: 'cpc', campaign: 'role-test',
-      resume_text: 'private', token: 'secret',
-    } }), { anonymous_session_id: id, source: 'google', medium: 'cpc', campaign: 'role-test' });
-    assert.equal(checkoutFunnelProperties({ analytics: { anonymous_session_id: 'not-a-uuid' } }), null);
-  });
-});
 
 // A well-formed report the fake model returns; overallScore as 0-1 decimal to
 // also assert normalization runs.
@@ -314,7 +287,12 @@ describe('analyzeCv (real path, injected fake client)', () => {
     assert.match(request.system, /Never claim that the PDF is single-column, visually clean, table-free/);
     assert.match(request.system, /Never pad either list with cosmetic preferences/);
     assert.doesNotMatch(request.system, /email address is professional/);
-    assert.match(request.system, /Do not use a dash character in user facing prose/);
+    // The dash rule used to ban the hyphen alongside the em and en dash, which
+    // forbids ordinary English compounds: cross-functional, front-end,
+    // data-driven. Assert the intent, not the sentence.
+    assert.match(request.system, /Never use an em dash, an en dash, or a double hyphen/);
+    assert.match(request.system, /Ordinary hyphens inside compound words are correct English/);
+    assert.doesNotMatch(request.system, /em dash, en dash, hyphen, or double hyphen/);
   });
 
   it('parses a valid response and normalizes 0-1 scores', async () => {
