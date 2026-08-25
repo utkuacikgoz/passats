@@ -358,7 +358,9 @@ app.use((req, res, next) => {
     `script-src 'self' 'unsafe-hashes' ${APP_SCRIPT_CSP_HASH} ${VERCEL_ANALYTICS_CSP_HASH} ${APP_HANDLER_CSP_HASHES}`,
     "style-src 'self' 'unsafe-inline' fonts.googleapis.com",
     "font-src fonts.gstatic.com",
-    "img-src 'self' data:",
+    // api.producthunt.com serves the launch badge. Without it the badge is
+    // blocked and the hero shows an empty box on the one day it matters.
+    "img-src 'self' data: https://api.producthunt.com",
     "connect-src 'self'",
     "object-src 'none'",
     "base-uri 'self'",
