@@ -50,6 +50,8 @@ Recommended optional variables:
 - `POSTHOG_API_KEY` for server-side error tracing
 - `POSTHOG_HOST` for US/EU/self-hosted PostHog
 - `TEST_SECRET` for `/api/test-token`
+- `COUPON_CODES` for free tester analyses
+- `COUPON_EXPIRES_AT` to expire every coupon at once
 - `TEST_ALLOWED_IPS` for `/api/test-token`
 - `BASE_URL`
 - `PORT`
@@ -194,6 +196,7 @@ Before go-live, verify the following:
 - `POSTHOG_API_KEY` is set if you want server-side errors traceable in PostHog.
 - `TEST_SECRET` is either unset or rotated to an owner-only secret if you want smoke-test access.
 - `TEST_ALLOWED_IPS` is set to your public IP if `/api/test-token` is enabled. Without it, the endpoint stays disabled.
+- `COUPON_CODES` is unset unless you are actively running testers, and every code in it is long and random. Codes grant the paid product for free.
 - Anthropic billing and rate limits are confirmed for your traffic profile.
 - `LLM_MODEL` is pinned to `claude-sonnet-5` (or `claude-haiku-4-5`), an explicitly chosen stable model, not a dated snapshot alias.
 - A real payment-to-analysis smoke test is completed in production before opening traffic.
@@ -221,6 +224,50 @@ Two things to keep an eye on:
   90% off that portion on a hit. But the five-minute TTL and the 1.25x write cost
   make it net-negative below sustained traffic. Revisit when analyses run more
   often than once every five minutes.
+
+## Coupon Codes
+
+Coupons give a tester one free analysis each, without touching Stripe. A redeemed
+coupon mints the same upload token a payment does, so everything downstream is
+identical: one analysis per redemption, the same retry ladder, the same replay
+block.
+
+Set them in your deployment environment:
+
+```
+COUPON_CODES=FRIENDS-7XK2Q9:5,BETA-M4RT8W:1
+```
+
+Each entry is `CODE:maxRedemptions`. Omit the count and it defaults to 1. Codes
+are matched case-insensitively with spaces stripped, so a tester retyping one
+from a message will not be tripped by capitalisation.
+
+Optionally kill the whole programme at a fixed time, whatever the caps say:
+
+```
+COUPON_EXPIRES_AT=2026-10-01T00:00:00Z
+```
+
+### Rules this follows
+
+- **Unset means nothing works.** There is no default code.
+- **Use long random codes.** These hand out the paid product. `FRIENDS` is
+  guessable in seconds; `FRIENDS-7XK2Q9` is not.
+- **Redemptions are counted in Redis and never reset.** The counter has no TTL,
+  so a spent coupon stays spent.
+- **A Redis outage denies redemption.** This is the opposite of the analysis
+  retry counter, which fails open to protect someone who already paid.
+- **Unknown, expired and spent codes all answer the same 404.** Probing cannot
+  discover which codes exist.
+- **The live code never leaves the environment.** Redis keys, logs and analytics
+  all carry a SHA-256 prefix instead.
+- Coupon analyses report `source: "coupon"` in telemetry, so free runs stay out
+  of your revenue numbers.
+
+### Retiring a code
+
+Remove it from `COUPON_CODES` and redeploy. To reuse a code name later, also
+delete its Redis key, since the redemption count persists deliberately.
 
 ## Suggested Pre-Launch Smoke Tests
 

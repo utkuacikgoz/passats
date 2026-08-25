@@ -290,6 +290,26 @@ describe('Rate limiting', () => {
   });
 });
 
+describe('Coupon codes are off unless configured', () => {
+  it('rejects every code when COUPON_CODES is unset', async () => {
+    // Default-off matters more here than anywhere else in the app: a coupon
+    // endpoint that works without configuration hands out the product free.
+    assert.equal(process.env.COUPON_CODES, undefined, 'this suite must run unconfigured');
+    for (const code of ['', 'TEST', 'FRIENDS', 'constructor', '__proto__']) {
+      const res = await request.post('/api/redeem-coupon').send({ code });
+      assert.equal(res.status, 404, `code ${JSON.stringify(code)} must not redeem`);
+      assert.equal(res.body.token, undefined);
+    }
+  });
+
+  it('does not mint a token for a prototype key', async () => {
+    // matchCoupon walks real entries rather than indexing an object, so a
+    // prototype key cannot resolve to something truthy.
+    assert.equal(app.__test.matchCoupon('CONSTRUCTOR'), null);
+    assert.equal(app.__test.matchCoupon('__PROTO__'), null);
+  });
+});
+
 describe('Security headers', () => {
   it('does not advertise the framework, and locks form submission to this origin', async () => {
     const res = await request.get('/');
