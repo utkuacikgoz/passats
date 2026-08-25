@@ -66,7 +66,7 @@ const LLM_MAX_TOKENS = 3000;
 // Support contact is a single source of truth: the failure messages below, the
 // footer, and the legal pages all read it from here so a customer who paid can
 // always reach a mailbox that exists. Verify the mailbox before opening traffic.
-const SUPPORT_EMAIL = process.env.SUPPORT_EMAIL || 'support@passats.com';
+const { SUPPORT_EMAIL } = require('./config/site');
 // Upload limits live here so the multer ceiling, the textarea maxlength rendered
 // into the page, the error copy, and the prompt slice can never drift apart.
 const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
@@ -81,7 +81,7 @@ const CHECKOUT_CONSENT_MESSAGE =
   `You are asking us to start your analysis immediately, so you lose the 14-day right of withdrawal once your report is delivered. If anything fails, email ${SUPPORT_EMAIL} for a full refund.`;
 const analysisSupportMessage = reqId =>
   `We couldn't complete your analysis. Email ${SUPPORT_EMAIL} with reference ${reqId} and we'll refund or fix it.`;
-const APP_SCRIPT_CSP_HASH = "'sha256-PLUY/h98/6VIBdqPUOV2z3hcKeaRjr3BX/RCUyHTzd8='";
+const APP_SCRIPT_CSP_HASH = "'sha256-0h1R4Qm+f1itod3CYQa5tCqyNNxdlXNqopD7eLOO3Gs='";
 const VERCEL_ANALYTICS_CSP_HASH = "'sha256-rbTaSdDD+Sd+K8IZ66VS79bdI78bN8AwXXyN0/lD5fY='";
 // Hashes of individual onclick handler bodies (required for 'unsafe-hashes' to allow them)
 const APP_HANDLER_CSP_HASHES = [
@@ -515,10 +515,19 @@ function checkOrigin(req, res) {
 // free. There is no error and no failed request when that happens: it shows up
 // only as revenue that quietly does not arrive, which is why it is pinned by a
 // test rather than left to this comment.
-const PAYMENT_VERIFY_WINDOW_MS = 60 * 60 * 1000;
+//
+// The window was one hour, measured from session creation. Stripe closes
+// payment at +30 minutes, so a customer who paid late had barely half an hour
+// to come back before being told "Please purchase again" — after paying. A day
+// matches how people actually behave: pay, get distracted, return in the
+// evening. The claim below is what prevents abuse, not this window, so it can
+// be generous without weakening anything.
+const PAYMENT_VERIFY_WINDOW_MS = 24 * 60 * 60 * 1000;
 const UPLOAD_TOKEN_TTL_SECONDS = 30 * 60;
 const UPLOAD_TOKEN_EXPIRES_IN = `${UPLOAD_TOKEN_TTL_SECONDS}s`;
-const ANALYSIS_CLAIM_TTL_SECONDS = 2 * 60 * 60;
+// Seven days: comfortably clear of the window above plus a token's life, and a
+// single small Redis key per payment either way.
+const ANALYSIS_CLAIM_TTL_SECONDS = 7 * 24 * 60 * 60;
 const analysisClaimKey = sessionId => `passats:analysis:${sessionId}`;
 const analysisRetryKey = sessionId => `passats:retry:${sessionId}`;
 
@@ -784,7 +793,12 @@ app.get('/api/verify-payment', async (req, res) => {
     // Cap token refresh window — session must be < 1 hour old
     const sessionAgeMs = Date.now() - (checkoutSession.created * 1000);
     if (sessionAgeMs > PAYMENT_VERIFY_WINDOW_MS) {
-      return res.status(410).json({ error: 'Session expired. Please purchase again.' });
+      // Never tell someone who paid to pay again. They are past the window, but
+      // the money is real and the analysis was never claimed, so route them to
+      // a human with the reference that identifies the payment.
+      return res.status(410).json({
+        error: `This payment is too old to redeem automatically. Email ${SUPPORT_EMAIL} with reference ${req.requestId} and we will run your analysis or refund you.`,
+      });
     }
 
     // The payment, rather than a particular JWT, owns the single analysis.
