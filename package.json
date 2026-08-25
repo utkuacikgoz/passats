@@ -24,8 +24,8 @@
     "test:browser": "node --test test/browser.test.js"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.117.1",
-    "@napi-rs/canvas": "1.0.6",
+    "@anthropic-ai/sdk": "^0.120.0",
+    "@napi-rs/canvas": "1.0.7",
     "@upstash/redis": "^1.38.2",
     "@vercel/analytics": "^2.0.1",
     "compression": "^1.8.1",
@@ -35,7 +35,7 @@
     "mammoth": "^1.12.1",
     "multer": "^2.2.0",
     "pdf-parse": "^2.4.5",
-    "posthog-node": "^5.49.1",
+    "posthog-node": "^5.50.0",
     "stripe": "^22.5.0"
   },
   "devDependencies": {
