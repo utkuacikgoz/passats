@@ -12,7 +12,7 @@
     "sync:faq": "node scripts/sync-structured-data.js",
     "sync:csp": "node scripts/sync-csp-hashes.js",
     "sync:sitemap": "node scripts/build-sitemap.js",
-    "sync:seo": "npm run sync:domain && npm run sync:faq && npm run sync:sitemap && npm run sync:csp",
+    "sync:seo": "npm run build:guides && npm run sync:domain && npm run sync:faq && npm run sync:sitemap && npm run sync:csp",
     "build:og": "node scripts/build-og-image.js",
     "smoke:routes": "node scripts/smoke-routes.js",
     "smoke:prod": "node scripts/smoke-test.js",
@@ -25,7 +25,8 @@
     "quality:check": "node scripts/quality-benchmark.js",
     "quality:live": "node scripts/quality-benchmark.js --live",
     "runtime:check": "node scripts/runtime-config-check.js",
-    "sync:domain": "node scripts/sync-domain.js"
+    "sync:domain": "node scripts/sync-domain.js",
+    "build:guides": "node scripts/build-guides.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.120.0",
