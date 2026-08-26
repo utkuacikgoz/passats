@@ -158,6 +158,41 @@ describe('canonical domain', () => {
     assert.deepEqual(after, before, 'a second build must change nothing');
   });
 
+  it('bundles every file in public/, or they 404 in production', () => {
+    // This shipped broken. includeFiles listed views/** only, and Vercel's file
+    // tracer does not pull a directory's contents from express.static, so every
+    // asset in public/ 404'd in production and fell through to the 404 page.
+    // Google reported the sitemap as HTML: it was being served views/404.html.
+    //
+    // Nothing failed loudly. The legal pages and guides lost tokens.css, and
+    // every share preview lost og-image.png, on the day of a launch.
+    const vercel = JSON.parse(read('vercel.json'));
+    const included = String(vercel.functions?.['api/index.js']?.includeFiles || '');
+    for (const dir of ['public', 'views']) {
+      assert.ok(included.includes(dir), `includeFiles must bundle ${dir}/**, got ${included}`);
+    }
+  });
+
+  it('serves every public asset as itself, never as the 404 page', async () => {
+    const app = require('../server');
+    const supertest = require('supertest');
+    const request = supertest(app);
+    const expected = {
+      '/sitemap.xml': /xml/,
+      '/robots.txt': /text\/plain/,
+      '/llms.txt': /text\/plain/,
+      '/tokens.css': /css/,
+      '/favicon.svg': /svg/,
+      '/og-image.png': /png/,
+    };
+    for (const [route, type] of Object.entries(expected)) {
+      const res = await request.get(route);
+      assert.equal(res.status, 200, `${route} did not serve`);
+      assert.match(res.headers['content-type'], type, `${route} served the wrong type`);
+      assert.doesNotMatch(String(res.text || ''), /<html/i, `${route} served an HTML page instead of the asset`);
+    }
+  });
+
   it('keeps the support address on the canonical domain', () => {
     assert.equal(site.SUPPORT_EMAIL, `support@${new URL(site.CANONICAL_ORIGIN).hostname}`);
     assert.match(read('views/terms.html'), new RegExp(site.SUPPORT_EMAIL.replace('.', '\\.')));
