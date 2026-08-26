@@ -981,7 +981,7 @@
   // customer had already paid for, with no way to ask for it back. Token and
   // report are mirrored into sessionStorage so the tab can always recover, and
   // cleared only once the customer is finished with the report.
-  const STORE_KEY = 'passats.pro';
+  const STORE_KEY = 'passats.session.v1';
 
   function loadSession() {
     try {
@@ -1006,7 +1006,7 @@
   // third-party script, no cookie, nothing about the CV ever leaves here: the
   // server takes an event name from a fixed list and an anonymous id, and
   // ignores anything else. The id is random and lives for one tab only.
-  const ANON_KEY = 'passats.pro';
+  const ANON_KEY = 'passats.anon.v1';
 
   function anonymousId() {
     try {
