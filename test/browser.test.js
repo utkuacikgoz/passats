@@ -136,6 +136,44 @@ describe('the paid journey', () => {
     await page.close();
   });
 
+  it('survives a refresh when the session carries a real payment id', async () => {
+    // The dev flow never calls saveSession, so STORE_KEY holds no sessionId and
+    // the restore guard compares undefined to undefined. That passes for the
+    // wrong reason and hid a live bug: a real purchase stores a sessionId, and
+    // this asserts the report still comes back when one is present.
+    //
+    // It also covers the collision that shipped. STORE_KEY and ANON_KEY were
+    // rewritten to the same value, so the analytics id overwrote the saved
+    // report and JSON.parse threw on reload. Reading the store after a reload
+    // proves the report survived rather than trusting the rendered view.
+    const page = await browser.newPage();
+    await runAnalysis(page);
+    const scoreBefore = await page.textContent('#dashScoreNumber');
+
+    const keys = await page.evaluate(() => {
+      const store = 'passats.session.v1';
+      const raw = sessionStorage.getItem(store);
+      const parsed = raw ? JSON.parse(raw) : {};
+      // Stamp a real payment id, the way handlePaymentReturn does.
+      parsed.sessionId = 'cs_test_refresh';
+      parsed.reportSessionId = 'cs_test_refresh';
+      sessionStorage.setItem(store, JSON.stringify(parsed));
+      return Object.keys(sessionStorage);
+    });
+    assert.ok(keys.length >= 2, `expected the report and the anonymous id under separate keys, saw ${keys.join(',')}`);
+
+    await page.reload();
+    await page.waitForSelector('#dashboard.active', { timeout: 10000 });
+    assert.equal(await page.textContent('#dashScoreNumber'), scoreBefore, 'the paid report did not survive the refresh');
+
+    const stillThere = await page.evaluate(() => {
+      const raw = sessionStorage.getItem('passats.session.v1');
+      try { return !!(raw && JSON.parse(raw).report); } catch { return false; }
+    });
+    assert.ok(stillThere, 'the stored report was clobbered by another writer');
+    await page.close();
+  });
+
   it('survives a refresh between paying and uploading — the token is not lost', async () => {
     const page = await browser.newPage();
     await page.goto(`${origin}/?dev=1`);
