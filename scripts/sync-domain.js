@@ -33,9 +33,21 @@ const FILES = [
 // turns passats.vercel.app into passats.pro + a stranded ".app".
 const HOST = String.raw`passats(?:\.[a-z0-9-]+)+`;
 const ORIGIN_RE = new RegExp(String.raw`https?://(?:www\.)?${HOST}(?::\d+)?`, 'gi');
-// Bare host mentions in prose, e.g. the print footer. A preceding @ is excluded
-// so this cannot eat the domain half of an address.
-const BARE_HOST_RE = new RegExp(String.raw`(?<![@\w])(?:www\.)?${HOST}(?![\w@-])`, 'gi');
+// Bare host mentions in prose, e.g. the print footer.
+//
+// This pattern shipped too greedy and cost a customer their paid report. It
+// matched `passats.session.v1` and `passats.anon.v1` — two sessionStorage keys
+// in the client — and rewrote both to `passats.pro`, so the analytics id and
+// the saved report collided on one key and the report was destroyed on reload.
+//
+// Two guards now. The final label must look like a real TLD, alphabetic only,
+// which excludes a version suffix like `.v1`. And a match may not be preceded
+// by a quote, so a string literal in code is never a candidate: a bare host in
+// prose has whitespace or punctuation in front of it, never a quote mark.
+const BARE_HOST_RE = new RegExp(
+  String.raw`(?<!['"\`@\w.])(?:www\.)?passats(?:\.[a-z0-9-]+)*\.[a-z]{2,24}(?![\w@.-])`,
+  'gi',
+);
 const EMAIL_RE = new RegExp(String.raw`\b([a-z][a-z0-9._-]*)@${HOST}\b`, 'gi');
 
 const host = new URL(site.CANONICAL_ORIGIN).host;
