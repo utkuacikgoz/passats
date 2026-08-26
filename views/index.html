@@ -237,6 +237,14 @@
     gap: 16px; flex-wrap: wrap;
   }
 
+  /* Guide links sit above the legal line so the footer reads as navigation
+     rather than a keyword dump appended to a copyright notice. */
+  .footer-guides {
+    display: flex; flex-wrap: wrap; justify-content: center;
+    gap: 10px 22px; margin-bottom: 18px;
+  }
+  .footer-guides a { font-size: 0.84rem; }
+
   .ph-badge { display: inline-block; margin-top: 22px; line-height: 0; border-radius: 10px; }
   .ph-badge img { display: block; width: 250px; height: 54px; }
 
@@ -850,7 +858,15 @@
   </section>
 
   <footer>
-    <p>&copy; 2026 PassATS &middot; <a href="/ats-checklist">ATS Checklist</a> &middot; <a href="/privacy">Privacy</a> &middot; <a href="/terms">Terms</a> &middot; <a href="mailto:support@passats.pro">support@passats.pro</a></p>
+    <nav class="footer-guides" aria-label="Guides">
+      <a href="/resume-keywords">Resume Keywords That Actually Matter</a>
+      <a href="/ats-score-guide">What Your ATS Score Actually Means</a>
+      <a href="/resume-file-format">PDF or DOCX?</a>
+      <a href="/ats-parsing-errors">Why Your Resume Does Not Parse</a>
+      <a href="/ats-resume-template">An ATS-Friendly Resume Structure</a>
+      <a href="/ats-checklist">The ATS Resume Checklist</a>
+    </nav>
+    <p>&copy; 2026 PassATS &middot; <a href="/privacy">Privacy</a> &middot; <a href="/terms">Terms</a> &middot; <a href="mailto:support@passats.pro">support@passats.pro</a></p>
     <p style="margin-top:6px;">Built for people with work worth talking about.</p>
   </footer>
 </div>
