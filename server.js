@@ -1462,6 +1462,14 @@ app.get('/privacy', (_req, res) => {
 app.get('/ats-checklist', (_req, res) => {
   res.sendFile(path.join(VIEWS_DIR, 'checklist.html'));
 });
+// Guide pages are generated from content/guides.js by scripts/build-guides.js.
+// Routing from the same source means a new guide cannot be added without also
+// being reachable, which is how orphaned pages happen.
+for (const guide of require('./content/guides')) {
+  app.get(`/${guide.slug}`, (_req, res) => {
+    res.sendFile(path.join(VIEWS_DIR, 'guides', `${guide.slug}.html`));
+  });
+}
 app.get('/terms', (_req, res) => {
   res.sendFile(path.join(VIEWS_DIR, 'terms.html'));
 });
