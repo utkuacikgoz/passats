@@ -194,4 +194,143 @@ module.exports = [
       ]},
     ],
   },
+
+  {
+    slug: 'resume-summary-examples',
+    title: 'How to Write a Resume Summary That Is Not Filler',
+    description: 'What a resume summary is for, the three lines it should contain, and why most of them are deleted without being read.',
+    h1: 'How to Write a Resume Summary',
+    standfirst: 'Most summaries say nothing. A good one earns the next thirty seconds of attention, and it does that with specifics rather than adjectives.',
+    sections: [
+      { h2: 'Three lines, and what goes in each', body: [
+        '<strong>Line one: what you are and for how long.</strong> "Product manager, eight years, consumer fintech." Not "results-driven professional with a passion for excellence."',
+        '<strong>Line two: the strongest evidence you have.</strong> One outcome with a number in it. The thing you would lead with if you had ten seconds in a lift.',
+        '<strong>Line three: what you are looking for, only if it is not obvious.</strong> Skip it when you are applying for the same role you already do.',
+      ]},
+      { h2: 'The adjective test', body: [
+        'Read your summary and delete every adjective. Motivated, passionate, dynamic, detail-oriented, results-driven, hard-working.',
+        'If what remains still says something, the adjectives were decoration and you can leave them out. If nothing remains, the summary was never saying anything, and the space belongs to your Experience section instead.',
+      ]},
+      { h2: 'Two versions of the same person', body: [
+        '<strong>Before:</strong> "Results-driven marketing professional with a proven track record of delivering impactful campaigns in fast-paced environments."',
+        '<strong>After:</strong> "Growth marketer, six years, B2B SaaS. Took paid acquisition from £180 to £62 CAC across four quarters at a Series B. Looking for a senior role with budget ownership."',
+        'The second is shorter in adjectives and longer in evidence. It also gives a recruiter three things to ask about, which is the actual job of a summary.',
+      ]},
+      { h2: 'When to leave it out entirely', body: [
+        'If you are early in your career and the strongest thing about you is your most recent role, lead with the role.',
+        'A summary that repeats the job titles directly beneath it costs you five lines at the top of the page, which is the most valuable space you have.',
+      ]},
+      { h2: 'What it does for parsing', body: [
+        'A summary is a dense, natural place for the terms a role expects, so it carries real keyword weight in most scoring.',
+        'That is a reason to write it well, not a reason to stuff it. A list of technologies with no sentence around them reads as a Skills section in the wrong place, and a human will treat it as one.',
+      ]},
+    ],
+  },
+
+  {
+    slug: 'tailor-resume-to-job-description',
+    title: 'How to Tailor a Resume to a Job Description',
+    description: 'A repeatable twenty-minute method for matching a resume to a specific posting without rewriting it from scratch each time.',
+    h1: 'How to Tailor a Resume to a Job Description',
+    standfirst: 'Sending the same document to forty postings is why the replies stop. Tailoring does not mean rewriting, and it should take about twenty minutes.',
+    sections: [
+      { h2: 'Start by reading the posting as a checklist', body: [
+        'Copy the posting into a plain document. Highlight every hard requirement: named tools, years of experience, certifications, a degree if one is genuinely required.',
+        'Those are the terms that get matched literally. Everything else in the posting is atmosphere.',
+      ]},
+      { h2: 'Sort them into three piles', body: [
+        '<strong>Have it and said it.</strong> Nothing to do.',
+        '<strong>Have it and did not say it.</strong> This is where nearly all your gain is. You know the tool, you used it for two years, and it appears nowhere on the page. Add it, in the role where you actually used it.',
+        '<strong>Do not have it.</strong> Leave it alone. Do not claim it, do not pad around it. If it is a hard requirement you genuinely lack, the honest read is that this posting is a poor use of your twenty minutes.',
+      ]},
+      { h2: 'Rewrite three bullets, not the whole thing', body: [
+        'Pick the three bullets closest to what the posting emphasises and rewrite those to use its language, where the language is true of what you did.',
+        'A posting that keeps saying "experimentation" while your bullet says "ran A/B tests" is a match a human sees and a matcher misses. Say both.',
+      ]},
+      { h2: 'Reorder before you rewrite', body: [
+        'Within a role, bullets do not have to stay in the order you first wrote them. Move the most relevant one to the top.',
+        'Same content, better first impression, and it costs thirty seconds.',
+      ]},
+      { h2: 'What not to do', body: [
+        'Do not paste the posting into your resume in white text. It is visible to anyone who selects the page, and it ends the application on integrity rather than fit.',
+        'Do not invent a number to match a claim. Made-up metrics fall apart in the first interview, which is a worse outcome than not getting one.',
+        'Do not tailor the summary and forget the Skills section. They are the two densest places, and a mismatch between them reads as carelessness.',
+      ]},
+    ],
+  },
+
+  {
+    slug: 'resume-length',
+    title: 'How Long Should a Resume Be?',
+    description: 'When one page is right, when two is expected, and why the page count matters far less than what is in the first third.',
+    h1: 'How Long Should a Resume Be?',
+    standfirst: 'One page is advice, not a rule. The real constraint is that almost nobody reads past the first third, whatever the length.',
+    sections: [
+      { h2: 'The short answer', body: [
+        '<strong>Under five years of experience:</strong> one page. You will not have enough evidence to fill two without padding, and padding is visible.',
+        '<strong>Five to fifteen years:</strong> two pages is normal and expected. Compressing fifteen years onto one page means cutting the evidence that makes you credible.',
+        '<strong>Academic, research or senior technical:</strong> longer is conventional, and a publication list is not a resume anyway.',
+      ]},
+      { h2: 'Why the rule exists', body: [
+        'The one-page rule is a proxy for a real problem: most resumes are too long because they list duties rather than outcomes.',
+        'Cutting to one page usually forces the right edit. That is why the advice works even though the rule itself is arbitrary.',
+      ]},
+      { h2: 'What actually gets read', body: [
+        'The top third of the first page. Your name, your summary, and your most recent role.',
+        'This is why page count matters less than order. A strong second page nobody reaches is worth less than one line moved higher.',
+      ]},
+      { h2: 'What to cut first', body: [
+        'Roles more than fifteen years old, unless they are the reason you are qualified. A single line each is enough.',
+        'Duties that any holder of that job title would have had.',
+        '"References available on request." Everyone knows.',
+        'A skills rating out of five. Nobody agrees what four means, including you.',
+        'Anything you would not want to be asked about in detail.',
+      ]},
+      { h2: 'What length does to parsing', body: [
+        'Length itself is not scored. A parser reads two pages as happily as one.',
+        'What does hurt is the compression people apply to hit one page: shrinking margins to nothing, dropping to eight point type, or moving content into a sidebar to save vertical space. That last one is a genuine parsing failure, and it is caused by the page count rule rather than by the length.',
+      ]},
+    ],
+  },
+
+  {
+    slug: 'ats-checker-comparison',
+    title: 'Which Kind of ATS Checker Should You Use?',
+    description: 'An honest comparison of the three ways resume checkers are sold, what each is really charging for, and when each one is the right choice.',
+    h1: 'Which Kind of ATS Checker Should You Use?',
+    standfirst: 'Resume checkers are sold three ways, and the pricing model tells you more about what you will get than the feature list does. We build one of these, so read the last section first if you would rather see the case against us.',
+    sections: [
+      { h2: 'Free checkers', body: [
+        '<strong>What they charge:</strong> your email address, and usually your resume.',
+        '<strong>What you get:</strong> a score, a few generic observations, and a prompt to upgrade before the specifics appear.',
+        '<strong>When it is the right choice:</strong> when you want a rough sanity check and do not mind the follow-up email sequence. A free score does tell you whether something is badly wrong.',
+        '<strong>The catch worth naming:</strong> the product is the lead. That is not dishonest, it is just what you are paying with, and it is worth knowing before you upload.',
+      ]},
+      { h2: 'Subscription tools', body: [
+        '<strong>What they charge:</strong> a monthly fee, usually with a minimum term or an awkward cancellation.',
+        '<strong>What you get:</strong> unlimited scans, and typically a suite around them — templates, tracking, sometimes a rewrite service.',
+        '<strong>When it is the right choice:</strong> genuinely, when you are applying at volume over months and will tailor for each posting. If you are running twenty applications a week, per-scan pricing is worse for you and a subscription is the rational buy.',
+        '<strong>The catch worth naming:</strong> most people need this for three weeks and pay for six months. Check the cancellation path before you start, not after.',
+      ]},
+      { h2: 'One-off reports', body: [
+        '<strong>What they charge:</strong> a single fee per report.',
+        '<strong>What you get:</strong> one analysis. This is what PassATS is: $2.99, no account, nothing stored, and the file discarded when the request finishes.',
+        '<strong>When it is the right choice:</strong> you have one resume you care about, you want to know what is wrong with it, and you do not want a subscription or an account to cancel later.',
+        '<strong>The catch worth naming:</strong> if you want to re-check after every edit, per-report pricing gets expensive fast. That is a real limitation of the model, not a detail.',
+      ]},
+      { h2: 'What no checker can do', body: [
+        'This part is true of all three and rarely said.',
+        'Every checker reads extracted text, not your rendered page. None can reliably tell you whether your two columns interleave, whether something is hidden, or whether the layout looks right. Open your file and try to select a sentence. That ten second test catches what no tool can.',
+        'No checker knows how a specific employer has configured their system. Anyone promising a pass rate for a named company is guessing.',
+        'And no checker can tell you whether you are qualified. It measures how legible your case is, not how strong it is.',
+      ]},
+      { h2: 'When not to use PassATS', body: [
+        'We would rather say this than have you find out after paying.',
+        '<strong>If you are going to iterate ten times.</strong> Ten reports is thirty dollars. A subscription is cheaper and better suited.',
+        '<strong>If your resume is an image.</strong> Run the select-a-sentence test first. If no text highlights, no tool can read it and a report will tell you only that.',
+        '<strong>If you want it rewritten for you.</strong> We tell you what to change and why. We do not write it.',
+        '<strong>If you already know the problem.</strong> If you know you have no Skills section and inconsistent dates, go and fix those. You do not need us to confirm it.',
+      ]},
+    ],
+  },
 ];
