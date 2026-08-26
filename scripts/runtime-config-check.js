@@ -49,9 +49,17 @@ if (!fn) {
       `FUNCTION_DURATION_SECONDS (${runtime.FUNCTION_DURATION_SECONDS}s)`,
     );
   }
-  // The routes are served from views/, which is outside the traced import graph.
-  if (!fn.includeFiles || !String(fn.includeFiles).includes('views')) {
-    failures.push('functions["api/index.js"].includeFiles must bundle views/**');
+  // Both directories sit outside the traced import graph. views/ holds the
+  // routed HTML; public/ is read by express.static, and Vercel's tracer does not
+  // pull a directory's contents from that call. When public/ was missing, every
+  // asset in it — sitemap.xml, robots.txt, tokens.css, og-image.png, the
+  // favicons — 404'd in production and fell through to the 404 page. Google
+  // reported the sitemap as HTML, which was the 404 page being served for it.
+  const included = String(fn.includeFiles || '');
+  for (const dir of ['views', 'public']) {
+    if (!included.includes(dir)) {
+      failures.push(`functions["api/index.js"].includeFiles must bundle ${dir}/**, got ${JSON.stringify(fn.includeFiles)}`);
+    }
   }
 }
 
