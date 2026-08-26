@@ -36,6 +36,7 @@ jobs:
       # come from git history and would differ on the very commit that fixes them.
       - name: Generated files are current
         run: |
+          npm run build:guides
           npm run sync:domain
           npm run sync:faq
           npm run sync:csp

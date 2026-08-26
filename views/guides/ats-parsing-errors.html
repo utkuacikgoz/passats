@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Why Your Resume Does Not Parse | PassATS</title>
+<meta name="description" content="The specific ways resume layouts break applicant tracking systems, what the machine sees instead, and how to detect each one yourself.">
+<link rel="canonical" href="https://passats.pro/ats-parsing-errors">
+
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://passats.pro/ats-parsing-errors">
+<meta property="og:title" content="Why Your Resume Does Not Parse">
+<meta property="og:description" content="The specific ways resume layouts break applicant tracking systems, what the machine sees instead, and how to detect each one yourself.">
+<meta property="og:image" content="https://passats.pro/og-image.png">
+<meta property="og:site_name" content="PassATS">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Why Your Resume Does Not Parse">
+<meta name="twitter:description" content="The specific ways resume layouts break applicant tracking systems, what the machine sees instead, and how to detect each one yourself.">
+<meta name="twitter:image" content="https://passats.pro/og-image.png">
+<meta name="robots" content="index, follow">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+
+<!-- Vercel Web Analytics -->
+<script>
+  window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
+</script>
+<script defer src="/_vercel/insights/script.js"></script>
+<link rel="stylesheet" href="/tokens.css">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: var(--bg); color: var(--ink); min-height: 100vh; }
+  nav { padding: 20px 40px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+  .logo { font-family: 'DM Serif Display', 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif; font-size: 1.4rem; text-decoration: none; color: var(--ink); }
+  .logo span { color: var(--accent); }
+  .nav-cta { background: var(--ink); color: #fff; padding: 8px 18px; border-radius: 100px; font-size: 0.82rem; font-weight: 500; text-decoration: none; white-space: nowrap; }
+  main { max-width: 680px; margin: 0 auto; padding: 56px 40px 40px; }
+  h1 { font-family: 'DM Serif Display', 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif; font-size: clamp(2rem, 5vw, 2.6rem); line-height: 1.15; margin-bottom: 18px; text-wrap: balance; }
+  .standfirst { font-size: 1.02rem; color: var(--ink); line-height: 1.65; margin-bottom: 8px; }
+  .meta { font-size: 0.85rem; color: var(--muted); margin-bottom: 8px; }
+  h2 { font-family: 'DM Serif Display', 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif; font-size: 1.45rem; margin: 40px 0 8px; line-height: 1.25; }
+  p, li { font-size: 0.95rem; color: var(--muted); line-height: 1.78; margin-bottom: 12px; }
+  ul { padding-left: 22px; }
+  a { color: var(--accent); }
+  strong { color: var(--ink); font-weight: 600; }
+  code { background: var(--surface); border: 1px solid var(--border); border-radius: 3px; padding: 1px 5px; font-size: 0.88em; }
+  .cta { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 28px 26px; margin: 48px 0 0; text-align: center; }
+  .cta h2 { margin-top: 0; font-size: 1.35rem; }
+  .cta p { margin-bottom: 18px; }
+  .cta a.btn { display: inline-block; background: var(--accent); color: #fff; text-decoration: none; padding: 14px 30px; border-radius: 12px; font-weight: 600; font-size: 0.95rem; }
+  .related { margin-top: 44px; border-top: 1px solid var(--border); padding-top: 24px; }
+  .related h2 { font-size: 1.1rem; margin: 0 0 10px; font-family: inherit; font-weight: 600; color: var(--ink); }
+  .related ul { list-style: none; padding: 0; }
+  .related li { margin-bottom: 8px; }
+  :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+  footer { max-width: 680px; margin: 0 auto; padding: 30px 40px 50px; text-align: center; font-size: 0.82rem; color: var(--muted); border-top: 1px solid var(--border); }
+
+  /* Touch targets: 44px is the minimum both Apple and Google publish. */
+  @media (max-width: 640px) {
+    nav { padding: 16px 20px; }
+    main { padding: 36px 20px 30px; }
+    footer { padding: 24px 20px 40px; }
+    .logo, footer a, .nav-cta, .btn, .cta a.btn {
+      min-height: 44px; display: inline-flex; align-items: center; justify-content: center;
+    }
+    footer p { line-height: 2.4; }
+  }
+</style>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/favicon.ico" sizes="16x16 32x32 48x48">
+<meta name="theme-color" content="#D85D43">
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "Why Your Resume Does Not Parse",
+  "description": "The specific ways resume layouts break applicant tracking systems, what the machine sees instead, and how to detect each one yourself.",
+  "image": "https://passats.pro/og-image.png",
+  "author": {
+    "@type": "Organization",
+    "name": "PassATS",
+    "url": "https://passats.pro"
+  },
+  "publisher": {
+    "@type": "Organization",
+    "name": "PassATS",
+    "url": "https://passats.pro"
+  },
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://passats.pro/ats-parsing-errors"
+  }
+}
+</script>
+</head>
+<body>
+<nav>
+  <a class="logo" href="/">Pass<span>ATS</span></a>
+  <a class="nav-cta" href="/">Check My Resume. $2.99</a>
+</nav>
+<main>
+  <h1>Why Your Resume Does Not Parse</h1>
+  <p class="standfirst">Parsing failures are not random. There are about six of them, they are all visual choices, and each one has a tell you can check in under a minute.</p>
+  <p class="meta">From the team behind PassATS. Free to read, no email required.</p>
+
+  <h2>Two columns</h2>
+  <p><strong>What you see:</strong> skills down the left, experience down the right.</p>
+  <p><strong>What the parser sees:</strong> text read left to right across both columns, so your job titles interleave with your skill list. "Senior Engineer Python 2021 to 2024 SQL Led migration Docker".</p>
+  <p><strong>How to check:</strong> select all, copy, paste into a plain text editor. If the result is scrambled, so is the machine's copy.</p>
+
+  <h2>Tables and text boxes</h2>
+  <p><strong>What you see:</strong> a tidy grid of skills, or a highlighted sidebar.</p>
+  <p><strong>What the parser sees:</strong> cell fragments with no reading order. Text boxes are worse — many parsers skip them entirely, so that content simply does not exist.</p>
+  <p><strong>How to check:</strong> the same copy-paste test. Missing content is the tell.</p>
+
+  <h2>Contact details in the header or footer</h2>
+  <p><strong>What you see:</strong> your name and email neatly at the top of every page.</p>
+  <p><strong>What the parser sees:</strong> in some systems, nothing. Header and footer regions are commonly ignored.</p>
+  <p><strong>The consequence:</strong> you can be the strongest candidate in the pile and still be unreachable. Put contact details in the body of the first page.</p>
+
+  <h2>Creative section headings</h2>
+  <p><strong>What you see:</strong> "Where I Have Made An Impact".</p>
+  <p><strong>What the parser sees:</strong> an unclassifiable block. It looks for the words it knows — Experience, Education, Skills, Summary — and assigns everything underneath to that section. An unrecognised heading means the content beneath it never gets categorised.</p>
+  <p>This is the most common self-inflicted wound in resume design, because it feels like personality rather than a technical choice.</p>
+
+  <h2>Words inside graphics</h2>
+  <p><strong>What you see:</strong> a skills wheel, a proficiency chart, a logo containing your name.</p>
+  <p><strong>What the parser sees:</strong> nothing. An image is not text.</p>
+  <p>If a piece of information matters, it has to exist as selectable characters somewhere on the page.</p>
+
+  <h2>Inconsistent dates</h2>
+  <p><strong>What you see:</strong> <code>Jan 2023</code> in one role and <code>01/2023</code> in another.</p>
+  <p><strong>What the parser sees:</strong> a history it cannot reliably order, and sometimes a gap that is not really there.</p>
+  <p>Pick one format and use it everywhere.</p>
+
+  <div class="cta">
+    <h2>See which of these apply to your resume</h2>
+    <p>PassATS reads your file and names the specific lines to change, with what each fix is worth. One report, $2.99, no account, nothing stored.</p>
+    <a class="btn" href="/">Check My Resume. $2.99</a>
+  </div>
+
+  <div class="related">
+    <h2>Related guides</h2>
+    <ul>
+        <li><a href="/resume-keywords">Resume Keywords That Actually Matter</a></li>
+        <li><a href="/ats-score-guide">What Your ATS Score Actually Means</a></li>
+        <li><a href="/resume-file-format">PDF or DOCX?</a></li>
+        <li><a href="/ats-resume-template">An ATS-Friendly Resume Structure</a></li>
+        <li><a href="/ats-checklist">The ATS Resume Checklist</a></li>
+    </ul>
+  </div>
+</main>
+<footer>
+  &copy; 2026 PassATS &middot; <a href="/">Home</a> &middot; <a href="/privacy">Privacy</a> &middot; <a href="/terms">Terms</a>
+</footer>
+</body>
+</html>

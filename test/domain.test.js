@@ -123,6 +123,41 @@ describe('canonical domain', () => {
     fs.rmSync(scratch, { recursive: true, force: true });
   });
 
+  it('serves, links and lists every guide, so none can be orphaned', () => {
+    // A guide that exists but is unreachable is worse than no guide: it is
+    // dead weight a crawler finds and a reader never can. Adding one to
+    // content/guides.js must therefore also route it, sitemap it and link it,
+    // and this asserts all three from the single source.
+    const guides = require('../content/guides');
+    assert.ok(guides.length >= 5, 'expected the guide set to be present');
+
+    const server = read('server.js');
+    const sitemapScript = read('scripts/build-sitemap.js');
+    const sitemap = read('public/sitemap.xml');
+    const home = read('views/index.html');
+
+    // One loop routes them all, so assert the loop rather than each slug.
+    assert.match(server, /for \(const guide of require\('\.\/content\/guides'\)\)/, 'guides are not routed');
+
+    for (const guide of guides) {
+      const built = path.join(ROOT, 'views', 'guides', `${guide.slug}.html`);
+      assert.ok(fs.existsSync(built), `${guide.slug}.html was never built`);
+      assert.match(read(`views/guides/${guide.slug}.html`),
+        new RegExp(`rel="canonical" href="${site.CANONICAL_ORIGIN}/${guide.slug}"`),
+        `${guide.slug} has a wrong canonical`);
+      assert.ok(sitemapScript.includes(`'/${guide.slug}'`), `${guide.slug} missing from the sitemap source`);
+      assert.ok(sitemap.includes(`${site.CANONICAL_ORIGIN}/${guide.slug}`), `${guide.slug} missing from sitemap.xml`);
+      assert.ok(home.includes(`href="/${guide.slug}"`), `${guide.slug} is not linked from the home footer`);
+    }
+  });
+
+  it('rebuilds guides identically, so CI can use a diff as the drift signal', () => {
+    const before = require('../content/guides').map(g => read(`views/guides/${g.slug}.html`));
+    execFileSync(process.execPath, [path.join(ROOT, 'scripts', 'build-guides.js')], { cwd: ROOT });
+    const after = require('../content/guides').map(g => read(`views/guides/${g.slug}.html`));
+    assert.deepEqual(after, before, 'a second build must change nothing');
+  });
+
   it('keeps the support address on the canonical domain', () => {
     assert.equal(site.SUPPORT_EMAIL, `support@${new URL(site.CANONICAL_ORIGIN).hostname}`);
     assert.match(read('views/terms.html'), new RegExp(site.SUPPORT_EMAIL.replace('.', '\\.')));
