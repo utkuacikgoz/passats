@@ -19,6 +19,10 @@ const { CANONICAL_ORIGIN: ORIGIN } = require('../config/site');
 const PAGES = [
   { url: '/',        source: 'views/index.html',   changefreq: 'weekly',  priority: '1.0' },
   { url: '/ats-checklist', source: 'views/checklist.html', changefreq: 'monthly', priority: '0.8' },
+  { url: '/resume-summary-examples', source: 'views/guides/resume-summary-examples.html', changefreq: 'monthly', priority: '0.7' },
+  { url: '/tailor-resume-to-job-description', source: 'views/guides/tailor-resume-to-job-description.html', changefreq: 'monthly', priority: '0.7' },
+  { url: '/resume-length', source: 'views/guides/resume-length.html', changefreq: 'monthly', priority: '0.7' },
+  { url: '/ats-checker-comparison', source: 'views/guides/ats-checker-comparison.html', changefreq: 'monthly', priority: '0.7' },
   { url: '/resume-keywords', source: 'views/guides/resume-keywords.html', changefreq: 'monthly', priority: '0.7' },
   { url: '/ats-score-guide', source: 'views/guides/ats-score-guide.html', changefreq: 'monthly', priority: '0.7' },
   { url: '/resume-file-format', source: 'views/guides/resume-file-format.html', changefreq: 'monthly', priority: '0.7' },
