@@ -56,6 +56,8 @@ const POSTHOG_HOST = process.env.POSTHOG_HOST || 'https://us.i.posthog.com';
 // timeout: summing 15s of parsing and 55s of model time overruns a 60s ceiling.
 const {
   DOCUMENT_PARSE_TIMEOUT_MS,
+  HIDDEN_TEXT_TIMEOUT_MS,
+  HIDDEN_TEXT_MIN_BUDGET_MS,
   LLM_TIMEOUT_MS,
   ANALYSIS_BUDGET_MS,
 } = require('./config/runtime');
@@ -67,6 +69,7 @@ const LLM_MAX_TOKENS = 3000;
 // footer, and the legal pages all read it from here so a customer who paid can
 // always reach a mailbox that exists. Verify the mailbox before opening traffic.
 const { SUPPORT_EMAIL } = require('./config/site');
+const { stripHiddenText } = require('./lib/hidden-text');
 // Upload limits live here so the multer ceiling, the textarea maxlength rendered
 // into the page, the error copy, and the prompt slice can never drift apart.
 const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
@@ -979,13 +982,22 @@ app.post('/api/analyze', analyzeAuth, upload.single('cv'), async (req, res) => {
     }
 
     let text;
+    let hidden = { flagged: false };
     if (DEV_MODE) {
-      try { text = await extractText(req.file, analysisDeadline - Date.now()); } catch { /* fall through */ }
+      try {
+        ({ text, hidden } = await extractDocument(req.file, analysisDeadline - Date.now()));
+      } catch { /* fall through */ }
       if (!text || text.trim().length < 50) {
         text = 'John Doe — Software Engineer with 5 years experience in JavaScript, React, Node.js, SQL, Git. Built scalable APIs and led CI/CD adoption.';
       }
     } else {
-      text = await extractText(req.file, analysisDeadline - Date.now());
+      ({ text, hidden } = await extractDocument(req.file, analysisDeadline - Date.now()));
+    }
+
+    if (hidden.flagged) {
+      log('warn', 'analyze.hidden_text', {
+        requestId: reqId, chars: hidden.chars, redacted: hidden.redacted, reasons: hidden.reasons,
+      });
     }
 
     if (!text || text.trim().length < 50) {
@@ -1006,6 +1018,7 @@ app.post('/api/analyze', analyzeAuth, upload.single('cv'), async (req, res) => {
     const jobDescription = (req.body?.jobDescription || '').slice(0, MAX_JOB_DESCRIPTION_CHARS);
     log('info', 'analyze.started', { requestId: reqId, model: LLM_MODEL, hasJobDescription: !!jobDescription });
     const result = await analyzeCv(text, jobDescription, { budgetMs: analysisDeadline - Date.now() });
+    reportHiddenText(result, hidden);
     log('info', 'analyze.completed', { requestId: reqId, overallScore: result.overallScore, model: LLM_MODEL });
     capturePosthog('cv_analysis_completed', {
       requestId: reqId,
@@ -1015,6 +1028,8 @@ app.post('/api/analyze', analyzeAuth, upload.single('cv'), async (req, res) => {
       detected_role: result.detectedRole,
       has_job_description: !!jobDescription,
       file_type: req.file?.mimetype,
+      hidden_text: hidden.flagged || false,
+      hidden_text_reasons: hidden.flagged ? hidden.reasons.join(',') : undefined,
     }, analyticsId(tokenPayload.sessionId));
     await flushPosthog();
     res.json(result);
@@ -1110,7 +1125,33 @@ function stripInvisible(text) {
 }
 
 // ── Text extraction with 15s timeout ──────────────────────────────────────────
-async function extractText(file, budgetMs = DOCUMENT_PARSE_TIMEOUT_MS) {
+/**
+ * Extract the text and report any hidden text that was cut out of it.
+ *
+ * The hidden-text pass reads the same buffer a second time, through pdfjs's
+ * operator list rather than the text layer, because render mode and fill colour
+ * do not survive into extracted text. It is deliberately subordinate: it runs
+ * inside whatever budget the parse left, it cannot throw, and if it fails the
+ * caller still gets the text. See lib/hidden-text.js.
+ */
+async function extractDocument(file, budgetMs = DOCUMENT_PARSE_TIMEOUT_MS) {
+  const started = Date.now();
+  const buffer = await readUploadedFileBuffer(file);
+  const text = await extractText(file, budgetMs, buffer);
+
+  // What is left of the document phase, not of the whole invocation. Parsing and
+  // scanning share one ceiling, so a slow parse skips the scan rather than
+  // borrowing from the model's allowance.
+  const phase = Math.min(DOCUMENT_PARSE_TIMEOUT_MS, budgetMs);
+  const left = phase - (Date.now() - started);
+  if (left < HIDDEN_TEXT_MIN_BUDGET_MS) return { text, hidden: { flagged: false } };
+
+  const result = await stripHiddenText(text, buffer, file.mimetype, Math.min(HIDDEN_TEXT_TIMEOUT_MS, left));
+  if (result.error) logError('hidden_text.scan_failed', result.error, { mimeType: file.mimetype });
+  return { text: result.text, hidden: result.hidden };
+}
+
+async function extractText(file, budgetMs = DOCUMENT_PARSE_TIMEOUT_MS, preloaded) {
   let timeoutId;
   // Never longer than the hard parse ceiling, and never longer than what is
   // actually left of the invocation. At least 1ms so a spent budget rejects
@@ -1122,7 +1163,7 @@ async function extractText(file, budgetMs = DOCUMENT_PARSE_TIMEOUT_MS) {
 
   const parse = (async () => {
     const mime = file.mimetype;
-    const buffer = await readUploadedFileBuffer(file);
+    const buffer = preloaded || await readUploadedFileBuffer(file);
     if (mime === 'application/pdf') {
       // pdf-parse documents loading its worker before the parser on Vercel. The
       // worker installs DOMMatrix/ImageData/Path2D and supplies CanvasFactory.
@@ -1455,6 +1496,42 @@ ${fence}`;
   return result;
 }
 
+// Hidden text is reported by the server, not by the model. The model never sees
+// the hidden text — it is cut out before the prompt is built — so it could not
+// report this if it wanted to, and a deterministic finding cannot be argued out
+// of the response by a document that is already trying to game the score.
+//
+// Wording follows the same discipline as the prompt: state what is in the file
+// and what we did about it. No claim about what a recruiter or an ATS vendor
+// will do with it, because we cannot know that.
+const HIDDEN_TEXT_PHRASES = {
+  invisible: 'set to render invisibly',
+  white: 'set in white on a white page',
+  tiny: 'set too small to read',
+};
+
+function reportHiddenText(result, hidden) {
+  if (!result || !hidden?.flagged) return result;
+  if (!Array.isArray(result.issues)) result.issues = [];
+
+  const how = (hidden.reasons || [])
+    .map(r => HIDDEN_TEXT_PHRASES[r])
+    .filter(Boolean);
+  const phrase = how.length ? how.join(', ') : 'hidden from the page';
+  const treatment = hidden.redacted > 0
+    ? 'We removed it before scoring, so it did not raise your keyword score.'
+    : 'It was not counted toward your keyword score.'
+
+  result.issues.unshift({
+    severity: 'critical',
+    title: 'Your file contains text a reader cannot see',
+    detail: `Your document carries ${hidden.chars} characters ${phrase}. `
+      + `${treatment} Delete that text from the file. `
+      + 'A score built on words a human reader never sees tells you nothing about the CV you are actually sending.',
+  });
+  return result;
+}
+
 // ── Privacy / Terms pages ─────────────────────────────────────────────────────
 app.get('/privacy', (_req, res) => {
   res.sendFile(path.join(VIEWS_DIR, 'privacy.html'));
@@ -1573,6 +1650,8 @@ app.__test = {
   analysisClaimKey,
   analysisRetryKey,
   extractText,
+  extractDocument,
+  reportHiddenText,
   ATS_OUTPUT_SCHEMA,
   LLM_TIMEOUT_MS,
   DOCUMENT_PARSE_TIMEOUT_MS,

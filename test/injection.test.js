@@ -28,7 +28,7 @@ process.env.JWT_SECRET = 'a'.repeat(64);
 process.env.UPSTASH_REDIS_REST_URL = 'https://example.upstash.io';
 process.env.UPSTASH_REDIS_REST_TOKEN = 'dummy-token';
 const app = require('../server');
-const { extractText, safeLinkForPrompt, stripInvisible } = app.__test;
+const { extractDocument, extractText, reportHiddenText, safeLinkForPrompt, stripInvisible } = app.__test;
 
 const DOCX_MIME = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
 
@@ -141,5 +141,64 @@ describe('the prompt fence cannot be guessed by whoever wrote the document', () 
       assert.doesNotMatch(prompt, /\n---\n/, 'the old guessable fence is gone');
     }
     assert.equal(seen.size, 3, 'the fence must differ per request');
+  });
+});
+
+describe('hidden text cannot inflate the keyword score', () => {
+  // Enough visible CV that the scan is judging an addition to a document rather
+  // than a scan of one.
+  const CV = 'Dani Okonkwo dani@example.com 555 0100 Software Engineer. '
+    + 'Built and shipped payment services at Revolut across three teams. '
+    + 'Migrated fourteen services to a new platform and cut release time from five days to one. '
+    + 'Led the CI and CD rollout. Education BSc Computer Science University of Leeds 2016.';
+  const STUFFING = 'Kubernetes Terraform Rust Golang Machine Learning Distributed Systems '
+    + 'Staff Engineer Principal Engineer PhD Stanford MIT';
+
+  const stuffedDocx = () => {
+    const doc = '<?xml version="1.0"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>'
+      + `<w:p><w:r><w:t xml:space="preserve">${CV}</w:t></w:r>`
+      + `<w:r><w:rPr><w:vanish/></w:rPr><w:t xml:space="preserve"> ${STUFFING}</w:t></w:r></w:p>`
+      + '</w:body></w:document>';
+    const ct = '<?xml version="1.0"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>';
+    const root = '<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>';
+    return zip([['[Content_Types].xml', ct], ['_rels/.rels', root], ['word/document.xml', doc]]);
+  };
+
+  it('reaches the text layer, which is why this is needed at all', async () => {
+    // The vector, demonstrated. mammoth does not drop a w:vanish run, so before
+    // the scan this block went straight into the prompt and was scored.
+    const text = await extractText({ mimetype: DOCX_MIME, path: write(stuffedDocx(), 'docx') });
+    assert.match(text, /Terraform/, 'the premise of this whole feature is wrong');
+  });
+
+  it('does not reach the prompt', async () => {
+    const file = { mimetype: DOCX_MIME, path: write(stuffedDocx(), 'docx') };
+    const { text, hidden } = await extractDocument(file);
+    assert.equal(hidden.flagged, true, 'the hidden block was not detected');
+    assert.doesNotMatch(text, /Terraform|Stanford/, 'the hidden block still reaches the model');
+    assert.match(text, /Revolut/, 'the real CV was damaged');
+  });
+
+  it('is reported to the customer as a critical finding, above everything else', async () => {
+    const result = { issues: [{ severity: 'warning', title: 'Existing', detail: 'x' }] };
+    reportHiddenText(result, { flagged: true, chars: 120, redacted: 120, reasons: ['invisible'] });
+    assert.equal(result.issues.length, 2);
+    assert.equal(result.issues[0].severity, 'critical');
+    assert.match(result.issues[0].detail, /120 characters/);
+    assert.match(result.issues[0].detail, /did not raise your keyword score/);
+    assert.equal(result.issues[1].title, 'Existing', 'the model\'s own findings were dropped');
+  });
+
+  it('says only what it can stand behind when the text could not be cut out', async () => {
+    const result = {};
+    reportHiddenText(result, { flagged: true, chars: 90, redacted: 0, reasons: ['white'] });
+    assert.doesNotMatch(result.issues[0].detail, /removed it/, 'claimed a removal that did not happen');
+    assert.match(result.issues[0].detail, /not counted/);
+  });
+
+  it('stays silent on a clean CV', async () => {
+    const result = { issues: [] };
+    reportHiddenText(result, { flagged: false });
+    assert.deepEqual(result.issues, [], 'a clean CV was accused');
   });
 });
