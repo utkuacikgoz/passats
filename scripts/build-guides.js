@@ -66,6 +66,7 @@ ${s.body.map(p => `  <p>${p}</p>`).join('\n')}`).join('\n');
   window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
 </script>
 <script defer src="/_vercel/insights/script.js"></script>
+<script src="https://analytics.ahrefs.com/analytics.js" data-key="bnqpzy5Q4W2L+XtzZBbWjQ" async></script>
 <link rel="stylesheet" href="/tokens.css">
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -155,6 +156,7 @@ ${body}
   <div class="related">
     <h2>Related guides</h2>
     <ul>
+        <li><a href="/ats-parse-preview">See what an ATS reads from your resume</a></li>
 ${related}
         <li><a href="/ats-checklist">The ATS Resume Checklist</a></li>
     </ul>

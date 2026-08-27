@@ -20,7 +20,7 @@
     "owner:analyze": "bash scripts/owner-analyze.sh",
     "owner:ui": "bash scripts/owner-ui.sh",
     "test": "npm run test:node && npm run test:browser",
-    "test:node": "node --test test/unit.test.js test/e2e.test.js test/payment.test.js test/contract.test.js test/eval.test.js test/quality-benchmark.test.js test/domain.test.js test/injection.test.js test/hidden-text.test.js test/devmode.test.js",
+    "test:node": "node --test test/unit.test.js test/e2e.test.js test/payment.test.js test/contract.test.js test/eval.test.js test/quality-benchmark.test.js test/domain.test.js test/injection.test.js test/hidden-text.test.js test/parse-preview.test.js test/devmode.test.js",
     "test:browser": "node --test test/browser.test.js",
     "quality:check": "node scripts/quality-benchmark.js",
     "quality:live": "node scripts/quality-benchmark.js --live",

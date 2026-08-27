@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>See What an ATS Reads From Your Resume | PassATS</title>
+<meta name="description" content="Upload a PDF or DOCX and see the exact text an applicant tracking system reads out of it. Free, no signup, nothing stored.">
+<link rel="canonical" href="https://passats.pro/ats-parse-preview">
+
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://passats.pro/ats-parse-preview">
+<meta property="og:title" content="See What an ATS Reads From Your Resume">
+<meta property="og:description" content="Upload a PDF or DOCX and see the exact text an applicant tracking system reads out of it. Free, no signup, nothing stored.">
+<meta property="og:image" content="https://passats.pro/og-image.png">
+<meta property="og:site_name" content="PassATS">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="See What an ATS Reads From Your Resume">
+<meta name="twitter:description" content="Upload a PDF or DOCX and see the exact text an applicant tracking system reads out of it. Free, no signup, nothing stored.">
+<meta name="twitter:image" content="https://passats.pro/og-image.png">
+<meta name="robots" content="index, follow">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+
+<!-- Vercel Web Analytics -->
+<script>
+  window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
+</script>
+<script defer src="/_vercel/insights/script.js"></script>
+<script src="https://analytics.ahrefs.com/analytics.js" data-key="bnqpzy5Q4W2L+XtzZBbWjQ" async></script>
+<link rel="stylesheet" href="/tokens.css">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: var(--bg); color: var(--ink); min-height: 100vh; }
+  nav { padding: 20px 40px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+  .logo { font-family: 'DM Serif Display', 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif; font-size: 1.4rem; text-decoration: none; color: var(--ink); }
+  .logo span { color: var(--accent); }
+  .nav-cta { background: var(--ink); color: #fff; padding: 8px 18px; border-radius: 100px; font-size: 0.82rem; font-weight: 500; text-decoration: none; white-space: nowrap; }
+  main { max-width: 680px; margin: 0 auto; padding: 56px 40px 40px; }
+  h1 { font-family: 'DM Serif Display', 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif; font-size: clamp(2rem, 5vw, 2.6rem); line-height: 1.15; margin-bottom: 18px; text-wrap: balance; }
+  .standfirst { font-size: 1.02rem; color: var(--ink); line-height: 1.65; margin-bottom: 8px; }
+  .meta { font-size: 0.85rem; color: var(--muted); margin-bottom: 8px; }
+  h2 { font-family: 'DM Serif Display', 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif; font-size: 1.45rem; margin: 40px 0 8px; line-height: 1.25; }
+  p, li { font-size: 0.95rem; color: var(--muted); line-height: 1.78; margin-bottom: 12px; }
+  ul { padding-left: 22px; }
+  a { color: var(--accent); }
+  strong { color: var(--ink); font-weight: 600; }
+  code { background: var(--surface); border: 1px solid var(--border); border-radius: 3px; padding: 1px 5px; font-size: 0.88em; }
+  .cta { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 28px 26px; margin: 48px 0 0; text-align: center; }
+  .cta h2 { margin-top: 0; font-size: 1.35rem; }
+  .cta p { margin-bottom: 18px; }
+  .cta a.btn { display: inline-block; background: var(--accent); color: #fff; text-decoration: none; padding: 14px 30px; border-radius: 12px; font-weight: 600; font-size: 0.95rem; }
+  .related { margin-top: 44px; border-top: 1px solid var(--border); padding-top: 24px; }
+  .related h2 { font-size: 1.1rem; margin: 0 0 10px; font-family: inherit; font-weight: 600; color: var(--ink); }
+  .related ul { list-style: none; padding: 0; }
+  .related li { margin-bottom: 8px; }
+  :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+  footer { max-width: 680px; margin: 0 auto; padding: 30px 40px 50px; text-align: center; font-size: 0.82rem; color: var(--muted); border-top: 1px solid var(--border); }
+  /* Separators as gaps, not middots: a wrapped line used to end on a dangling
+     middot, with the last link stranded on the row below. */
+  .footer-legal { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 2px 18px; }
+
+  /* Touch targets: 44px is the minimum both Apple and Google publish. */
+  @media (max-width: 640px) {
+    nav { padding: 16px 20px; }
+    main { padding: 36px 20px 30px; }
+    footer { padding: 24px 20px 40px; }
+    .logo, footer a, .nav-cta, .btn, .cta a.btn {
+      min-height: 44px; display: inline-flex; align-items: center; justify-content: center;
+    }
+    footer p { line-height: 2.4; }
+    /* The related-guide list is how a reader moves between guides on a phone.
+       At 35px the rows sat under the tap-target minimum and close enough
+       together to hit the wrong one; rules between them make the list scan. */
+    .related li { margin-bottom: 0; }
+    .related a {
+      display: flex; align-items: center; justify-content: flex-start;
+      min-height: 44px; border-bottom: 1px solid var(--border);
+      text-decoration: none;
+    }
+  }
+
+  /* ── Parse preview ── */
+  .tool { margin: 28px 0 8px; }
+  .drop {
+    border: 2px dashed var(--border); border-radius: 16px;
+    padding: 40px 24px; text-align: center; cursor: pointer;
+    background: var(--card); transition: border-color .15s, background .15s;
+    position: relative;
+  }
+  .drop:hover, .drop.is-over { border-color: var(--accent); background: var(--surface); }
+  .drop[aria-busy="true"] { opacity: 0.6; cursor: progress; }
+  .drop input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+  .drop-lead { font-size: 1rem; font-weight: 600; color: var(--ink); margin-bottom: 6px; }
+  .drop-note { font-size: 0.85rem; color: var(--muted); margin: 0; }
+  .status { margin-top: 14px; font-size: 0.9rem; color: var(--muted); }
+  .status-error { color: var(--accent); font-weight: 500; }
+  .result { margin-top: 26px; }
+  .result h2 { margin-top: 0; }
+  .stats { font-size: 0.82rem; color: var(--muted); margin-bottom: 10px; }
+  /* The extracted text is the product of this page, so it gets a monospace face
+     and a scroll box rather than being poured into the prose column. */
+  .output {
+    background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+    padding: 18px; max-height: 460px; overflow: auto;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.8rem; line-height: 1.7; color: var(--ink);
+    white-space: pre-wrap; overflow-wrap: anywhere;
+  }
+  .hidden-flag {
+    margin-top: 12px; padding: 12px 14px; border-radius: 10px;
+    background: var(--warning-light); color: #6B4E12;
+    font-size: 0.86rem; line-height: 1.6;
+  }
+  @media (max-width: 640px) {
+    main { padding: 36px 20px 30px; }
+    .drop { padding: 32px 18px; }
+    .output { font-size: 0.76rem; padding: 14px; }
+  }
+</style>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/favicon.ico" sizes="16x16 32x32 48x48">
+<meta name="theme-color" content="#D85D43">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  "name": "ATS Parse Preview",
+  "url": "https://passats.pro/ats-parse-preview",
+  "applicationCategory": "BusinessApplication",
+  "operatingSystem": "Any",
+  "description": "Upload a PDF or DOCX and see the exact text an applicant tracking system reads out of it. Free, no signup, nothing stored.",
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+  "publisher": { "@type": "Organization", "name": "PassATS", "url": "https://passats.pro" }
+}
+</script>
+</head>
+<body>
+<nav>
+  <a class="logo" href="/">Pass<span>ATS</span></a>
+  <a class="nav-cta" href="/">Check My Resume. $2.99</a>
+</nav>
+
+<main>
+  <h1>See what an ATS reads from your resume</h1>
+  <p class="standfirst">Upload your CV. This shows you the plain text an applicant tracking system pulls out of the file, which is the only version of your resume most employers ever process. Free, no signup, and the file is discarded as soon as it has been read.</p>
+
+  <div class="tool">
+    <div class="drop" id="dropZone">
+      <input type="file" id="fileInput" accept=".pdf,.docx" aria-label="Upload your resume">
+      <p class="drop-lead">Click to upload, or drag a file here</p>
+      <p class="drop-note">PDF or DOCX. Up to 5&nbsp;MB.</p>
+    </div>
+    <p class="status" id="status" role="status" aria-live="polite" hidden></p>
+
+    <section class="result" id="result" hidden>
+      <h2>What the parser got</h2>
+      <p class="stats" id="stats"></p>
+      <pre class="output" id="output"></pre>
+      <p class="hidden-flag" id="hiddenFlag" hidden></p>
+    </section>
+  </div>
+
+  <h2>How to read the result</h2>
+  <p>The text above is what your resume becomes once the formatting is gone. Read it the way a parser does, with no idea what the layout was meant to convey.</p>
+  <ul>
+    <li><strong>Is anything missing?</strong> Text inside a header, a footer, a text box or an image does not always survive. If your phone number lives in the header, look for it above. If it is not there, it is not in the application either.</li>
+    <li><strong>Is the order right?</strong> A two-column layout can interleave, so a job title from the left column lands between two skills from the right. If the reading order is scrambled here, the parser scrambled it.</li>
+    <li><strong>Are your dates intact?</strong> Date ranges typeset with an en dash or a special character sometimes come through as something else, which is enough to make a role look undated.</li>
+    <li><strong>Did your section headings survive?</strong> A parser classifies sections by their headings. If <code>EXPERIENCE</code> came through as a run of separated letters, the section under it is harder to place.</li>
+  </ul>
+
+  <h2>What this does not tell you</h2>
+  <p>This page shows extraction, not evaluation. It does not tell you whether the words that survived are the right ones for the role, which terms a recruiter is filtering on and you have not used, or which lines are costing you. Extraction is the floor, not the ceiling: a resume can parse perfectly and still say nothing worth reading.</p>
+  <p>A clean parse means the machine can read your resume. It says nothing about whether a person will want to.</p>
+
+  <h2>Why the file is not kept</h2>
+  <p>Your resume is read in memory, the text is returned to your browser, and the uploaded file is deleted. There is no account, no database row, and nothing to delete later because nothing was stored. The same is true of the paid analysis. See the <a href="/privacy">privacy policy</a> for the detail.</p>
+
+  <div class="cta">
+    <h2>Now find out what it scores</h2>
+    <p>The full analysis reads the same text and tells you the score, the keywords you are missing for the role, and the exact lines to rewrite, with what each fix is worth. One report, $2.99, no account, nothing stored.</p>
+    <a class="btn" href="/">Check My Resume. $2.99</a>
+  </div>
+
+  <div class="related">
+    <h2>Related guides</h2>
+    <ul>
+      <li><a href="/ats-parsing-errors">Why Your Resume Does Not Parse</a></li>
+      <li><a href="/resume-file-format">PDF or DOCX?</a></li>
+      <li><a href="/ats-resume-template">An ATS-Friendly Resume Structure</a></li>
+      <li><a href="/ats-checklist">The ATS Resume Checklist</a></li>
+      <li><a href="/resume-keywords">Resume Keywords That Actually Matter</a></li>
+    </ul>
+  </div>
+</main>
+<footer>
+  <p class="footer-legal"><span>&copy; 2026 PassATS</span> <a href="/">Home</a> <a href="/privacy">Privacy</a> <a href="/terms">Terms</a></p>
+</footer>
+<script src="/parse-preview.js" defer></script>
+</body>
+</html>
