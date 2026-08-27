@@ -78,6 +78,18 @@ const MAX_JOB_DESCRIPTION_CHARS = 12000;
 // description with accented or CJK characters costs more than one byte each.
 const MAX_JOB_DESCRIPTION_BYTES = 20000;
 const ANALYSIS_RETRY_MESSAGE = 'We couldn\'t complete your analysis right now. Please try again shortly.';
+
+// ── Free parse preview ────────────────────────────────────────────────────────
+// Shows the text an ATS would read out of a file. No score, no keywords, no
+// fixes, no model call, so it costs a parse and nothing else. It exists because
+// nobody links to a checkout: a free tool is something a careers page or a
+// roundup can point at, and seeing your own CV come back as flat text is a far
+// better argument for the paid analysis than any copy on the landing page.
+const PARSE_PREVIEW_MAX_CHARS = 20_000;
+// Deliberately tight. This is unauthenticated and it burns CPU on a serverless
+// function, so it is limited well below anything a real visitor would hit.
+const PARSE_PREVIEW_MAX_PER_WINDOW = 6;
+const PARSE_PREVIEW_WINDOW_MS = 10 * 60 * 1000;
 // Shown on the Stripe Checkout submit button. Kept beside the other customer
 // copy so the wording cannot drift from the matching clause in the terms page.
 const CHECKOUT_CONSENT_MESSAGE =
@@ -358,13 +370,17 @@ app.use((req, res, next) => {
   // If Stripe Elements (js.stripe.com) is ever added, update script-src + frame-src.
   res.setHeader('Content-Security-Policy', [
     "default-src 'self'",
-    `script-src 'self' 'unsafe-hashes' ${APP_SCRIPT_CSP_HASH} ${VERCEL_ANALYTICS_CSP_HASH} ${APP_HANDLER_CSP_HASHES}`,
+    // analytics.ahrefs.com serves the backlink-monitoring tag. The policy has no
+    // 'unsafe-inline' and no wildcard, so a third-party tag that is not named
+    // here does not degrade — it is blocked outright and reports nothing.
+    `script-src 'self' 'unsafe-hashes' https://analytics.ahrefs.com ${APP_SCRIPT_CSP_HASH} ${VERCEL_ANALYTICS_CSP_HASH} ${APP_HANDLER_CSP_HASHES}`,
     "style-src 'self' 'unsafe-inline' fonts.googleapis.com",
     "font-src fonts.gstatic.com",
     // api.producthunt.com serves the launch badge. Without it the badge is
     // blocked and the hero shows an empty box on the one day it matters.
     "img-src 'self' data: https://api.producthunt.com",
-    "connect-src 'self'",
+    // The Ahrefs tag beacons its measurement back to its own origin.
+    "connect-src 'self' https://analytics.ahrefs.com",
     "object-src 'none'",
     "base-uri 'self'",
     // Not covered by default-src: without it, injected markup could still post
@@ -1532,12 +1548,92 @@ function reportHiddenText(result, hidden) {
   return result;
 }
 
+async function parsePreviewGuard(req, res, next) {
+  if (!checkOrigin(req, res)) return;
+  // Ahead of multer on purpose: a rejected request must not write a file to disk
+  // first. The rate limiter is the only thing standing between this endpoint and
+  // someone looping a 5MB PDF through it.
+  if (!await enforceRateLimit(req, res, 'preview:' + clientIp(req), PARSE_PREVIEW_MAX_PER_WINDOW, PARSE_PREVIEW_WINDOW_MS)) return;
+  next();
+}
+
+app.post('/api/parse-preview', parsePreviewGuard, upload.single('cv'), async (req, res) => {
+  const reqId = req.requestId;
+  try {
+    if (req.rejectedMimeType) {
+      return res.status(400).json({ error: 'Unsupported file type. Upload a PDF or DOCX.' });
+    }
+    if (!req.file) return res.status(400).json({ error: 'No file uploaded.' });
+
+    const buffer = await readUploadedFileBuffer(req.file);
+    if (!validateMagicBytes(buffer, req.file.mimetype)) {
+      return res.status(400).json({ error: 'File content does not match its type. Upload a valid PDF or DOCX.' });
+    }
+
+    // The same extraction the paid analysis runs on, hidden-text pass included,
+    // so what this shows is what would actually be scored. The hidden text is
+    // reported but never echoed back: returning it would turn this into a way to
+    // check that your keyword stuffing survived extraction.
+    //
+    // A file the parser cannot read is this endpoint's normal input, not a
+    // fault: a corrupt PDF, a DOCX that is really a renamed something else, a
+    // file that was truncated on the way out of a CV builder. Answering 500 and
+    // logging it at error level would page us for every one of them and tell the
+    // visitor nothing. It is a 422, and the answer is useful — an ATS would fail
+    // on it too, which is the single most valuable thing this page can say.
+    let text;
+    let hidden;
+    try {
+      ({ text, hidden } = await extractDocument(req.file, DOCUMENT_PARSE_TIMEOUT_MS));
+    } catch (err) {
+      if (err.message === 'PDF_PASSWORD_PROTECTED') throw err;
+      log('warn', 'preview.unreadable', { requestId: reqId, fileType: req.file.mimetype, reason: err.name });
+      return res.status(422).json({
+        error: 'We could not read that file. It may be corrupt or not really a PDF or DOCX. An applicant tracking system would not be able to read it either.',
+      });
+    }
+    if (!text || text.trim().length < 50) {
+      log('warn', 'preview.insufficient_text', { requestId: reqId, textLength: (text || '').length });
+      return res.status(422).json({
+        error: 'We could not read enough text from this file. That usually means it is a scan or an image rather than a text document, which is also what an ATS would find.',
+      });
+    }
+
+    log('info', 'preview.completed', {
+      requestId: reqId,
+      fileType: req.file.mimetype,
+      chars: text.length,
+      hiddenText: !!hidden.flagged,
+    });
+
+    res.json({
+      text: text.slice(0, PARSE_PREVIEW_MAX_CHARS),
+      chars: text.length,
+      truncated: text.length > PARSE_PREVIEW_MAX_CHARS,
+      hidden: hidden.flagged
+        ? { flagged: true, chars: hidden.chars, reasons: hidden.reasons }
+        : { flagged: false },
+    });
+  } catch (err) {
+    if (err.message === 'PDF_PASSWORD_PROTECTED') {
+      return res.status(422).json({ error: 'This PDF is password-protected. An ATS cannot open it either.' });
+    }
+    logError('preview.error', err, { requestId: reqId });
+    res.status(500).json({ error: `We could not read that file. Quote ref ${reqId}.` });
+  } finally {
+    await cleanupUploadedFile(req.file);
+  }
+});
+
 // ── Privacy / Terms pages ─────────────────────────────────────────────────────
 app.get('/privacy', (_req, res) => {
   res.sendFile(path.join(VIEWS_DIR, 'privacy.html'));
 });
 app.get('/ats-checklist', (_req, res) => {
   res.sendFile(path.join(VIEWS_DIR, 'checklist.html'));
+});
+app.get('/ats-parse-preview', (_req, res) => {
+  res.sendFile(path.join(VIEWS_DIR, 'parse-preview.html'));
 });
 // Guide pages are generated from content/guides.js by scripts/build-guides.js.
 // Routing from the same source means a new guide cannot be added without also
