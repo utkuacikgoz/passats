@@ -7,6 +7,7 @@ PassATS is a paid ATS resume scoring service built on Express, Stripe, Upstash R
 ```
 server.js          the whole Express app
 api/index.js       Vercel entry point — exists so vercel.json can set maxDuration
+lib/               logic with enough surface to test on its own (hidden-text scan)
 views/             HTML documents, always served by the function so the CSP applies
 public/            static assets only (icons, OG image, tokens.css, robots, sitemap)
 scripts/           generators (CSP hashes, FAQ structured data, sitemap, OG image)
@@ -80,6 +81,30 @@ Four files are generated, never hand-edited. CI fails if the first two are stale
 `npm run sync:seo` runs the first three. Run `sync:csp` after **any** edit to
 `views/index.html`: the policy has no `'unsafe-inline'` fallback, so a stale hash
 does not degrade the page, it blocks the entire application script.
+
+## Hidden Text In Uploads
+
+A résumé can carry text a human reader never sees: PDF render mode 3, white on a
+white page, a font scaled below legibility, or `w:vanish` in a DOCX. All of it
+reaches the text layer, so without a check it lands in the prompt and inflates
+the keyword score. `lib/hidden-text.js` reads the file a second time — through
+pdfjs's operator list for PDFs, the run properties for DOCX — cuts what it finds
+out of the text before the prompt is built, and the server reports it as a
+critical finding. The model never sees the hidden text and never writes that
+finding, so a document that is already gaming the score cannot argue it away.
+
+Two properties matter more than coverage:
+
+- **It does not accuse.** White text on a dark sidebar and a 1pt font scaled up
+  by the text matrix are both normal typesetting, and a scanned page's OCR layer
+  is invisible by design. Each is gated, and `test/hidden-text.test.js` builds a
+  real file for each one and asserts it comes back clean.
+- **It cannot cost anyone their analysis.** The scan is capped by
+  `HIDDEN_TEXT_TIMEOUT_MS` inside the document-parse ceiling, and every failure
+  path returns the original text.
+
+The one vector still open is text painted behind an opaque image, which needs
+geometry the operator list alone does not settle.
 
 ## Prompt Evaluation
 
