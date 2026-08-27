@@ -14,7 +14,17 @@
 const FUNCTION_DURATION_SECONDS = 60;
 
 // Hard ceiling on document parsing. A file that needs longer is pathological.
+// This covers the whole document phase, text extraction and the hidden-text scan
+// together, so adding the scan did not widen the budget.
 const DOCUMENT_PARSE_TIMEOUT_MS = 15_000;
+// The hidden-text scan's own slice of the document phase. It reads the file a
+// second time through pdfjs's operator list, and it is worth nothing if it costs
+// someone their analysis, so it is capped and it is skipped when the parse has
+// already spent the phase.
+const HIDDEN_TEXT_TIMEOUT_MS = 5_000;
+// Below this there is no point starting: the scan would be killed mid-page and
+// the text would go to the model unexamined either way.
+const HIDDEN_TEXT_MIN_BUDGET_MS = 1_500;
 // Hard ceiling on the model call, applied only when the parse left room for it.
 const LLM_TIMEOUT_MS = 55_000;
 // Left for request parsing, the upload write, Redis round trips, the JSON
@@ -27,6 +37,8 @@ const ANALYSIS_BUDGET_MS = FUNCTION_DURATION_SECONDS * 1000 - REQUEST_RESERVE_MS
 module.exports = {
   FUNCTION_DURATION_SECONDS,
   DOCUMENT_PARSE_TIMEOUT_MS,
+  HIDDEN_TEXT_TIMEOUT_MS,
+  HIDDEN_TEXT_MIN_BUDGET_MS,
   LLM_TIMEOUT_MS,
   REQUEST_RESERVE_MS,
   ANALYSIS_BUDGET_MS,

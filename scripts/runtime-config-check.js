@@ -81,6 +81,19 @@ for (const [name, value] of [
   }
 }
 
+// The scan is a subordinate phase of document parsing, not a third phase beside
+// it. If its ceiling could exceed the parse ceiling, the document phase could
+// outrun the budget the shared deadline is built on.
+if (runtime.HIDDEN_TEXT_TIMEOUT_MS >= runtime.DOCUMENT_PARSE_TIMEOUT_MS) {
+  failures.push(
+    `HIDDEN_TEXT_TIMEOUT_MS (${runtime.HIDDEN_TEXT_TIMEOUT_MS}ms) must be smaller than ` +
+    `DOCUMENT_PARSE_TIMEOUT_MS (${runtime.DOCUMENT_PARSE_TIMEOUT_MS}ms)`,
+  );
+}
+if (runtime.HIDDEN_TEXT_MIN_BUDGET_MS > runtime.HIDDEN_TEXT_TIMEOUT_MS) {
+  failures.push('HIDDEN_TEXT_MIN_BUDGET_MS must not exceed HIDDEN_TEXT_TIMEOUT_MS');
+}
+
 if (failures.length) {
   console.error(failures.map(message => `runtime_config_error: ${message}`).join('\n'));
   process.exitCode = 1;
@@ -93,6 +106,7 @@ if (failures.length) {
     budgetMs: {
       shared: runtime.ANALYSIS_BUDGET_MS,
       documentParseCeiling: runtime.DOCUMENT_PARSE_TIMEOUT_MS,
+      hiddenTextCeiling: runtime.HIDDEN_TEXT_TIMEOUT_MS,
       modelCeiling: runtime.LLM_TIMEOUT_MS,
       reserve: runtime.REQUEST_RESERVE_MS,
     },
