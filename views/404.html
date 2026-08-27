@@ -29,6 +29,9 @@
   .btn:hover { filter: brightness(0.94); }
   :focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; border-radius: 4px; }
   footer { padding: 20px 40px 40px; text-align: center; font-size: 0.78rem; color: var(--muted); }
+  /* Separators as gaps, not middots: a wrapped line used to end on a dangling
+     middot, with the email stranded on the row below. */
+  .footer-legal { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 2px 18px; }
   footer a { color: var(--accent); }
 
   /* Touch targets: 44px is the minimum both Apple and Google publish, and every
@@ -55,7 +58,7 @@
   <a class="btn" href="/">Check my resume</a>
 </main>
 <footer>
-  &copy; 2026 PassATS &middot; <a href="/privacy">Privacy</a> &middot; <a href="/terms">Terms</a> &middot; <a href="mailto:support@passats.pro">support@passats.pro</a>
+  <p class="footer-legal"><span>&copy; 2026 PassATS</span> <a href="/privacy">Privacy</a> <a href="/terms">Terms</a> <a href="mailto:support@passats.pro">support@passats.pro</a></p>
 </footer>
 </body>
 </html>
