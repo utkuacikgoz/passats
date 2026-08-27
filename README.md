@@ -82,6 +82,32 @@ Four files are generated, never hand-edited. CI fails if the first two are stale
 `views/index.html`: the policy has no `'unsafe-inline'` fallback, so a stale hash
 does not degrade the page, it blocks the entire application script.
 
+## The Free Parse Preview
+
+`/ats-parse-preview` shows the plain text an ATS reads out of an uploaded file.
+No score, no keywords, no fixes, and no model call, so it costs a parse and
+nothing else. It exists for links: nobody points a careers page or a roundup at a
+checkout, and seeing your own CV come back as flat text argues for the paid
+analysis better than any copy on the landing page.
+
+Three things about it are deliberate:
+
+- **It runs the same extraction the paid path runs**, hidden-text pass included,
+  so what it shows is what would actually be scored. The hidden text is reported
+  but never echoed back — returning it would make this a way to check that your
+  keyword stuffing survived extraction.
+- **A file it cannot parse is a 422, not a 500.** Corrupt PDFs are ordinary input
+  here. Logging them as errors would page us for every truncated CV export, and
+  "an ATS could not read this either" is the most useful thing the page can say.
+- **Its script is `public/parse-preview.js`, not an inline block.** The CSP has no
+  `'unsafe-inline'`, and `sync-csp-hashes.js` only reads `views/index.html`, so an
+  inline script here would break silently the first time someone edited the page
+  without re-running the sync. `script-src 'self'` covers a file, with nothing to
+  keep in sync.
+
+It is unauthenticated and it burns CPU, so it is rate limited well below anything
+a real visitor would reach (`PARSE_PREVIEW_MAX_PER_WINDOW`).
+
 ## Hidden Text In Uploads
 
 A résumé can carry text a human reader never sees: PDF render mode 3, white on a

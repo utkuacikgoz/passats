@@ -1,0 +1,25 @@
+# gitleaks configuration.
+#
+# The default rules are kept in full. The only addition is a single allowlisted
+# literal, and it is matched exactly rather than by path or by rule, so nothing
+# else is weakened: a real credential added to any of these same files still
+# fails the scan.
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = """
+The Ahrefs Web Analytics site key. gitleaks reads it as a generic API key on
+entropy alone, and it is high-entropy — but it is not a credential. It is a
+public site identifier that has to ship inside client HTML for the tag to
+report anything, so it is readable by every visitor to the site by design.
+Redacting it would only break the analytics.
+
+Matched as an exact literal. If this key is ever rotated, the new one has to be
+added here deliberately, which is the moment to re-confirm it is still a public
+identifier and not something that needs an environment variable.
+"""
+regexes = [
+  '''bnqpzy5Q4W2L\+XtzZBbWjQ''',
+]
