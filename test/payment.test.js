@@ -400,6 +400,17 @@ describe('analyze — the real path', () => {
       .attach('cv', makePdf(), { filename: 'cv.pdf', contentType: 'application/pdf' });
     assert.equal(res.status, 403);
   });
+
+  it('rejects a cross-origin parse preview', async () => {
+    // The free endpoint takes no token, so the origin check is the only thing
+    // stopping another site from posting its visitors' files through it.
+    const res = await request
+      .post('/api/parse-preview')
+      .set('Origin', 'https://evil.example')
+      .set('x-vercel-forwarded-for', nextIp())
+      .attach('cv', makePdf(), { filename: 'cv.pdf', contentType: 'application/pdf' });
+    assert.equal(res.status, 403);
+  });
 });
 
 describe('coupon redemption', () => {
