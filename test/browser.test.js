@@ -347,3 +347,119 @@ describe('client-side guards', () => {
     await page.close();
   });
 });
+
+describe('the phone layout', () => {
+  const PHONE = { viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true };
+
+  async function phonePage() {
+    const context = await browser.newContext(PHONE);
+    // The Product Hunt badge is a third-party image. Stub it so these assertions
+    // measure the layout rather than the sandbox's network.
+    await context.route('**/api.producthunt.com/**', route => route.fulfill({
+      status: 200,
+      contentType: 'image/svg+xml',
+      body: '<svg xmlns="http://www.w3.org/2000/svg" width="250" height="54"></svg>',
+    }));
+    return { context, page: await context.newPage() };
+  }
+
+  it('keeps the footer guide list in the footer', async () => {
+    // Regression: `nav { position: fixed }` was an element selector. When the
+    // guide list shipped as a second <nav> it inherited the fixed position, the
+    // z-index and the opaque background, and pinned ten links over the hero
+    // headline and the buy button on every screen size.
+    const { context, page } = await phonePage();
+    try {
+      await page.goto(`${origin}/`);
+      await page.waitForSelector('#landing.active', { timeout: 10000 });
+
+      const geometry = await page.evaluate(() => {
+        const guides = document.querySelector('.footer-guides');
+        const hero = document.querySelector('.hero');
+        return {
+          position: getComputedStyle(guides).position,
+          guidesTop: guides.getBoundingClientRect().top + scrollY,
+          heroBottom: hero.getBoundingClientRect().bottom + scrollY,
+        };
+      });
+      assert.equal(geometry.position, 'static', 'the guide list must not be pinned to the viewport');
+      assert.ok(
+        geometry.guidesTop > geometry.heroBottom,
+        `the guide list sits at ${geometry.guidesTop}, above the hero's bottom edge at ${geometry.heroBottom}`,
+      );
+
+      const heroCta = await page.locator('#heroCtaBtn').boundingBox();
+      assert.ok(heroCta && heroCta.width > 0, 'the buy button is laid out');
+      assert.equal(
+        await page.evaluate(() => {
+          const cta = document.getElementById('heroCtaBtn').getBoundingClientRect();
+          const at = document.elementFromPoint(cta.left + cta.width / 2, cta.top + cta.height / 2);
+          return at && at.id;
+        }),
+        'heroCtaBtn',
+        'something is covering the buy button',
+      );
+    } finally {
+      await context.close();
+    }
+  });
+
+  it('hides the nav buy button once the customer has paid', async () => {
+    // Regression: the 44px tap-target rule sets `display: inline-flex` on
+    // .nav-pill, and an author `display` beats the UA sheet's `[hidden]`. The
+    // nav CTA is hidden off the landing view so a second tap cannot start a
+    // second checkout, and on every phone it stayed on screen anyway.
+    const { context, page } = await phonePage();
+    try {
+      await page.goto(`${origin}/?dev=1`);
+      await page.waitForSelector('#upload.active', { timeout: 15000 });
+      assert.equal(await page.isVisible('#navCtaBtn'), false, 'the nav CTA survived into the upload view');
+
+      await page.setInputFiles('#fileInput', cvPath);
+      await page.click('#analyzeBtn');
+      await page.waitForSelector('#dashboard.active', { timeout: 30000 });
+      assert.equal(await page.isVisible('#navCtaBtn'), false, 'the nav CTA survived into the report');
+    } finally {
+      await context.close();
+    }
+  });
+
+  it('keeps the coupon field closed until it is asked for', async () => {
+    // Same failure mode as the nav CTA: .coupon-form carries `display: flex`.
+    const { context, page } = await phonePage();
+    try {
+      await page.goto(`${origin}/`);
+      await page.waitForSelector('#landing.active', { timeout: 10000 });
+      assert.equal(await page.isVisible('#couponForm'), false);
+      await page.click('#couponToggle');
+      assert.equal(await page.isVisible('#couponForm'), true, 'the coupon field never opened');
+    } finally {
+      await context.close();
+    }
+  });
+
+  it('fits the phone with no sideways scroll and reachable tap targets', async () => {
+    const { context, page } = await phonePage();
+    try {
+      await page.goto(`${origin}/`);
+      await page.waitForSelector('#landing.active', { timeout: 10000 });
+
+      assert.equal(
+        await page.evaluate(() => document.documentElement.scrollWidth),
+        390,
+        'the landing page scrolls sideways on a phone',
+      );
+
+      // WCAG 2.5.8. Links inside a running sentence are exempt; these are all
+      // standalone controls or list rows.
+      const small = await page.evaluate(() =>
+        [...document.querySelectorAll('.footer-guides a, .nav-pill, #heroCtaBtn, .coupon-toggle')]
+          .map(el => ({ text: el.textContent.trim().slice(0, 32), h: Math.round(el.getBoundingClientRect().height) }))
+          .filter(el => el.h < 44)
+      );
+      assert.deepEqual(small, [], 'tap targets under 44px');
+    } finally {
+      await context.close();
+    }
+  });
+});

@@ -56,6 +56,9 @@
   .related li { margin-bottom: 8px; }
   :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
   footer { max-width: 680px; margin: 0 auto; padding: 30px 40px 50px; text-align: center; font-size: 0.82rem; color: var(--muted); border-top: 1px solid var(--border); }
+  /* Separators as gaps, not middots: a wrapped line used to end on a dangling
+     middot, with the last link stranded on the row below. */
+  .footer-legal { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 2px 18px; }
 
   /* Touch targets: 44px is the minimum both Apple and Google publish. */
   @media (max-width: 640px) {
@@ -66,6 +69,15 @@
       min-height: 44px; display: inline-flex; align-items: center; justify-content: center;
     }
     footer p { line-height: 2.4; }
+    /* The related-guide list is how a reader moves between guides on a phone.
+       At 35px the rows sat under the tap-target minimum and close enough
+       together to hit the wrong one; rules between them make the list scan. */
+    .related li { margin-bottom: 0; }
+    .related a {
+      display: flex; align-items: center; justify-content: flex-start;
+      min-height: 44px; border-bottom: 1px solid var(--border);
+      text-decoration: none;
+    }
   }
 </style>
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
@@ -160,7 +172,7 @@
   </div>
 </main>
 <footer>
-  &copy; 2026 PassATS &middot; <a href="/">Home</a> &middot; <a href="/privacy">Privacy</a> &middot; <a href="/terms">Terms</a>
+  <p class="footer-legal"><span>&copy; 2026 PassATS</span> <a href="/">Home</a> <a href="/privacy">Privacy</a> <a href="/terms">Terms</a></p>
 </footer>
 </body>
 </html>

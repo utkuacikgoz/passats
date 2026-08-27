@@ -159,6 +159,13 @@
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
 
+  /* Author styles beat the UA sheet, so any rule that sets `display` on an
+     element that also carries `hidden` silently re-shows it. The nav CTA is
+     hidden off the landing view so a second tap cannot start a second Stripe
+     checkout, and the 44px tap-target rule below was re-showing it on every
+     phone. Make `hidden` mean hidden, once, for everything. */
+  [hidden] { display: none !important; }
+
   body {
     font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
     background: var(--bg);
@@ -172,7 +179,11 @@
   .view.active { display: block; }
 
   /* ── NAV ── */
-  nav {
+  /* Scoped to the header. This was a bare `nav` selector, and when the footer
+     guide list shipped as a second <nav> it inherited position:fixed and an
+     opaque background, pinning ten links over the hero headline and the CTA on
+     every screen size. Element selectors for page furniture are a trap. */
+  header > nav {
     position: fixed; top: 0; left: 0; right: 0; z-index: 100;
     padding: 20px 40px;
     display: flex; align-items: center; justify-content: space-between;
@@ -244,6 +255,17 @@
     gap: 10px 22px; margin-bottom: 18px;
   }
   .footer-guides a { font-size: 0.84rem; }
+  /* The heading is for the phone layout, where the guides become a list and
+     need to read as one section rather than a wall of underlined text. */
+  .footer-guides-label { display: none; }
+
+  /* Separators as gaps, not middots. The middots used to dangle at the end of
+     a wrapped line, and the fix for that was an inflated line-height that made
+     the legal row three loose bands on a phone. */
+  .footer-legal {
+    display: flex; flex-wrap: wrap; justify-content: center;
+    align-items: center; gap: 2px 18px;
+  }
 
   .ph-badge { display: inline-block; margin-top: 22px; line-height: 0; border-radius: 10px; }
   .ph-badge img { display: block; width: 250px; height: 54px; }
@@ -273,7 +295,6 @@
   }
   .coupon-toggle:hover { color: var(--ink); }
   .coupon-form { display: flex; gap: 8px; margin-top: 12px; max-width: 380px; }
-  .coupon-form[hidden] { display: none; }
   .coupon-form input {
     flex: 1 1 auto; min-width: 0;
     padding: 11px 14px; font-family: inherit; font-size: 0.88rem;
@@ -684,7 +705,7 @@
     .ph-badge { margin-left: auto; margin-right: auto; }
   }
   @media (max-width: 640px) {
-    nav { padding: 16px 20px; }
+    header > nav { padding: 16px 20px; }
     .hero h1 { font-size: 2.75rem; }
     .steps { grid-template-columns: 1fr; }
     .metrics-grid { grid-template-columns: 1fr; }
@@ -707,15 +728,36 @@
       align-items: center;
       justify-content: center;
     }
-    /* Inline links in a sentence must not become blocks, so give the footer row
-       breathing room instead of stacking it. */
-    footer p { line-height: 2.4; }
+    /* The guide list is the longest thing in the footer. Centred and wrapping,
+       every title took a ragged line of its own; as a left-aligned list with
+       rules between the rows it reads as navigation and scans in one pass. */
+    .footer-guides {
+      display: block; text-align: left;
+      margin-bottom: 22px; border-top: 1px solid var(--border);
+    }
+    .footer-guides a {
+      display: flex; align-items: center; justify-content: flex-start;
+      min-height: 46px; padding: 4px 0;
+      border-bottom: 1px solid var(--border);
+      text-decoration: none; color: var(--ink);
+    }
+    .footer-guides-label {
+      display: block; text-align: left;
+      font-size: 0.78rem; font-weight: 600;
+      letter-spacing: 0.1em; text-transform: uppercase;
+      color: var(--muted); margin-bottom: 6px;
+    }
 
     /* Labels set at 0.66rem to 0.72rem land at 10.5px to 11.5px on a phone.
        Nothing a paying customer has to read should be under 12px. */
     .report-eyebrow,
     .report-total span,
     .field-counter { font-size: 0.78rem; }
+
+    /* The verdict is a sentence, not a headline. Centred at 1.5rem it ran to
+       five tight lines on a phone and read as shouting rather than as the
+       answer the customer paid for. */
+    .overview-text h3 { font-size: 1.25rem; line-height: 1.35; }
   }
 </style>
 </head>
@@ -858,6 +900,7 @@
   </section>
 
   <footer>
+    <p class="footer-guides-label" aria-hidden="true">Guides</p>
     <nav class="footer-guides" aria-label="Guides">
       <a href="/resume-keywords">Resume Keywords That Actually Matter</a>
       <a href="/ats-score-guide">What Your ATS Score Actually Means</a>
@@ -870,8 +913,8 @@
       <a href="/ats-checker-comparison">Which Kind of ATS Checker Should You Use?</a>
       <a href="/ats-checklist">The ATS Resume Checklist</a>
     </nav>
-    <p>&copy; 2026 PassATS &middot; <a href="/privacy">Privacy</a> &middot; <a href="/terms">Terms</a> &middot; <a href="mailto:support@passats.pro">support@passats.pro</a></p>
-    <p style="margin-top:6px;">Built for people with work worth talking about.</p>
+    <p class="footer-legal"><span>&copy; 2026 PassATS</span> <a href="/privacy">Privacy</a> <a href="/terms">Terms</a> <a href="mailto:support@passats.pro">support@passats.pro</a></p>
+    <p style="margin-top:8px;">Built for people with work worth talking about.</p>
   </footer>
 </div>
 
@@ -893,7 +936,7 @@
       <div class="file-selected" id="fileSelectedEl"></div>
 
       <div style="text-align:left;margin-bottom:20px;">
-        <label for="jobDescInput" style="display:block;font-size:0.82rem;font-weight:600;color:var(--ink);margin-bottom:6px;">Paste the job description <span style="color:var(--accent);font-weight:700;">5&times; better results</span> <span style="color:var(--muted);font-weight:400;">(optional)</span></label>
+        <label for="jobDescInput" style="display:block;font-size:0.82rem;font-weight:600;color:var(--ink);margin-bottom:6px;">Paste the job description <span style="color:var(--muted);font-weight:400;">(optional)</span> <span style="color:var(--accent);font-weight:700;white-space:nowrap;">5&times; better results</span></label>
         <textarea id="jobDescInput" maxlength="12000" placeholder="Paste the job posting here. The more specific, the more accurate your keyword gaps will be.…" style="width:100%;min-height:90px;padding:12px;border:1px solid var(--border);border-radius:10px;font-family:'DM Sans',sans-serif;font-size:0.85rem;resize:vertical;background:var(--bg);outline:none;transition:border-color .2s;" onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'"></textarea>
         <div class="field-counter" id="jobDescCounter" aria-live="polite">0 / 12,000 characters</div>
       </div>
