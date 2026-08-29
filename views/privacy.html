@@ -24,6 +24,9 @@
 </script>
 <script defer src="/_vercel/insights/script.js"></script>
 <script src="https://analytics.ahrefs.com/analytics.js" data-key="bnqpzy5Q4W2L+XtzZBbWjQ" async></script>
+<script src="/gtm.js"></script>
+<script src="/gtag.js"></script>
+<script async src="https://www.googletagmanager.com/gtag/js?id=AW-18417603742"></script>
 <link rel="stylesheet" href="/tokens.css">
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -65,6 +68,9 @@
 <meta name="theme-color" content="#D85D43">
 </head>
 <body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-5LVMLT4Z"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <nav><a class="logo" href="/">Pass<span>ATS</span></a></nav>
 <main>
   <h1>Privacy Policy</h1>
@@ -105,8 +111,9 @@
   <p>All payments are processed through Stripe. We never see or store your credit card details. Stripe's privacy policy governs their handling of your payment data.</p>
 
   <h2>Cookies and tracking</h2>
-  <p>PassATS uses Vercel Web Analytics for basic page traffic and may use PostHog for server-side operational events and error diagnostics. Neither sets advertising cookies, and neither receives your resume text or job description.</p>
-  <p>We load no third-party analytics script on the page. To understand where people get stuck, the site tells our own server which step you reached, from a fixed list of step names, alongside the tab-scoped random identifier described above. The server accepts nothing else, so no part of your resume or job description can reach an analytics tool through it.</p>
+  <p>PassATS uses Vercel Web Analytics for basic page traffic and may use PostHog for server-side operational events and error diagnostics. Neither of those sets advertising cookies, and neither receives your resume text or job description.</p>
+  <p>Two third-party tags do load on the page. <strong>Ahrefs Web Analytics</strong> measures traffic and referring links; it sets no cookies. <strong>Google Ads</strong> measures which visits follow an advert and which of them end in a purchase. The Google Ads tag <strong>does set advertising cookies</strong> and reports to Google, which may use that record for advertising measurement and remarketing under <a href="https://policies.google.com/technologies/partner-sites" rel="noopener noreferrer" target="_blank">its own terms</a>. If you would rather not be measured this way, an ad blocker or your browser's tracking protection stops it, and nothing about PassATS stops working when you do.</p>
+  <p>What none of them ever receive is your document. To understand where people get stuck, the site tells our own server which step you reached, from a fixed list of step names, alongside the tab-scoped random identifier described above. The server accepts nothing else, so no part of your resume or job description can reach an analytics tool through it, and no resume text is passed to any advertising tag.</p>
   <p>Server-side events about a purchase are grouped under a one-way cryptographic hash of your checkout reference, not the reference itself. This lets us see that one purchase produced one report without our analytics tool holding anything that can be traced back to your payment or your identity. The hash cannot be reversed without a secret that stays in our deployment.</p>
 
   <h2>Data sharing and international transfers</h2>

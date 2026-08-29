@@ -370,22 +370,31 @@ app.use((req, res, next) => {
   // If Stripe Elements (js.stripe.com) is ever added, update script-src + frame-src.
   res.setHeader('Content-Security-Policy', [
     "default-src 'self'",
-    // analytics.ahrefs.com serves the backlink-monitoring tag. The policy has no
-    // 'unsafe-inline' and no wildcard, so a third-party tag that is not named
-    // here does not degrade — it is blocked outright and reports nothing.
-    `script-src 'self' 'unsafe-hashes' https://analytics.ahrefs.com ${APP_SCRIPT_CSP_HASH} ${VERCEL_ANALYTICS_CSP_HASH} ${APP_HANDLER_CSP_HASHES}`,
+    // analytics.ahrefs.com serves the backlink-monitoring tag; googletagmanager
+    // serves the Google Ads tag. The policy has no 'unsafe-inline' and no
+    // wildcard, so a third-party tag that is not named here does not degrade —
+    // it is blocked outright and reports nothing. Both tags' init code ships
+    // from public/ so neither needs a hash; only the loader origins are named.
+    `script-src 'self' 'unsafe-hashes' https://analytics.ahrefs.com https://www.googletagmanager.com ${APP_SCRIPT_CSP_HASH} ${VERCEL_ANALYTICS_CSP_HASH} ${APP_HANDLER_CSP_HASHES}`,
     "style-src 'self' 'unsafe-inline' fonts.googleapis.com",
     "font-src fonts.gstatic.com",
     // api.producthunt.com serves the launch badge. Without it the badge is
     // blocked and the hero shows an empty box on the one day it matters.
-    "img-src 'self' data: https://api.producthunt.com",
-    // The Ahrefs tag beacons its measurement back to its own origin.
-    "connect-src 'self' https://analytics.ahrefs.com",
+    // Google Ads fires conversion and remarketing pixels as images. Country-code
+    // Google domains (google.de, google.co.uk, …) are deliberately not listed:
+    // there is no wildcard that covers them and enumerating every ccTLD is not
+    // worth it. If Ads reporting shows gaps, add the specific ones that matter.
+    "img-src 'self' data: https://api.producthunt.com https://www.google.com https://www.googletagmanager.com https://googleads.g.doubleclick.net",
+    // Each tag beacons back to its own origin.
+    "connect-src 'self' https://analytics.ahrefs.com https://www.googletagmanager.com https://www.google-analytics.com https://googleads.g.doubleclick.net https://www.google.com",
     "object-src 'none'",
     "base-uri 'self'",
     // Not covered by default-src: without it, injected markup could still post
     // a form to an attacker's origin.
     "form-action 'self'",
+    // The GTM noscript fallback is an iframe from googletagmanager.com. Without
+    // this it falls to default-src 'self' and is blocked.
+    "frame-src https://www.googletagmanager.com",
     "frame-ancestors 'none'",
   ].join('; '));
   next();
