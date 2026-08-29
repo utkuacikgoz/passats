@@ -92,6 +92,68 @@ describe('one brand across every page a buyer checks', () => {
   });
 });
 
+describe('the measurement tags are on every page and the CSP permits them', () => {
+  // The CSP has no 'unsafe-inline' and no wildcard. A third-party tag whose
+  // origin is not named does not degrade — it is blocked in the browser and
+  // reports nothing, while the tag vendor's own preview still shows it firing.
+  // Both halves are asserted here because either alone passes while broken.
+  const pages = [
+    'views/index.html', 'views/privacy.html', 'views/terms.html',
+    'views/checklist.html', 'views/parse-preview.html', 'views/404.html',
+    'views/guides/resume-keywords.html', 'views/guides/ats-parsing-errors.html',
+  ];
+
+  it('ships every tag on every page', () => {
+    for (const page of pages) {
+      const html = read(page);
+      assert.match(html, /<script src="\/gtm\.js"><\/script>/, `${page} is missing the GTM loader`);
+      assert.match(html, /<script src="\/gtag\.js"><\/script>/, `${page} is missing the Ads tag`);
+      assert.match(html, /analytics\.ahrefs\.com\/analytics\.js/, `${page} is missing the Ahrefs tag`);
+      assert.match(html, /googletagmanager\.com\/ns\.html\?id=GTM-/, `${page} is missing the GTM noscript fallback`);
+    }
+  });
+
+  it('keeps the tag init out of inline blocks, where its hash would go stale', () => {
+    // sync-csp-hashes.js only reads views/index.html, so an inline tag on any
+    // other page could never be hashed. Shipping the init from public/ is what
+    // makes one policy work for fifteen pages.
+    for (const file of ['public/gtag.js', 'public/gtm.js']) {
+      assert.ok(read(file).length > 0, `${file} is missing`);
+    }
+    for (const page of pages) {
+      assert.doesNotMatch(read(page), /gtag\('config'/, `${page} inlines the Ads config instead of loading the file`);
+      assert.doesNotMatch(read(page), /gtm\.start/, `${page} inlines the GTM loader instead of loading the file`);
+    }
+  });
+
+  it('names every origin those tags actually reach', async () => {
+    // Read the policy off a real response rather than grepping server.js: the
+    // first cut of this test matched a comment that mentioned script-src and
+    // passed against a policy it had never actually looked at. The header the
+    // browser receives is the only thing that decides whether a tag runs.
+    const server = app.listen(0);
+    await new Promise(resolve => server.once('listening', resolve));
+    try {
+      const response = await fetch(`http://127.0.0.1:${server.address().port}/`);
+      const policy = Object.fromEntries(
+        response.headers.get('content-security-policy').split('; ')
+          .map(part => [part.split(' ')[0], part]),
+      );
+
+      assert.match(policy['script-src'], /https:\/\/www\.googletagmanager\.com/, 'gtm.js and gtag/js load from here');
+      assert.match(policy['script-src'], /https:\/\/analytics\.ahrefs\.com/);
+      assert.match(policy['connect-src'], /https:\/\/www\.google-analytics\.com/, 'the tag beacons here');
+      assert.match(policy['connect-src'], /https:\/\/analytics\.ahrefs\.com/);
+      // Without this the GTM noscript iframe falls to default-src 'self'.
+      assert.match(policy['frame-src'], /https:\/\/www\.googletagmanager\.com/);
+      assert.match(policy['img-src'], /https:\/\/www\.google\.com/, 'Ads conversion pixels are images');
+      assert.doesNotMatch(policy['script-src'], /'unsafe-inline'/, 'adding a tag must never be paid for with unsafe-inline');
+    } finally {
+      await new Promise(resolve => server.close(resolve));
+    }
+  });
+});
+
 describe('the customer can always reach support', () => {
   const email = app.__test.SUPPORT_EMAIL;
 
