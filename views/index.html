@@ -1190,6 +1190,27 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   }
 
   // ── Handle Stripe redirect back ────────────────────────────────────────────
+  // Reported here rather than on Stripe's checkout page: Stripe's own CSP does
+  // not allow Google tags there, and it is not ours to change. This runs only
+  // after the server has verified the payment against Stripe, so arriving at
+  // /success by hand reports nothing. The server omits adsConversion entirely
+  // until a conversion action is configured, and a missing gtag is not an error
+  // worth showing anyone: an ad blocker is the usual reason, and the customer's
+  // report must not depend on advertising measurement succeeding.
+  function reportAdsConversion(conversion) {
+    if (!conversion || typeof window.gtag !== 'function') return;
+    try {
+      window.gtag('event', 'conversion', {
+        send_to: conversion.sendTo,
+        value: conversion.value,
+        currency: conversion.currency,
+        transaction_id: conversion.transactionId,
+      });
+    } catch (err) {
+      /* measurement must never break the paid flow */
+    }
+  }
+
   async function handlePaymentReturn() {
     const params = new URLSearchParams(window.location.search);
     const sessionId = params.get('session_id');
@@ -1212,6 +1233,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
       uploadToken = data.token;
       saveSession({ token: data.token, sessionId });
+      reportAdsConversion(data.adsConversion);
       // Keep session_id out of the visible URL, but keep it recoverable: it is
       // the only way to re-issue a token inside Stripe's one-hour window.
       window.history.replaceState({}, '', '/');

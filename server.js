@@ -96,7 +96,7 @@ const CHECKOUT_CONSENT_MESSAGE =
   `You are asking us to start your analysis immediately, so you lose the 14-day right of withdrawal once your report is delivered. If anything fails, email ${SUPPORT_EMAIL} for a full refund.`;
 const analysisSupportMessage = reqId =>
   `We couldn't complete your analysis. Email ${SUPPORT_EMAIL} with reference ${reqId} and we'll refund or fix it.`;
-const APP_SCRIPT_CSP_HASH = "'sha256-V3mHdtcZhxEXZfz7e1jANS3GFjm1562ez/iexT8yQhs='";
+const APP_SCRIPT_CSP_HASH = "'sha256-l4zC1/r9njhHK5a6O4yF2MGS8YMuoc7uEqHD9/xKiXQ='";
 const VERCEL_ANALYTICS_CSP_HASH = "'sha256-rbTaSdDD+Sd+K8IZ66VS79bdI78bN8AwXXyN0/lD5fY='";
 // Hashes of individual onclick handler bodies (required for 'unsafe-hashes' to allow them)
 const APP_HANDLER_CSP_HASHES = [
@@ -800,6 +800,38 @@ async function handleWebhook(req, res) {
 }
 
 // ── Verify payment & get upload token ─────────────────────────────────────────
+// Google Ads conversion reporting.
+//
+// The purchase completes on checkout.stripe.com, and Stripe's own CSP does not
+// permit Google tags on that page — nor should it, and we cannot change it. So
+// the conversion is reported on the return leg instead, and only after the
+// payment has actually been verified against Stripe: landing on /success is not
+// evidence of anything, since anyone can type that URL.
+//
+// The value comes from the Stripe session rather than a constant. Checkout
+// prices in the buyer's currency, so a hardcoded 2.99 USD would misreport every
+// non-USD sale. transaction_id is the Stripe session id, which is what lets
+// Google discard a duplicate if the same purchase is ever reported twice.
+//
+// Unset GOOGLE_ADS_CONVERSION_SEND_TO means no conversion is reported and
+// nothing else changes. Its value is the whole "AW-XXXXXXX/label" string that
+// the Google Ads conversion action gives you, kept in one piece so the id is
+// not assembled from two places that can disagree.
+//
+// Read per call rather than captured at module load. Binding it at load time
+// meant the only way to test both states was to reload server.js, and that
+// reload built a second set of Redis fakes and broke four unrelated tests.
+function adsConversionFor(checkoutSession) {
+  const sendTo = process.env.GOOGLE_ADS_CONVERSION_SEND_TO || '';
+  if (!sendTo) return undefined;
+  return {
+    sendTo,
+    value: (checkoutSession.amount_total ?? 0) / 100,
+    currency: (checkoutSession.currency || 'usd').toUpperCase(),
+    transactionId: checkoutSession.id,
+  };
+}
+
 app.get('/api/verify-payment', async (req, res) => {
   const ip = clientIp(req);
   if (!await enforceRateLimit(req, res, 'verify:' + ip, 20, 60000)) return;
@@ -842,7 +874,7 @@ app.get('/api/verify-payment', async (req, res) => {
     if (token) {
       try {
         verifyJwt(token);
-        return res.json({ token });
+        return res.json({ token, adsConversion: adsConversionFor(checkoutSession) });
       } catch {
         // Token expired or invalid — create new one below
       }
@@ -857,7 +889,7 @@ app.get('/api/verify-payment', async (req, res) => {
     await stripe.checkout.sessions.update(checkoutSession.id, {
       metadata: { passats_token: token }
     }).catch(() => {});
-    res.json({ token });
+    res.json({ token, adsConversion: adsConversionFor(checkoutSession) });
   } catch (err) {
     logError('verify.error', err, { requestId: req.requestId, ip, sessionId: req.query.session_id });
     res.status(500).json({ error: 'Verification failed' });
@@ -1745,6 +1777,7 @@ app.__test = {
   analyzeCv,
   sanitizeSchema,
   normalizeScore,
+  adsConversionFor,
   validateMagicBytes,
   checkOrigin,
   safeSecretEqual,
