@@ -195,6 +195,8 @@ function paidSession(overrides = {}) {
     payment_status: 'paid',
     created: Math.floor(Date.now() / 1000) - 60,
     metadata: {},
+    amount_total: 299,
+    currency: 'usd',
     ...overrides,
   };
 }
@@ -399,6 +401,32 @@ describe('analyze — the real path', () => {
       .set('x-passats-token', token)
       .attach('cv', makePdf(), { filename: 'cv.pdf', contentType: 'application/pdf' });
     assert.equal(res.status, 403);
+  });
+
+  it('reports the Ads conversion only for a payment Stripe confirms', async () => {
+    // The purchase completes on checkout.stripe.com, where Stripe's CSP does not
+    // allow Google tags, so the conversion is reported on the return leg. That
+    // makes it worth pinning that it rides on real verification: reaching
+    // /success proves nothing on its own, anyone can type that URL.
+    const { adsConversionFor } = app.__test;
+    assert.equal(adsConversionFor(paidSession()), undefined, 'no conversion action configured means none is reported');
+
+    process.env.GOOGLE_ADS_CONVERSION_SEND_TO = 'AW-1234567890/abcDEF_ghi';
+    try {
+      const usd = adsConversionFor(paidSession());
+      assert.equal(usd.sendTo, 'AW-1234567890/abcDEF_ghi');
+      assert.equal(usd.value, 2.99, 'Stripe reports minor units; Ads wants the major unit');
+      assert.equal(usd.currency, 'USD');
+      assert.equal(usd.transactionId, 'cs_test_paid', 'without this Google cannot discard a duplicate');
+
+      // Checkout prices in the buyer's currency. A hardcoded 2.99 USD would
+      // misreport every non-USD sale, which is how ad spend gets misjudged.
+      const lira = adsConversionFor(paidSession({ amount_total: 15000, currency: 'try' }));
+      assert.equal(lira.value, 150);
+      assert.equal(lira.currency, 'TRY');
+    } finally {
+      delete process.env.GOOGLE_ADS_CONVERSION_SEND_TO;
+    }
   });
 
   it('rejects a cross-origin parse preview', async () => {
