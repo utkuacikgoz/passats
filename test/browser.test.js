@@ -39,6 +39,33 @@ function makePdf() {
   return Buffer.from(`%PDF-1.4\n${stream}xref\n0 6\n0000000000 65535 f \ntrailer<</Size 6/Root 1 0 R>>\nstartxref\n${stream.length}\n%%EOF`);
 }
 
+// Third-party measurement tags are stubbed out for this whole suite.
+//
+// These tests exist to prove that OUR pages run under OUR policy. Letting the
+// real Google tag load makes that assertion depend on Google's current endpoint
+// list instead: the tag starts at googletagmanager.com and then pulls a
+// conversion script from googleads.g.doubleclick.net and beacons to
+// ad.doubleclick.net, and it will add more. CI has real network and the sandbox
+// does not, so this suite passed locally and failed on CI for reasons that had
+// nothing to do with the code under test.
+//
+// The policy's actual contents are asserted in contract.test.js, against a live
+// response header. That is the right place for it: a list of origins we decided
+// on, checked deterministically, rather than discovered by whatever Google's ad
+// stack happened to request during a test run.
+const THIRD_PARTY_TAGS = /(googletagmanager\.com|doubleclick\.net|google-analytics\.com|googleadservices\.com|analytics\.ahrefs\.com|api\.producthunt\.com)/;
+
+const stubThirdParty = target => target.route(
+  url => THIRD_PARTY_TAGS.test(url.href),
+  route => route.fulfill({ status: 200, contentType: 'application/javascript', body: '' }),
+);
+
+async function newPage() {
+  const page = await browser.newPage();
+  await stubThirdParty(page);
+  return page;
+}
+
 /** Collects anything the browser complains about, so CSP breakage cannot pass silently. */
 function watchForBreakage(page) {
   const problems = [];
@@ -74,7 +101,7 @@ async function runAnalysis(page) {
 
 describe('landing page under the real CSP', () => {
   it('runs its inline script — the hash allowlist is correct', async () => {
-    const page = await browser.newPage();
+    const page = await newPage();
     const problems = watchForBreakage(page);
     await page.goto(`${origin}/`);
 
@@ -86,7 +113,7 @@ describe('landing page under the real CSP', () => {
   });
 
   it('runs its inline event handlers — the unsafe-hashes allowlist is correct', async () => {
-    const page = await browser.newPage();
+    const page = await newPage();
     const problems = watchForBreakage(page);
     await page.goto(`${origin}/?dev=1`);
     await page.waitForSelector('#upload.active', { timeout: 10000 });
@@ -101,7 +128,7 @@ describe('landing page under the real CSP', () => {
   });
 
   it('serves the shared design tokens to the page', async () => {
-    const page = await browser.newPage();
+    const page = await newPage();
     await page.goto(`${origin}/`);
     const accent = await page.evaluate(() =>
       getComputedStyle(document.documentElement).getPropertyValue('--accent').trim()
@@ -113,7 +140,7 @@ describe('landing page under the real CSP', () => {
 
 describe('the paid journey', () => {
   it('completes upload to report', async () => {
-    const page = await browser.newPage();
+    const page = await newPage();
     const problems = watchForBreakage(page);
     await runAnalysis(page);
 
@@ -125,7 +152,7 @@ describe('the paid journey', () => {
   });
 
   it('survives a refresh once the report exists — the purchase is not lost', async () => {
-    const page = await browser.newPage();
+    const page = await newPage();
     await runAnalysis(page);
     const scoreBefore = await page.textContent('#dashScoreNumber');
 
@@ -146,7 +173,7 @@ describe('the paid journey', () => {
     // rewritten to the same value, so the analytics id overwrote the saved
     // report and JSON.parse threw on reload. Reading the store after a reload
     // proves the report survived rather than trusting the rendered view.
-    const page = await browser.newPage();
+    const page = await newPage();
     await runAnalysis(page);
     const scoreBefore = await page.textContent('#dashScoreNumber');
 
@@ -175,7 +202,7 @@ describe('the paid journey', () => {
   });
 
   it('survives a refresh between paying and uploading — the token is not lost', async () => {
-    const page = await browser.newPage();
+    const page = await newPage();
     await page.goto(`${origin}/?dev=1`);
     await page.waitForSelector('#upload.active', { timeout: 10000 });
 
@@ -189,7 +216,7 @@ describe('the paid journey', () => {
   });
 
   it('discards the report only when the customer says they are done', async () => {
-    const page = await browser.newPage();
+    const page = await newPage();
     await runAnalysis(page);
 
     await page.click('.cta-again button:not(.save-report-btn)');
@@ -205,7 +232,7 @@ describe('the paid journey', () => {
     // Regression: the stored report used to survive a second purchase, so a
     // refresh after paying again restored the old analysis and left the
     // customer unable to upload the CV they had just paid to have scored.
-    const page = await browser.newPage();
+    const page = await newPage();
     await runAnalysis(page);
 
     await page.goto(`${origin}/success?session_id=dev_second_purchase`);
@@ -219,7 +246,7 @@ describe('the paid journey', () => {
   });
 
   it('offers the report as a saveable document that identifies itself', async () => {
-    const page = await browser.newPage();
+    const page = await newPage();
     await runAnalysis(page);
     assert.equal(await page.isVisible('.save-report-btn'), true);
 
@@ -243,7 +270,7 @@ describe('the paid journey', () => {
 
 describe('the waiting room', () => {
   it('rotates reading material and stops the timer when the report arrives', async () => {
-    const page = await browser.newPage();
+    const page = await newPage();
     try {
       await page.goto(`${origin}/?dev=1`);
       await page.waitForSelector('#upload.active', { timeout: 15000 });
@@ -276,7 +303,7 @@ describe('the waiting room', () => {
   });
 
   it('gives the report a headline about the customer, not about the machine', async () => {
-    const page = await browser.newPage();
+    const page = await newPage();
     try {
       await runAnalysis(page);
       const heading = (await page.textContent('.dash-hero h2')).trim();
@@ -290,7 +317,7 @@ describe('the waiting room', () => {
 
 describe('client-side guards', () => {
   it('rejects an unsupported file before any request is made', async () => {
-    const page = await browser.newPage();
+    const page = await newPage();
     await page.goto(`${origin}/?dev=1`);
     await page.waitForSelector('#upload.active', { timeout: 10000 });
 
@@ -306,7 +333,7 @@ describe('client-side guards', () => {
   });
 
   it('caps the job description at the limit the server enforces', async () => {
-    const page = await browser.newPage();
+    const page = await newPage();
     await page.goto(`${origin}/?dev=1`);
     await page.waitForSelector('#upload.active', { timeout: 10000 });
 
@@ -330,7 +357,7 @@ describe('client-side guards', () => {
   });
 
   it('gives keyboard users a visible focus indicator', async () => {
-    const page = await browser.newPage();
+    const page = await newPage();
     await page.goto(`${origin}/`);
     await page.waitForSelector('#landing.active', { timeout: 10000 });
 
@@ -353,6 +380,7 @@ describe('the phone layout', () => {
 
   async function phonePage() {
     const context = await browser.newContext(PHONE);
+    await stubThirdParty(context);
     // The Product Hunt badge is a third-party image. Stub it so these assertions
     // measure the layout rather than the sandbox's network.
     await context.route('**/api.producthunt.com/**', route => route.fulfill({
