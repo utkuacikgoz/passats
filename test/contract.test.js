@@ -142,12 +142,36 @@ describe('the measurement tags are on every page and the CSP permits them', () =
 
       assert.match(policy['script-src'], /https:\/\/www\.googletagmanager\.com/, 'gtm.js and gtag/js load from here');
       assert.match(policy['script-src'], /https:\/\/analytics\.ahrefs\.com/);
+      // googletagmanager.com is only where the tag starts. These two were
+      // missing on the first attempt, so the tag loaded and every conversion
+      // request it went on to make was blocked — visible only on CI, which has
+      // real network. Named explicitly so that regression cannot repeat.
+      assert.match(policy['script-src'], /https:\/\/googleads\.g\.doubleclick\.net/, 'gtag loads its conversion script from here');
+      assert.match(policy['connect-src'], /https:\/\/ad\.doubleclick\.net/, 'gtag beacons its collect call here');
       assert.match(policy['connect-src'], /https:\/\/www\.google-analytics\.com/, 'the tag beacons here');
       assert.match(policy['connect-src'], /https:\/\/analytics\.ahrefs\.com/);
       // Without this the GTM noscript iframe falls to default-src 'self'.
       assert.match(policy['frame-src'], /https:\/\/www\.googletagmanager\.com/);
       assert.match(policy['img-src'], /https:\/\/www\.google\.com/, 'Ads conversion pixels are images');
       assert.doesNotMatch(policy['script-src'], /'unsafe-inline'/, 'adding a tag must never be paid for with unsafe-inline');
+
+      // The two requests CI caught the browser blocking, kept as literal
+      // fixtures. This sandbox has no route to Google, so the real tag cannot
+      // run here and the failure was invisible until CI. Checking the actual
+      // URLs against the actual policy is the part that can be verified without
+      // a network, and it is the part that was wrong.
+      const allows = (directive, url) => {
+        const origin = new URL(url).origin;
+        return policy[directive].split(' ').slice(1).includes(origin);
+      };
+      assert.ok(
+        allows('script-src', 'https://googleads.g.doubleclick.net/pagead/viewthroughconversion/18417603742/?en=gtag.config'),
+        'the conversion script CI saw blocked is still not allowed',
+      );
+      assert.ok(
+        allows('connect-src', 'https://ad.doubleclick.net/ccm/s/collect?fmt=8'),
+        'the collect beacon CI saw blocked is still not allowed',
+      );
     } finally {
       await new Promise(resolve => server.close(resolve));
     }
