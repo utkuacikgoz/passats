@@ -401,7 +401,22 @@ app.use((req, res, next) => {
     // The GTM noscript fallback is an iframe from googletagmanager.com. Without
     // this it falls to default-src 'self' and is blocked.
     "frame-src https://www.googletagmanager.com https://td.doubleclick.net https://bid.g.doubleclick.net",
-    "frame-ancestors 'none'",
+    // Was 'none'. BuildHop embeds the landing page in a live preview on its
+    // launch listing. 'none' cannot be kept alongside an allowlist — the keyword
+    // means "no origin at all" and is invalid in combination — so 'self' is
+    // preserved and the two BuildHop origins are named explicitly. There is no
+    // wildcard, so no other site gains the ability to frame this one.
+    //
+    // The trade this accepts is clickjacking from those two origins, which could
+    // overlay the buy button or the upload control. Bounded deliberately: the
+    // card form is never on this site, it is on checkout.stripe.com, whose own
+    // frame-ancestors keeps it out of any iframe.
+    //
+    // X-Frame-Options: DENY above is left alone on purpose. Per CSP Level 2 a
+    // browser that supports frame-ancestors ignores that header when both are
+    // present, which every current browser does, so the preview works without
+    // weakening the fallback that protects clients which do not.
+    "frame-ancestors 'self' https://buildhop.io https://www.buildhop.io",
   ].join('; '));
   next();
 });
