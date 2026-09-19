@@ -360,76 +360,96 @@
   }
   .value-text strong { color: var(--ink); font-weight: 600; }
 
-  .hero-report {
+  /* ── HERO: WHAT THE PARSER READS ──────────────────────────────────────────
+     The old hero showed an example report: a score and three fixes. It told
+     the visitor what they would receive, which every competitor's page also
+     does, and it required them to already believe the premise.
+
+     This shows the premise instead. The same resume twice: as it looks, then
+     as it comes out of extraction. The damage is the argument, and it is the
+     one argument neither a free text box nor a chat assistant can make, since
+     neither of them ever opened the file.
+
+     Every annotation is restricted to what extraction genuinely exposes:
+     content that failed to survive it, and content that came out in an order
+     nobody would choose. Nothing here infers a page layout, because prompt
+     rule 8 forbids the product from doing that and the marketing must not
+     promise what the report will not deliver. */
+  .hero-parse {
     background: var(--card); border: 1px solid var(--border);
     border-radius: 3px; overflow: hidden;
     box-shadow: 0 22px 56px rgba(32,27,23,0.10);
     text-align: left;
   }
-  .hero-report::before { content: ''; display: block; height: 3px; background: var(--accent); }
-  /* The eyebrow is its own row. Left inside the summary flex row it became the
-     first baseline of that column, so the numeral aligned to the label instead
-     of to the heading and floated clear of it. */
-  .report-eyebrow {
-    padding: 26px 34px 0;
+  .hero-parse::before { content: ''; display: block; height: 3px; background: var(--accent); }
+
+  .parse-head {
+    display: flex; align-items: baseline; justify-content: space-between;
+    gap: 14px; padding: 22px 30px 14px;
   }
-  .report-summary {
-    padding: 2px 34px 18px; display: flex;
-    /* Baseline: the numeral and the heading are one line of information, and
-       top-aligning a 3.6rem numeral to a 1.5rem heading reads as two blocks
-       that failed to line up. */
-    align-items: baseline; justify-content: space-between; gap: 20px;
-  }
-  .report-summary h2 {
-    font-family: 'DM Serif Display', 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif;
-    font-size: 1.5rem; line-height: 1.1;
-  }
-  .report-score {
-    color: var(--ink); display: flex; align-items: baseline; gap: 4px;
-    flex-shrink: 0;
-  }
-  .report-score strong {
-    font-family: 'DM Serif Display', 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif; font-size: 3.6rem;
-    line-height: 1; letter-spacing: -0.04em;
-    font-variant-numeric: tabular-nums;
-  }
-  .report-score span { font-size: 0.9rem; color: var(--muted); }
-  .report-eyebrow {
+  .parse-label {
     font-size: 0.66rem; letter-spacing: 0.13em; text-transform: uppercase;
     color: var(--muted);
   }
-  .report-section { padding: 4px 34px 26px; }
-  .report-section-title {
-    font-family: 'DM Serif Display', 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif; font-size: 1.25rem;
-    color: var(--ink); margin-bottom: 12px;
+
+  /* The document, drawn rather than screenshotted: a raster would be another
+     request, would not survive a token change, and could not be read out. */
+  .cv-mini { padding: 0 30px 20px; }
+  .cv-paper { border: 1px solid var(--border); background: #fff; padding: 15px 17px; }
+  .cv-name {
+    font-family: 'DM Serif Display', 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif;
+    font-size: 1.05rem; letter-spacing: -0.01em;
   }
-  .report-fix {
-    display: grid; grid-template-columns: 32px 1fr auto; gap: 12px;
-    align-items: start; padding: 15px 0; border-top: 1px solid var(--border);
+  .cv-contact {
+    font-size: 0.72rem; color: var(--muted); margin-top: 3px;
+    padding-bottom: 9px; border-bottom: 1px solid var(--border);
   }
-  .report-fix:first-of-type { border-top: 1px solid var(--ink); }
-  .report-fix-num { color: var(--accent-strong); font-family: 'DM Serif Display', 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif; font-size: 1.15rem; padding-top: 1px; }
-  .report-fix strong { display: block; font-size: 0.88rem; margin-bottom: 4px; }
-  .report-fix p { font-size: 0.78rem; color: var(--muted); line-height: 1.4; }
-  .report-impact {
-    color: var(--accent-strong); padding-top: 2px; font-size: 0.76rem; font-weight: 600;
-    white-space: nowrap; font-variant-numeric: tabular-nums;
+  .cv-cols { display: grid; grid-template-columns: 1.55fr 1fr; gap: 16px; margin-top: 11px; }
+  .cv-h {
+    font-size: 0.66rem; letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--accent-strong); font-weight: 600; margin-bottom: 6px;
   }
-  /* The sum of the three rows above. It is the number the reader actually
-     wants, and it closes the card instead of leaving it trailing off. */
-  .report-total {
-    display: flex; align-items: baseline; justify-content: space-between;
-    margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--ink);
+  .cv-role { font-size: 0.74rem; font-weight: 600; }
+  .cv-meta { font-size: 0.7rem; color: var(--muted); margin-bottom: 6px; }
+  /* Body copy as rules, not lorem: inventing a person's bullet points to fill
+     a mockup is the kind of detail a reader stops to decode. */
+  .cv-rule { height: 3px; background: var(--surface); border-radius: 2px; margin-bottom: 5px; }
+  .cv-rule.short { width: 68%; }
+  .cv-box { border: 1px solid var(--border); padding: 8px 9px; background: var(--bg); }
+  .cv-box span { display: block; font-size: 0.7rem; color: var(--muted); padding: 2px 0; }
+
+  .parse-seam { display: flex; align-items: center; gap: 12px; padding: 0 30px; }
+  .parse-seam .rule { flex: 1; height: 1px; background: var(--ink); }
+  .parse-seam .label {
+    font-size: 0.66rem; letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--accent-strong); font-weight: 600; white-space: nowrap;
   }
-  .report-total span {
-    font-size: 0.72rem; letter-spacing: 0.1em; text-transform: uppercase;
-    color: var(--muted);
+
+  .parse-stream {
+    margin: 15px 30px 0;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.74rem; line-height: 1.75; color: var(--ink);
+    background: var(--bg); border: 1px solid var(--border);
+    padding: 12px 14px; white-space: pre-wrap; word-break: break-word;
   }
-  .report-total strong {
-    font-family: 'DM Serif Display', 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif; font-size: 1.5rem;
-    color: var(--accent-strong); letter-spacing: -0.02em;
-    font-variant-numeric: tabular-nums;
+  .parse-stream .dropped { color: var(--danger-strong); text-decoration: line-through; }
+  .parse-stream .merged { background: var(--accent-light); padding: 0 2px; }
+
+  .parse-damage { padding: 15px 30px 22px; display: grid; gap: 10px; }
+  .parse-damage div { display: grid; grid-template-columns: 17px 1fr; gap: 10px; align-items: start; }
+  .parse-damage .n {
+    color: var(--accent-strong); line-height: 1.35;
+    font-family: 'DM Serif Display', 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif;
+    font-size: 0.95rem;
   }
+  .parse-damage p { font-size: 0.8rem; line-height: 1.5; color: var(--muted); }
+  .parse-damage p strong { color: var(--ink); font-weight: 600; }
+
+  .parse-foot {
+    border-top: 1px solid var(--ink); margin: 0 30px; padding: 14px 0 20px;
+  }
+  .parse-foot p { font-size: 0.8rem; color: var(--muted); line-height: 1.5; }
+  .parse-foot strong { color: var(--ink); font-weight: 600; }
 
   /* ── HOW IT WORKS ── */
   .how { padding: 60px 40px 80px; max-width: 860px; margin: 0 auto; }
@@ -784,9 +804,16 @@
 
     /* Labels set at 0.66rem to 0.72rem land at 10.5px to 11.5px on a phone.
        Nothing a paying customer has to read should be under 12px. */
-    .report-eyebrow,
-    .report-total span,
+    .parse-label,
     .field-counter { font-size: 0.78rem; }
+
+    /* The two-column miniature is the point of the panel, so it keeps its
+       columns on a phone rather than stacking: stacked, it stops depicting the
+       document whose extraction is being shown. It shrinks instead. */
+    .parse-head, .cv-mini, .parse-seam, .parse-damage { padding-left: 20px; padding-right: 20px; }
+    .parse-stream, .parse-foot { margin-left: 20px; margin-right: 20px; }
+    .cv-cols { gap: 11px; }
+    .parse-stream { font-size: 0.72rem; }
 
     /* The verdict is a sentence, not a headline. Centred at 1.5rem it ran to
        five tight lines on a phone and read as shouting rather than as the
@@ -846,33 +873,55 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
              alt="PassATS on Product Hunt" width="250" height="54">
       </a>
     </div>
-    <aside class="hero-report" aria-label="Example of a PassATS report">
-      <p class="report-eyebrow">Example report</p>
-      <div class="report-summary">
-        <h2>Your ATS score</h2>
-        <div class="report-score"><strong>72</strong><span>/ 100</span></div>
+    <aside class="hero-parse" aria-label="What an applicant tracking system reads from a resume">
+      <div class="parse-head">
+        <span class="parse-label">A real resume</span>
+        <span class="parse-label">PDF</span>
       </div>
-      <div class="report-section">
-        <div class="report-section-title">What needs work</div>
-        <div class="report-fix">
-          <span class="report-fix-num">1</span>
-          <div><strong>Work experience</strong><p>Three bullets name work, not the result.</p></div>
-          <span class="report-impact">+9 pts</span>
+
+      <div class="cv-mini">
+        <div class="cv-paper">
+          <div class="cv-name">Dani Okonkwo</div>
+          <div class="cv-contact">dani@example.com &nbsp;&middot;&nbsp; +44 7700 900100 &nbsp;&middot;&nbsp; London</div>
+          <div class="cv-cols">
+            <div>
+              <div class="cv-h">Experience</div>
+              <div class="cv-role">Senior Data Analyst</div>
+              <div class="cv-meta">Revolut &middot; 2021&ndash;2024</div>
+              <div class="cv-rule"></div><div class="cv-rule"></div><div class="cv-rule short"></div>
+            </div>
+            <div>
+              <div class="cv-h">Skills</div>
+              <div class="cv-box"><span>SQL</span><span>Python</span><span>Tableau</span></div>
+            </div>
+          </div>
         </div>
-        <div class="report-fix">
-          <span class="report-fix-num">2</span>
-          <div><strong>Skills section</strong><p>SQL and experimentation are absent.</p></div>
-          <span class="report-impact">+7 pts</span>
-        </div>
-        <div class="report-fix">
-          <span class="report-fix-num">3</span>
-          <div><strong>Summary</strong><p>You state the role, not the impact.</p></div>
-          <span class="report-impact">+5 pts</span>
-        </div>
-        <div class="report-total">
-          <span>Fix all three</span>
-          <strong>+21 pts</strong>
-        </div>
+      </div>
+
+      <div class="parse-seam">
+        <div class="rule"></div>
+        <h2 class="label">What the parser reads</h2>
+        <div class="rule"></div>
+      </div>
+
+<div class="parse-stream">Dani Okonkwo
+<span class="dropped">dani@example.com &middot; +44 7700 900100</span>
+<span class="merged">Experience Skills</span>
+<span class="merged">Senior Data Analyst SQL</span>
+<span class="merged">Revolut &middot; 2021-2024 Python</span>
+<span class="merged">Tableau</span></div>
+
+      <div class="parse-damage">
+        <div><span class="n" aria-hidden="true">1</span>
+          <p><strong>Your email and phone did not survive.</strong> Nothing downstream can contact you.</p></div>
+        <div><span class="n" aria-hidden="true">2</span>
+          <p><strong>Your job title and your skills are now one line.</strong> Neither reads as what it is.</p></div>
+        <div><span class="n" aria-hidden="true">3</span>
+          <p><strong>Reading order is scrambled</strong>, which carries the largest single scoring penalty.</p></div>
+      </div>
+
+      <div class="parse-foot">
+        <p>A chat assistant reads the text you paste it. <strong>This reads your file.</strong></p>
       </div>
     </aside>
   </section>
