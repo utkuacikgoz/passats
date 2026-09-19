@@ -1721,6 +1721,15 @@ app.get('/ats-checklist', (_req, res) => {
 app.get('/ats-parse-preview', (_req, res) => {
   res.sendFile(path.join(VIEWS_DIR, 'parse-preview.html'));
 });
+app.get('/about', (_req, res) => {
+  res.sendFile(path.join(VIEWS_DIR, 'about.html'));
+});
+// /contact is a real URL people and crawlers look for, but the contact details
+// live in a section of /about. Serving the same HTML at two URLs would be
+// duplicate content, so this redirects rather than renders.
+app.get('/contact', (_req, res) => {
+  res.redirect(301, '/about#contact');
+});
 // Guide pages are generated from content/guides.js by scripts/build-guides.js.
 // Routing from the same source means a new guide cannot be added without also
 // being reachable, which is how orphaned pages happen.
@@ -1741,7 +1750,7 @@ app.get('/success', (_req, res) => {
 // ── Clean-path redirects ──────────────────────────────────────────────────────
 // express.static also answers /privacy.html and /terms.html. Both carry correct
 // canonicals, but a 301 keeps one URL per document.
-app.get(['/privacy.html', '/terms.html', '/index.html'], (req, res) => {
+app.get(['/privacy.html', '/terms.html', '/about.html', '/index.html'], (req, res) => {
   const target = req.path === '/index.html' ? '/' : req.path.replace(/\.html$/, '');
   res.redirect(301, target);
 });

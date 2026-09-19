@@ -36,6 +36,13 @@
   --warning: #A87522;
   --warning-light: #F5E7C8;
   --danger: #C94E3C;
+  /* Same reason as --accent-strong: #C94E3C is 3.93:1 on --bg and 4.43:1 on
+     --card, so it is fine as a fill or a large numeral and short of AA as small
+     text. --danger-strong is 7.15:1 on --bg and 8.06:1 on --card. It is not a
+     new colour: checklist.html already carried this exact value hardcoded for
+     the "Fix this" chip, which is the one place the palette had drifted into a
+     literal. */
+  --danger-strong: #8B3025;
   --danger-light: #F7D9D4;
 
   --score-high: var(--positive);

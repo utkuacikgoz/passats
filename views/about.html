@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>About PassATS: Who Runs It and How the Score Works | PassATS</title>
+<meta name="description" content="Who builds PassATS, exactly how the ATS score is calculated, what happens to your file, and the things the report deliberately will not claim.">
+<link rel="canonical" href="https://passats.pro/about">
+
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://passats.pro/about">
+<meta property="og:title" content="About PassATS: Who Runs It and How the Score Works">
+<meta property="og:description" content="The scoring weights, the penalties, what happens to your file, and what the report will not claim.">
+<meta property="og:image" content="https://passats.pro/og-image.png">
+<meta property="og:site_name" content="PassATS">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="About PassATS: Who Runs It and How the Score Works">
+<meta name="twitter:description" content="The scoring weights, the penalties, what happens to your file, and what the report will not claim.">
+<meta name="twitter:image" content="https://passats.pro/og-image.png">
+<meta name="robots" content="index, follow">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+
+<!-- Vercel Web Analytics -->
+<script>
+  window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
+</script>
+<script defer src="/_vercel/insights/script.js"></script>
+<script src="https://analytics.ahrefs.com/analytics.js" data-key="bnqpzy5Q4W2L+XtzZBbWjQ" async></script>
+<script src="/gtm.js"></script>
+<script src="/gtag.js"></script>
+<script async src="https://www.googletagmanager.com/gtag/js?id=AW-18417603742"></script>
+<link rel="stylesheet" href="/tokens.css">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: var(--bg); color: var(--ink); min-height: 100vh; }
+  nav { padding: 20px 40px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+  .logo { font-family: 'DM Serif Display', 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif; font-size: 1.4rem; text-decoration: none; color: var(--ink); }
+  .logo span { color: var(--accent-strong); }
+  .nav-cta { background: var(--ink); color: #fff; padding: 8px 18px; border-radius: 100px; font-size: 0.82rem; font-weight: 500; text-decoration: none; white-space: nowrap; }
+  main { max-width: 680px; margin: 0 auto; padding: 56px 40px 40px; }
+  h1 { font-family: 'DM Serif Display', 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif; font-size: clamp(2rem, 5vw, 2.6rem); line-height: 1.15; margin-bottom: 18px; text-wrap: balance; }
+  .standfirst { font-size: 1.02rem; color: var(--ink); line-height: 1.65; margin-bottom: 10px; }
+  .meta { font-size: 0.8rem; color: var(--muted); margin-bottom: 36px; }
+  h2 { font-family: 'DM Serif Display', 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif; font-size: 1.5rem; margin: 44px 0 6px; line-height: 1.25; }
+  h3 { font-size: 1rem; font-weight: 600; margin: 26px 0 6px; color: var(--ink); }
+  p, li { font-size: 0.95rem; color: var(--muted); line-height: 1.75; margin-bottom: 12px; }
+  ul, ol { padding-left: 22px; }
+  a { color: var(--accent-strong); }
+  strong { color: var(--ink); font-weight: 600; }
+  .lede { color: var(--muted); font-size: 0.95rem; line-height: 1.75; margin-bottom: 8px; }
+  .verdict { display: inline-block; font-size: 0.7rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; padding: 3px 9px; border-radius: 3px; margin-bottom: 8px; }
+  .v-fix { background: var(--danger-light); color: #8B3025; }
+  .v-myth { background: var(--positive-light); color: var(--positive); }
+  .item { border-top: 1px solid var(--border); padding-top: 20px; margin-top: 20px; }
+  .item:first-of-type { border-top: 0; }
+  .callout { background: var(--card); border: 1px solid var(--border); border-left: 3px solid var(--accent); border-radius: 4px; padding: 20px 22px; margin: 32px 0; }
+  .callout p:last-child { margin-bottom: 0; }
+  .cta { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 28px 26px; margin: 44px 0 0; text-align: center; }
+  .cta h2 { margin-top: 0; font-size: 1.4rem; }
+  .cta p { margin-bottom: 18px; }
+  .cta a.btn { display: inline-block; background: var(--accent-strong); color: #fff; text-decoration: none; padding: 14px 30px; border-radius: 12px; font-weight: 600; font-size: 0.95rem; }
+  :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+  .related { margin-top: 44px; border-top: 1px solid var(--border); padding-top: 24px; }
+  .related h2 { font-size: 1.1rem; margin: 0 0 10px; font-family: inherit; font-weight: 600; color: var(--ink); }
+  .related ul { list-style: none; padding: 0; }
+  .related li { margin-bottom: 8px; }
+  footer { max-width: 680px; margin: 0 auto; padding: 30px 40px 50px; text-align: center; font-size: 0.78rem; color: var(--muted); border-top: 1px solid var(--border); }
+  /* Separators as gaps, not middots: a wrapped line used to end on a dangling
+     middot, with the last link stranded on the row below. */
+  .footer-legal { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 2px 18px; }
+  @media (max-width: 640px) {
+    nav { padding: 16px 20px; }
+    main { padding: 36px 20px 30px; }
+    footer { padding: 24px 20px 40px; }
+  }
+
+  /* Touch targets: 44px is the minimum both Apple and Google publish, and every
+     link on this page measured under it at 390px. */
+  @media (max-width: 640px) {
+    .logo, footer a, .nav-cta, .btn, .cta a.btn {
+      min-height: 44px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    footer p { line-height: 2.4; }
+    /* The related-guide list is how a reader moves between guides on a phone.
+       At 35px the rows sat under the tap-target minimum and close enough
+       together to hit the wrong one; rules between them make the list scan. */
+    .related li { margin-bottom: 0; }
+    .related a {
+      display: flex; align-items: center; justify-content: flex-start;
+      min-height: 44px; border-bottom: 1px solid var(--border);
+      text-decoration: none;
+    }
+    /* The Fix this / Myth chips run at 0.7rem, which is 11.2px on a phone.
+       Nineteen of them, and they are the scent that makes the page skimmable. */
+    .verdict { font-size: 0.78rem; }
+  }
+</style>
+<style>
+  /* The weights table. A score nobody can reproduce is a number to be taken on
+     trust, which is exactly what this page exists to stop asking for. */
+  .weights { width: 100%; border-collapse: collapse; margin: 18px 0 8px; }
+  .weights th, .weights td {
+    text-align: left; padding: 9px 0; border-bottom: 1px solid var(--border);
+    font-size: 0.9rem; line-height: 1.5;
+  }
+  .weights th { font-weight: 600; color: var(--ink); font-size: 0.78rem; letter-spacing: 0.06em; text-transform: uppercase; }
+  .weights td:last-child, .weights th:last-child { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .weights td strong { color: var(--ink); }
+  .formula {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.8rem; line-height: 1.7; color: var(--ink);
+    background: var(--card); border: 1px solid var(--border);
+    padding: 14px 16px; border-radius: 4px; margin: 14px 0 20px;
+    overflow-x: auto; white-space: pre;
+  }
+  .adjust { list-style: none; padding: 0; margin: 10px 0 0; }
+  .adjust li {
+    display: grid; grid-template-columns: 52px 1fr; gap: 12px;
+    padding: 9px 0; border-top: 1px solid var(--border); margin: 0;
+    font-size: 0.9rem; line-height: 1.55;
+  }
+  .adjust li:first-child { border-top: 0; }
+  .adjust .amt { font-weight: 600; font-variant-numeric: tabular-nums; }
+  .adjust .minus { color: var(--danger-strong); }
+  .adjust .plus { color: var(--positive); }
+  .contact-block { background: var(--card); border: 1px solid var(--border); border-radius: 4px; padding: 22px 24px; margin-top: 16px; }
+  .contact-block p:last-child { margin-bottom: 0; }
+  .contact-block a { font-weight: 600; }
+  @media (max-width: 640px) {
+    .adjust li { grid-template-columns: 46px 1fr; gap: 10px; }
+    .formula { font-size: 0.72rem; }
+  }
+</style>
+</head>
+<body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-5LVMLT4Z"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<nav>
+  <a class="logo" href="/">Pass<span>ATS</span></a>
+  <a class="nav-cta" href="/">Check My Resume. $2.99</a>
+</nav>
+
+<main>
+  <h1>About PassATS</h1>
+  <p class="standfirst">PassATS reads the resume file you are actually sending, scores it the way an applicant tracking system would, and names the specific lines to change. It costs $2.99, needs no account, and keeps nothing.</p>
+  <p class="meta">This page explains who runs it, exactly how the score is calculated, and what the report will not claim.</p>
+
+  <h2>Who runs this</h2>
+  <p>PassATS is a small, independent product operated by <strong>Bosphorus Elevate LLC</strong>, a company registered in Delaware. It is not backed by a recruiting agency, a job board, or a resume-writing service, so there is nothing to upsell you after the report.</p>
+  <p>There is no support department. Email reaches the person who built it: <a href="mailto:support@passats.pro">support@passats.pro</a>.</p>
+
+  <h2>How the score is calculated</h2>
+  <p>The score is not a single impression. It is a weighted combination of four components, and the weights are fixed rather than decided per resume:</p>
+
+  <div class="formula">overallScore = round(
+    keywords     x 0.35
+  + formatting   x 0.30
+  + contactInfo  x 0.20
+  + readability  x 0.15
+)</div>
+
+  <table class="weights">
+    <thead><tr><th scope="col">Component</th><th scope="col">Weight</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Keywords.</strong> Terms standard for your detected role, or, when you paste a job description, the exact requirements from it.</td><td>35%</td></tr>
+      <tr><td><strong>Formatting.</strong> Section headers a parser can classify, readable text order, consistent dates.</td><td>30%</td></tr>
+      <tr><td><strong>Contact info.</strong> Whether your email, phone and profile links survive extraction at all.</td><td>20%</td></tr>
+      <tr><td><strong>Readability.</strong> Whether your bullets say what you did and what it produced.</td><td>15%</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Adjustments applied on top</h3>
+  <p>These are the specific penalties and bonuses, applied whenever they are true. They are not weighted opinions:</p>
+  <ul class="adjust">
+    <li><span class="amt minus">&minus;20</span><span>Tabular cell artifacts or pipe-delimited rows that obscure the reading order.</span></li>
+    <li><span class="amt minus">&minus;15</span><span>No dedicated Skills section.</span></li>
+    <li><span class="amt minus">&minus;15</span><span>Three or more consecutive bullets with no quantified metric.</span></li>
+    <li><span class="amt minus">&minus;10</span><span>Date formats inconsistent across sections, such as &ldquo;Jan 2023&rdquo; beside &ldquo;01/2023&rdquo;.</span></li>
+    <li><span class="amt minus">&minus;10</span><span>No LinkedIn URL and no personal site or portfolio.</span></li>
+    <li><span class="amt minus">&minus;10</span><span>Each paragraph of abstract buzzwords with no measurable outcome.</span></li>
+    <li><span class="amt plus">+10</span><span>Every bullet follows action, what, measurable outcome.</span></li>
+    <li><span class="amt plus">+5</span><span>Your summary states total years of experience explicitly.</span></li>
+    <li><span class="amt plus">+5</span><span>A readable email address is present.</span></li>
+    <li><span class="amt plus">+5</span><span>A portfolio, personal site or GitHub URL alongside LinkedIn.</span></li>
+  </ul>
+  <p style="margin-top:18px;">The final number is clamped to 0&ndash;100 on our server, so a malformed result cannot produce a score outside that range.</p>
+
+  <h2>We read the file, not a copy of it</h2>
+  <p>This is the part that separates PassATS from pasting your resume into a chat assistant or a free text box. Those tools read the text <em>you</em> could select and paste. We open the document itself.</p>
+  <p>Text is extracted from the PDF or DOCX the same way a parser does it, and what comes out is often not what is on the page. Contact details can fail to survive extraction entirely. Content that sits in separate places on the page can come out interleaved on a single line, in an order no reader would choose. Neither is visible to you, and neither is discoverable by pasting, because pasting starts from the text you could already see.</p>
+  <p>That is why contact information carries 20% of the score on its own, and why scrambled reading order carries the single largest penalty on the list above. Both are failures of the file, not of your writing, and both are invisible until something opens the file.</p>
+  <p>It also means we can see text you cannot. Resumes routinely arrive carrying keywords set in 2pt type, or in white on a white background, usually added by a template or a &ldquo;free ATS optimiser&rdquo; without telling the candidate. We detect that text, <strong>remove it before scoring</strong> so it cannot inflate your keyword result, and then flag it, because a recruiter who finds it bins the application.</p>
+  <p>If you want to see the extraction before you buy anything, the <a href="/ats-parse-preview">free parse preview</a> shows you the raw text an ATS gets from your file. It costs nothing and needs no account.</p>
+
+  <h2>What the report will not tell you</h2>
+  <p>Some of what makes a score trustworthy is what it refuses to claim. The evaluator is explicitly instructed to avoid all of the following:</p>
+  <ul>
+    <li><strong>It will not predict that you will pass or fail a specific ATS.</strong> Without a job description the verdict is a general role benchmark, not a prophecy about one employer.</li>
+    <li><strong>It will not make vendor-specific claims.</strong> Nothing in the report asserts what Workday, Greenhouse, Lever or Taleo will do with your file, because that is not observable from your resume.</li>
+    <li><strong>It will not comment on your visual layout.</strong> We work from extracted text, so the report is limited to what the text shows: section names, reading order, date consistency. Any tool that praises your &ldquo;clean single-column design&rdquo; from a parse is guessing.</li>
+    <li><strong>It will not invent achievements.</strong> Every suggested rewrite has to quote text that is already in your resume. It will never fabricate a metric, a percentage or an outcome for you.</li>
+    <li><strong>It will not flatter you.</strong> The scoring instructions set hard ceilings: a resume with no Skills section, unquantified bullets and inconsistent dates cannot be scored above 52, however polished it reads.</li>
+  </ul>
+
+  <h2>What happens to your file</h2>
+  <p>Your upload is read into memory and <strong>deleted from disk before the response is sent to you</strong>, not afterwards on a best-effort basis. There is no account, no database of resumes, and nothing to log into later. Once you close the tab, your report is gone too, so save it.</p>
+  <p>Your card details never touch this site. Payment goes through Stripe Checkout on Stripe&rsquo;s own domain, and we only ever see whether a session was paid.</p>
+  <p>The full detail is in the <a href="/privacy">privacy policy</a>.</p>
+
+  <h2 id="contact">Contact</h2>
+  <div class="contact-block">
+    <p><strong>Email:</strong> <a href="mailto:support@passats.pro">support@passats.pro</a></p>
+    <p><strong>Refunds.</strong> If the analysis fails, or the report is not what was described, email us and we will refund you in full. You do not need to argue the case.</p>
+    <p><strong>Privacy requests:</strong> <a href="mailto:privacy@passats.pro">privacy@passats.pro</a></p>
+    <p style="margin-bottom:0;"><strong>Company:</strong> Bosphorus Elevate LLC, Delaware, United States.</p>
+  </div>
+
+  <div class="cta">
+    <h2>See what an ATS reads from your resume</h2>
+    <p>Free, no signup: the raw text extraction. Or get the full scored report for $2.99.</p>
+    <a class="btn" href="/">Check My Resume. $2.99</a>
+  </div>
+
+  <div class="related">
+    <h2>Read next</h2>
+    <ul>
+      <li><a href="/ats-parse-preview">See what an ATS reads from your resume</a></li>
+      <li><a href="/ats-score-guide">What your ATS score actually means</a></li>
+      <li><a href="/ats-checker-comparison">Which kind of ATS checker should you use?</a></li>
+      <li><a href="/ats-checklist">The ATS resume checklist</a></li>
+    </ul>
+  </div>
+</main>
+
+<footer>
+  <p class="footer-legal"><span>&copy; 2026 PassATS</span> <a href="/">Home</a> <a href="/privacy">Privacy</a> <a href="/terms">Terms</a> <a href="mailto:support@passats.pro">support@passats.pro</a></p>
+</footer>
+</body>
+</html>
