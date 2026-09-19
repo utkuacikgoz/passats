@@ -13,6 +13,7 @@ const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('fs');
 const path = require('path');
+const { execFileSync } = require('child_process');
 
 process.env.DEV_MODE = 'true';
 delete process.env.VERCEL;
@@ -567,9 +568,47 @@ describe('the JSON-LD blocks form one connected graph', () => {
     }
   });
 
-  it('claims no authorship, dates or ratings that the page cannot support', () => {
-    const invented = /"(author|datePublished|dateModified|aggregateRating|review|reviewCount|ratingValue)"/;
+  it('claims no authorship or ratings that the page cannot support', () => {
+    // dateModified came off this list when the WebPage node was added, because
+    // it is generated rather than typed — the assertion below proves it. The
+    // rest stay banned: a home page has no byline, and we have no ratings.
+    const invented = /"(author|datePublished|aggregateRating|review|reviewCount|ratingValue)"/;
     assert.doesNotMatch(JSON.stringify(blocks), invented,
       'a schema fact the page does not state is worse than a low audit score');
+  });
+
+  it('dates the page from the commit that changed it, not by hand', () => {
+    // A freshness claim nobody maintains is worse than none. sync:seo derives
+    // this from the last commit touching views/index.html, the same source the
+    // sitemap uses for <lastmod>, so a hand-edited date fails here.
+    const page = blocks.find(block => block['@type'] === 'WebPage');
+    assert.ok(page, 'WebPage node present');
+    const generated = execFileSync('git', ['log', '-1', '--format=%cs', '--', 'views/index.html'], {
+      cwd: ROOT, encoding: 'utf8',
+    }).trim();
+    const dirty = execFileSync('git', ['status', '--porcelain', '--', 'views/index.html'], {
+      cwd: ROOT, encoding: 'utf8',
+    }).trim();
+    // In a dirty tree the generator falls back to mtime, which moves on every
+    // save, so only the committed case is pinned.
+    if (!dirty && generated) {
+      assert.equal(page.dateModified, generated,
+        'run `npm run sync:seo` — dateModified does not match the last commit to views/index.html');
+    }
+    assert.match(page.dateModified, /^\d{4}-\d{2}-\d{2}$/, 'dateModified must be an ISO date');
+  });
+
+  it('states every Organization fact somewhere a reader can check it', () => {
+    // The point of legalName and sameAs is that they are verifiable. If the
+    // page stops saying them, the schema is asserting something unbacked.
+    const org = blocks.find(block => block['@type'] === 'Organization');
+    const published = index + read('views/about.html') + read('views/terms.html');
+    assert.ok(published.includes(org.legalName),
+      `schema claims legalName "${org.legalName}" but no page states it`);
+    for (const url of org.sameAs || []) {
+      assert.ok(published.includes(url), `schema claims sameAs ${url} but no page links it`);
+    }
+    assert.ok(published.includes(org.contactPoint.email),
+      'schema publishes a support address no page shows');
   });
 });
