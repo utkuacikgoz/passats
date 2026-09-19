@@ -360,6 +360,70 @@
   }
   .value-text strong { color: var(--ink); font-weight: 600; }
 
+  /* ── WHY NOT THE FREE OPTION ──────────────────────────────────────────────
+     Two separate readers said the same thing: the free-alternative answer was
+     buried in the FAQ, and at this price the objection has to be met before
+     anyone decides to scroll. So it is its own section, above the fold of the
+     decision rather than below it, and built to be read in about five seconds.
+
+     The honest move is also the strongest one here. We publish a free tool of
+     our own, so the section does not have to argue that free is bad. It shows
+     exactly where free stops and what the $2.99 adds, and it links to the free
+     one rather than hiding it. */
+  .versus { max-width: 1000px; margin: 0 auto; padding: 0 40px 64px; }
+  .versus-head { text-align: center; max-width: 620px; margin: 0 auto 30px; }
+  .versus-head h2 {
+    font-family: 'DM Serif Display', 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif;
+    font-size: 1.5rem; line-height: 1.3; margin-bottom: 10px;
+  }
+  .versus-head p { font-size: 0.92rem; color: var(--muted); line-height: 1.6; }
+
+  .versus-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; align-items: stretch; }
+  .versus-card {
+    background: var(--card); border: 1px solid var(--border); border-radius: 3px;
+    padding: 22px 22px 24px; display: flex; flex-direction: column;
+  }
+  /* The third card is the product. It gets the coral rule and the weight; the
+     other two are stated fairly rather than knocked down, because a reader who
+     catches you misrepresenting the free option stops believing the rest. */
+  .versus-card.is-ours { border-color: var(--ink); box-shadow: 0 18px 44px rgba(32,27,23,0.09); }
+  .versus-card.is-ours::before {
+    content: ''; display: block; height: 3px; background: var(--accent);
+    margin: -22px -22px 18px;
+  }
+  .versus-price {
+    font-size: 0.68rem; letter-spacing: 0.13em; text-transform: uppercase;
+    color: var(--muted); font-weight: 600; margin-bottom: 6px;
+  }
+  .versus-card.is-ours .versus-price { color: var(--accent-strong); }
+  .versus-card h3 {
+    font-family: 'DM Serif Display', 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif;
+    font-size: 1.15rem; line-height: 1.25; margin-bottom: 12px; font-weight: 400;
+  }
+  .versus-list { list-style: none; padding: 0; margin: 0 0 16px; }
+  .versus-list li {
+    display: grid; grid-template-columns: 15px 1fr; gap: 9px;
+    font-size: 0.82rem; line-height: 1.5; color: var(--muted);
+    padding: 5px 0;
+  }
+  .versus-list .mark { font-weight: 600; line-height: 1.35; }
+  .versus-list .yes { color: var(--positive); }
+  .versus-list .no { color: var(--danger-strong); }
+  .versus-list b { color: var(--ink); font-weight: 600; }
+  .versus-foot { margin-top: auto; }
+  .versus-foot a { font-size: 0.82rem; color: var(--accent-strong); font-weight: 600; }
+  .versus-cta { width: 100%; padding: 13px 18px; font-size: 0.92rem; min-height: 44px; }
+  .versus-note {
+    text-align: center; font-size: 0.82rem; color: var(--muted);
+    margin-top: 26px; line-height: 1.6;
+  }
+  .versus-note a { color: var(--accent-strong); }
+  @media (max-width: 860px) {
+    .versus { padding: 0 20px 48px; }
+    .versus-grid { grid-template-columns: 1fr; gap: 14px; }
+    .versus-list li { font-size: 0.86rem; }
+  }
+
   /* ── HERO: WHAT THE PARSER READS ──────────────────────────────────────────
      The old hero showed an example report: a score and three fixes. It told
      the visitor what they would receive, which every competitor's page also
@@ -940,6 +1004,59 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     </p>
   </section>
 
+  <!-- Why not the free option -->
+  <section class="versus" id="why-paid">
+    <div class="versus-head">
+      <h2>There are free ways to check a resume. We built one of them.</h2>
+      <p>So here is exactly where free stops, and what the $2.99 adds.</p>
+    </div>
+
+    <div class="versus-grid">
+      <div class="versus-card">
+        <div class="versus-price">Free checkers</div>
+        <h3>A score, and your email on a list</h3>
+        <ul class="versus-list">
+          <li><span class="mark yes">&check;</span><span>Tells you roughly how you rank</span></li>
+          <li><span class="mark no">&times;</span><span>Generic advice, not <b>your</b> lines</span></li>
+          <li><span class="mark no">&times;</span><span>The specifics sit behind an upgrade</span></li>
+          <li><span class="mark no">&times;</span><span>Usually keeps your resume</span></li>
+        </ul>
+      </div>
+
+      <div class="versus-card">
+        <div class="versus-price">Free, from us</div>
+        <h3>See what a parser pulls out of your file</h3>
+        <ul class="versus-list">
+          <li><span class="mark yes">&check;</span><span>Opens the <b>file</b>, not pasted text</span></li>
+          <li><span class="mark yes">&check;</span><span>No signup, no email, nothing stored</span></li>
+          <li><span class="mark no">&times;</span><span>Shows the text, does not score it</span></li>
+          <li><span class="mark no">&times;</span><span>Does not tell you what to change</span></li>
+        </ul>
+        <div class="versus-foot"><a href="/ats-parse-preview">Try the free preview &rarr;</a></div>
+      </div>
+
+      <div class="versus-card is-ours">
+        <div class="versus-price">$2.99 once</div>
+        <h3>The score, and the exact lines to change</h3>
+        <ul class="versus-list">
+          <li><span class="mark yes">&check;</span><span>Everything the free preview shows</span></li>
+          <li><span class="mark yes">&check;</span><span>Quotes <b>your</b> bullets and rewrites them</span></li>
+          <li><span class="mark yes">&check;</span><span>What each fix is worth, in points</span></li>
+          <li><span class="mark yes">&check;</span><span>Finds text set to be invisible</span></li>
+          <li><span class="mark yes">&check;</span><span>No account. No subscription. Nothing kept.</span></li>
+        </ul>
+        <div class="versus-foot">
+          <button class="btn-primary versus-cta" onclick="ctaClick(this)" id="versusCtaBtn">Check My Resume. $2.99</button>
+        </div>
+      </div>
+    </div>
+
+    <p class="versus-note">
+      If you are applying at volume every week, a subscription tool is the cheaper buy and we say so in
+      <a href="/ats-checker-comparison">the full comparison</a>. This is priced for the week you actually need it.
+    </p>
+  </section>
+
   <!-- How it works -->
   <section class="how">
     <h2 class="section-label">Three steps. One honest answer.</h2>
@@ -999,6 +1116,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <a href="/resume-length">How Long Should a Resume Be?</a>
       <a href="/chatgpt-resume-ats-check">Can ChatGPT or Claude Check Your Resume?</a>
       <a href="/ai-resume-prompts">AI Resume Prompts That Work</a>
+      <a href="/free-vs-paid-ats-checker">Free vs Paid ATS Checker</a>
+      <a href="/ats-checker-vs-chatgpt-vs-recruiter">ATS Checker vs ChatGPT vs a Recruiter</a>
       <a href="/ats-checker-comparison">Which Kind of ATS Checker Should You Use?</a>
       <a href="/ats-checklist">The ATS Resume Checklist</a>
     </nav>
@@ -1181,18 +1300,18 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   // point back at the upload screen instead of at checkout.
   const CTA_BUY = 'Check My Resume. $2.99';
   const CTA_RESUME = 'Continue to upload';
+  // Every CTA on the landing view, so adding one cannot leave it showing the
+  // buy label to a customer who has already paid. Only the nav pill hides off
+  // the landing view; the others live inside it and go with it.
+  const CTA_IDS = ['navCtaBtn', 'heroCtaBtn', 'versusCtaBtn'];
   function syncCtas(viewId) {
     const label = uploadToken ? CTA_RESUME : CTA_BUY;
-    const nav = document.getElementById('navCtaBtn');
-    const hero = document.getElementById('heroCtaBtn');
-    if (nav) {
-      nav.hidden = viewId !== 'landing';
-      nav.textContent = label;
-      nav.disabled = false;
-    }
-    if (hero) {
-      hero.textContent = label;
-      hero.disabled = false;
+    for (const id of CTA_IDS) {
+      const btn = document.getElementById(id);
+      if (!btn) continue;
+      if (id === 'navCtaBtn') btn.hidden = viewId !== 'landing';
+      btn.textContent = label;
+      btn.disabled = false;
     }
   }
 
