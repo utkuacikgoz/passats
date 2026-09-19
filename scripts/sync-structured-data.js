@@ -14,7 +14,6 @@
  */
 const fs = require('fs');
 const path = require('path');
-const { execFileSync } = require('child_process');
 const { CANONICAL_ORIGIN } = require('../config/site');
 
 const INDEX_PATH = path.join(__dirname, '..', 'views', 'index.html');
@@ -22,28 +21,6 @@ const INDEX_PATH = path.join(__dirname, '..', 'views', 'index.html');
 // Matches the visible FAQ accordion entries in document order.
 const FAQ_ITEM = /<details class="faq-item"[^>]*>\s*<summary>([\s\S]*?)<\/summary>\s*<p>([\s\S]*?)<\/p>\s*<\/details>/g;
 const FAQ_LD_BLOCK = /(<!-- Structured Data: FAQPage[^>]*-->\s*<script type="application\/ld\+json">\s*)([\s\S]*?)(\s*<\/script>)/;
-// The WebPage block's dateModified. Hand-written freshness dates rot the moment
-// somebody forgets one, so this is derived the same way the sitemap derives
-// <lastmod>: the commit that last touched the file, falling back to its mtime
-// outside a checkout.
-const DATE_MODIFIED = /("dateModified":\s*")(\d{4}-\d{2}-\d{2})(")/;
-
-function lastModified(relativePath) {
-  const absolute = path.join(__dirname, '..', relativePath);
-  try {
-    const committed = execFileSync('git', ['log', '-1', '--format=%cs', '--', relativePath], {
-      cwd: path.join(__dirname, '..'),
-      encoding: 'utf8',
-    }).trim();
-    const dirty = execFileSync('git', ['status', '--porcelain', '--', relativePath], {
-      cwd: path.join(__dirname, '..'),
-      encoding: 'utf8',
-    }).trim();
-    if (committed && !dirty) return committed;
-  } catch { /* not a git checkout */ }
-  return fs.statSync(absolute).mtime.toISOString().slice(0, 10);
-}
-
 function decodeEntities(html) {
   return html
     .replace(/<[^>]+>/g, '')
@@ -94,13 +71,8 @@ function sync(html) {
   if (!block) throw new Error('FAQPage JSON-LD block not found in views/index.html');
 
   const json = JSON.stringify(buildFaqLd(items), null, 2);
-  let updated = html.replace(FAQ_LD_BLOCK, (_, open, __, close) => `${open}${json}${close}`);
-
-  if (!DATE_MODIFIED.test(updated)) throw new Error('WebPage dateModified not found in views/index.html');
-  const modified = lastModified('views/index.html');
-  updated = updated.replace(DATE_MODIFIED, (_, open, __, close) => `${open}${modified}${close}`);
-
-  return { html: updated, count: items.length, modified, changed: updated !== html };
+  const updated = html.replace(FAQ_LD_BLOCK, (_, open, __, close) => `${open}${json}${close}`);
+  return { html: updated, count: items.length, changed: updated !== html };
 }
 
 module.exports = { extractFaq, buildFaqLd, sync };
@@ -111,7 +83,7 @@ if (require.main === module) {
   fs.writeFileSync(INDEX_PATH, result.html);
   console.log(
     result.changed
-      ? `Synced FAQPage JSON-LD from ${result.count} visible FAQ entries; dateModified ${result.modified}.`
-      : `FAQPage JSON-LD already matches all ${result.count} visible FAQ entries; dateModified ${result.modified}.`
+      ? `Synced FAQPage JSON-LD from ${result.count} visible FAQ entries.`
+      : `FAQPage JSON-LD already matches all ${result.count} visible FAQ entries.`
   );
 }
