@@ -20,6 +20,12 @@
 
   /* The 10%. Action only. */
   --accent: #D85D43;
+  /* The brand orange fails WCAG AA as small text: 3.27:1 on --bg, 3.69:1 on
+     --card, and 3.77:1 behind white. It is fine at display sizes, where the
+     threshold is 3:1, so it stays for the hero word. Everything smaller, and
+     every fill that carries white text, uses --accent-strong: 4.82:1 on --bg,
+     5.44:1 on --card, 5.56:1 behind white. */
+  --accent-strong: #B93E24;
   --accent-light: #F7DCD5;
   --accent-warm: #D85D43;
 
