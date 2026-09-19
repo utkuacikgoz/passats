@@ -518,3 +518,93 @@ describe('the phone layout', () => {
     }
   });
 });
+
+describe('the generated guide pages meet AA in the browser', () => {
+  // The guides ship from one template, and a defect in it is a defect on every
+  // one of them at once. This has already happened: `code` inherited the body's
+  // --muted and sat on --surface at 4.41:1, shipped, and stayed shipped, because
+  // the token-pair contrast tests in contract.test.js only compare the pairs
+  // somebody thought to pair. A pair only fails once one is actually rendered on
+  // the other, which is a fact about the page, not about the palette.
+  //
+  // So this measures what a browser computes, over every guide rather than a
+  // representative one: a future guide that introduces a new element type is
+  // exactly the case a single sample would miss.
+  const contrastSweep = () => {
+    const luminance = channels => {
+      const [r, g, b] = channels.map(value => {
+        value /= 255;
+        return value <= 0.03928 ? value / 12.92 : Math.pow((value + 0.055) / 1.055, 2.4);
+      });
+      return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    };
+    const colour = value => {
+      const found = value.match(/rgba?\(([^)]+)\)/);
+      if (!found) return null;
+      const parts = found[1].split(',').map(parseFloat);
+      return { rgb: parts.slice(0, 3), alpha: parts.length > 3 ? parts[3] : 1 };
+    };
+    // Walk up for the first opaque background, the way a browser paints it.
+    const backdrop = element => {
+      let node = element;
+      while (node) {
+        const found = colour(getComputedStyle(node).backgroundColor);
+        if (found && found.alpha > 0) return found.rgb;
+        node = node.parentElement;
+      }
+      return [255, 255, 255];
+    };
+    const ratio = (a, b) => {
+      const first = luminance(a);
+      const second = luminance(b);
+      return (Math.max(first, second) + 0.05) / (Math.min(first, second) + 0.05);
+    };
+
+    const failures = [];
+    let samples = 0;
+    for (const element of document.querySelectorAll('body *')) {
+      const own = [...element.childNodes]
+        .filter(node => node.nodeType === 3 && node.textContent.trim())
+        .map(node => node.textContent.trim())
+        .join(' ');
+      if (!own) continue;
+      const style = getComputedStyle(element);
+      if (style.display === 'none' || style.visibility === 'hidden') continue;
+      if (!element.getClientRects().length) continue;
+      const foreground = colour(style.color);
+      if (!foreground) continue;
+
+      const background = backdrop(element);
+      const opacity = foreground.alpha * parseFloat(style.opacity);
+      if (opacity === 0) continue;
+      const painted = foreground.rgb.map((value, i) => value * opacity + background[i] * (1 - opacity));
+
+      const size = parseFloat(style.fontSize);
+      const weight = parseInt(style.fontWeight, 10) || 400;
+      // WCAG large text: 24px, or 18.66px at 700+.
+      const target = size >= 24 || (size >= 18.66 && weight >= 700) ? 3 : 4.5;
+      const measured = ratio(painted, background);
+      samples += 1;
+      if (measured < target) {
+        failures.push(`${measured.toFixed(2)}:1 (needs ${target}:1) at ${size}px — "${own.slice(0, 48)}"`);
+      }
+    }
+    return { samples, failures };
+  };
+
+  it('renders no text below its contrast target, on any guide', async () => {
+    const guides = require('../content/guides');
+    const page = await newPage();
+    try {
+      for (const guide of guides) {
+        await page.goto(`${origin}/${guide.slug}`);
+        await page.evaluate(() => document.fonts.ready);
+        const result = await page.evaluate(contrastSweep);
+        assert.ok(result.samples > 20, `${guide.slug} rendered almost no text — did the page load?`);
+        assert.deepEqual(result.failures, [], `${guide.slug} has text under its contrast target`);
+      }
+    } finally {
+      await page.close();
+    }
+  });
+});

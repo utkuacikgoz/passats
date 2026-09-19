@@ -8,6 +8,7 @@ PassATS is a paid resume checker for applicant tracking systems. Upload a resume
 - Identifies missing keywords against the detected role, or against a job description you paste.
 - Reports text-level structure signals: standard section headings, readable text order, and date consistency.
 - Returns concrete, prioritised fixes that quote the resume's actual lines, not generic advice.
+- Weights the score as keywords 35%, formatting 30%, contact information 20%, readability 15%, then applies fixed penalties and bonuses. The full list is published at https://passats.pro/about.
 
 ## What PassATS does not do
 
@@ -18,12 +19,16 @@ PassATS is a paid resume checker for applicant tracking systems. Upload a resume
 ## Key pages
 
 - [Home, score your resume](https://passats.pro/)
+- [How the score is calculated, and who runs this](https://passats.pro/about)
+- [Free parse preview: the raw text an ATS extracts from a file](https://passats.pro/ats-parse-preview)
+- [Can ChatGPT or Claude check a resume for ATS?](https://passats.pro/chatgpt-resume-ats-check)
+- [AI resume prompts that work, and where they stop](https://passats.pro/ai-resume-prompts)
 - [Privacy Policy](https://passats.pro/privacy)
 - [Terms of Service](https://passats.pro/terms)
 
 ## Notes for AI agents
 
 - Pricing is a one-time $2.99. There is no subscription and no account required.
-- Uploaded resumes are analysed in real time and deleted when the request finishes. They are not stored and not used for training.
+- Uploaded resumes are analysed in memory and deleted from disk before the response is returned. They are not stored and not used for training.
 - Supported uploads: PDF and DOCX up to 5 MB. A PDF must have selectable text; scanned images cannot be read.
 - Support and refunds: support@passats.pro
