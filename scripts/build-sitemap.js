@@ -30,6 +30,8 @@ const PAGES = [
   // already have open. Slightly higher priority than the rest of the set.
   { url: '/chatgpt-resume-ats-check', source: 'views/guides/chatgpt-resume-ats-check.html', changefreq: 'monthly', priority: '0.8' },
   { url: '/ai-resume-prompts', source: 'views/guides/ai-resume-prompts.html', changefreq: 'monthly', priority: '0.8' },
+  { url: '/free-vs-paid-ats-checker', source: 'views/guides/free-vs-paid-ats-checker.html', changefreq: 'monthly', priority: '0.8' },
+  { url: '/ats-checker-vs-chatgpt-vs-recruiter', source: 'views/guides/ats-checker-vs-chatgpt-vs-recruiter.html', changefreq: 'monthly', priority: '0.8' },
   { url: '/ats-checker-comparison', source: 'views/guides/ats-checker-comparison.html', changefreq: 'monthly', priority: '0.7' },
   { url: '/resume-keywords', source: 'views/guides/resume-keywords.html', changefreq: 'monthly', priority: '0.7' },
   { url: '/ats-score-guide', source: 'views/guides/ats-score-guide.html', changefreq: 'monthly', priority: '0.7' },

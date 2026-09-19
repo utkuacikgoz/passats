@@ -380,6 +380,77 @@ module.exports = [
   },
 
   {
+    slug: 'free-vs-paid-ats-checker',
+    title: 'Free vs Paid ATS Checker: What the Money Actually Buys',
+    description: 'What free resume checkers can and cannot do, what a paid one adds, and how to tell which you need before spending anything.',
+    h1: 'Free vs Paid ATS Checker',
+    standfirst: 'We sell a paid one and publish a free one, so this is written to be useful whichever you end up using. The short version: free tools answer "how does this read", paid tools answer "what exactly do I change". Most people only need the second one once.',
+    sections: [
+      { h2: 'What free checkers genuinely do', body: [
+        'A free checker will give you a number and a short list of observations. That is worth having. If your resume scores badly across three different free tools, something structural is wrong and you have learned it for nothing.',
+        'They are also fast. Thirty seconds, no decision to make. As a first sanity check before you spend anything, including on us, that is the right first move.',
+      ]},
+      { h2: 'Where they stop, and why', body: [
+        '<strong>The advice is about resumes, not your resume.</strong> "Add more quantifiable achievements" is true of almost every resume ever written. It does not tell you that the third bullet of your Revolut role says "drove growth initiatives" and needs a number.',
+        '<strong>The specifics are usually the upsell.</strong> That is not dishonest, it is the business model: the free score is the advertisement for the paid report. Worth knowing before you assume the free tier is the whole product.',
+        '<strong>Many read pasted text, not your file.</strong> This is the one that matters most and the one nobody mentions. If the tool asks you to paste, it never opened your document, so it cannot tell you that your contact details failed to extract or that your content came out in an order nobody would choose.',
+        '<strong>You usually pay in data.</strong> An email address at minimum, and often the resume itself, kept. Read what you are agreeing to before you upload, on any tool, ours included.',
+      ]},
+      { h2: 'What a paid report should add', body: [
+        'If a paid tool gives you a bigger number and a longer list of generic advice, you have bought a longer advertisement. The things worth paying for are specific:',
+        '<strong>Your own lines, quoted back.</strong> A fix you can act on names the section and the sentence. Anything else is a reading list.',
+        '<strong>What each fix is worth.</strong> Ranked by impact, so you know which two to do tonight and which can wait.',
+        '<strong>What the parser actually received.</strong> Not what the page looks like: what came out of it.',
+        '<strong>Things you cannot see yourself.</strong> Text set in 2pt type or white on white, which templates and "optimisers" add without telling you, and which you cannot find by reading your own document.',
+      ]},
+      { h2: 'How to decide without spending anything', body: [
+        'Run the free check first. Every time. If it comes back clean and your problem is that your bullets read flat, you do not have a parsing problem and no paid checker will fix your writing for you.',
+        'Then do the extraction test, which is free everywhere: open your resume, select all, copy, paste into a plain text editor with no formatting. Read what appears. Missing contact details, scrambled sections, or text you did not write mean the file is failing before any human reads it.',
+        'Our <a href="/ats-parse-preview">free parse preview</a> does that step more precisely and still costs nothing and takes no email. Use it, then decide.',
+        'Pay only when you know what you are buying: the specific lines to change, ranked.',
+      ]},
+      { h2: 'When a subscription beats both', body: [
+        'If you are applying at volume, tailoring for each posting over months, per-scan pricing is the wrong shape and a subscription is the rational buy. We are not the right product for that and say so in <a href="/ats-checker-comparison">the full comparison</a>.',
+        'One-off pricing suits the opposite case: a handful of applications that matter, in a week that matters.',
+      ]},
+    ],
+  },
+
+  {
+    slug: 'ats-checker-vs-chatgpt-vs-recruiter',
+    title: 'ATS Checker vs ChatGPT vs a Recruiter Friend: Who Tells You What',
+    description: 'Three ways to get feedback on a resume, what each one can actually see, and the order to use them in.',
+    h1: 'ATS Checker vs ChatGPT vs a Recruiter Friend',
+    standfirst: 'Each of these answers a different question, and using the wrong one is why resume advice so often contradicts itself. Here is what each can actually see.',
+    sections: [
+      { h2: 'The recruiter friend sees the pitch', body: [
+        '<strong>What they see:</strong> the resume as a person reads it. Whether your seniority is legible in six seconds, whether the story of your career makes sense, whether you look like the hire.',
+        '<strong>What they cannot see:</strong> what the system did with your file before it reached a human, and whether the specific terms in a specific posting are present.',
+        '<strong>Best for:</strong> the judgement call. Is this a strong candidate for this job? Nothing automated answers that, and no tool ever will.',
+        '<strong>The catch:</strong> they are reading your file in a viewer, the way you wrote it. That is the one version of your resume guaranteed to look correct.',
+      ]},
+      { h2: 'The chat assistant sees the writing', body: [
+        '<strong>What it sees:</strong> the text you paste. Within that, it is genuinely good: it will find your vague bullets, rewrite them to lead with outcomes, and compare your text against a job description you also paste.',
+        '<strong>What it cannot see:</strong> your file. Pasting gives it what you could select and copy, which is not the object an applicant tracking system receives. It cannot know that your phone number never made it out of the document, because the missing thing is not in what you pasted.',
+        '<strong>Best for:</strong> content. Weak verbs, missing metrics, a summary that restates your job title. It is free and it is the right tool for this.',
+        '<strong>The catch:</strong> ask it whether your resume will parse and it will answer confidently about text you handed it. The confidence is not evidence. We wrote up the detail in <a href="/chatgpt-resume-ats-check">can ChatGPT or Claude check your resume for ATS</a>.',
+      ]},
+      { h2: 'The parser sees the file', body: [
+        '<strong>What it sees:</strong> what extraction produces from the document itself. Which fields survived, what order the content came out in, and text present in the file that no reader can see.',
+        '<strong>What it cannot see:</strong> whether you are a good candidate. It has no view on your career, and any tool claiming otherwise from a parse is guessing.',
+        '<strong>Best for:</strong> the failure nobody else can detect, because it happens before a human is involved.',
+        '<strong>The catch:</strong> a clean parse is not a good resume. It only means your writing will be read. What it says is still your job, and the chat assistant is better help for that than we are.',
+      ]},
+      { h2: 'The order that wastes the least effort', body: [
+        '<strong>First, the file.</strong> Check what extraction produces, because if your content is being mangled then every rewrite above it is wasted work. This is free: paste into a plain text editor, or use our <a href="/ats-parse-preview">parse preview</a>.',
+        '<strong>Second, the writing.</strong> Now that the words will be read, make them worth reading. A chat assistant is free and effective here. There are <a href="/ai-resume-prompts">prompts that work</a>.',
+        '<strong>Third, the judgement.</strong> Ask the human. By this point you are asking about fit rather than about formatting, which is the only question they are uniquely able to answer.',
+        'Most people run this backwards, polishing prose inside a document that is failing to parse. That is why the advice feels like it never works.',
+      ]},
+    ],
+  },
+
+  {
     slug: 'ats-checker-comparison',
     title: 'Which Kind of ATS Checker Should You Use?',
     description: 'An honest comparison of the three ways resume checkers are sold, what each is really charging for, and when each one is the right choice.',
