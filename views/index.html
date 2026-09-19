@@ -12,7 +12,7 @@
 <!-- Open Graph -->
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://passats.pro/">
-<meta property="og:title" content="ATS Resume Checker. No Signup. $2.99">
+<meta property="og:title" content="ATS Resume Checker. No Signup. $2.99 | PassATS">
 <meta property="og:description" content="Score your resume, find your keyword gaps, and get the exact lines to fix. $2.99, once.">
 <meta property="og:image" content="https://passats.pro/og-image.png">
 <meta property="og:image:width" content="1200">
@@ -23,7 +23,7 @@
 
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="ATS Resume Checker. No Signup. $2.99">
+<meta name="twitter:title" content="ATS Resume Checker. No Signup. $2.99 | PassATS">
 <meta name="twitter:description" content="Score your resume, find your keyword gaps, and get the exact lines to fix. $2.99, once.">
 <meta name="twitter:image" content="https://passats.pro/og-image.png">
 <meta name="twitter:image:alt" content="PassATS ATS resume score checker">
@@ -74,6 +74,14 @@
     "@id": "https://passats.pro/#website"
   },
   "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What is PassATS?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "PassATS is an ATS resume checker. You upload a PDF or DOCX, it reads the file the way an applicant tracking system does, scores it out of 100, and names the exact lines to change. It costs $2.99 once, needs no account, and stores nothing."
+      }
+    },
     {
       "@type": "Question",
       "name": "What is an ATS score and why should I care?",
@@ -148,7 +156,7 @@
 </script>
 
 <!-- Robots -->
-<meta name="robots" content="index, follow">
+<meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1">
 
 <!-- Search console ownership. Bing Webmaster Tools reads this on the home page
      only; removing it un-verifies the property, so it stays until ownership is
@@ -260,6 +268,17 @@
     margin-bottom: 24px;
   }
   .hero h1 span { color: var(--accent); }
+  /* Part of the h1, not a separate paragraph: the subject has to be inside the
+     heading to do its job. Set at the body face and weight so it reads as a
+     standfirst rather than competing with the display line. */
+  .h1-subject {
+    display: block; margin-top: 14px;
+    font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    font-size: 0.82rem; font-weight: 600; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--muted);
+    line-height: 1.5;
+  }
+  .hero h1 .h1-subject { color: var(--muted); }
 
   .hero-explainer {
     font-size: 1.08rem; color: var(--ink); line-height: 1.55;
@@ -418,6 +437,41 @@
     margin-top: 26px; line-height: 1.6;
   }
   .versus-note a { color: var(--accent-strong); }
+
+  /* ── METHODOLOGY STRIP ────────────────────────────────────────────────────
+     The scan found zero source or methodology signals on this page. /about
+     carries the full derivation, but a visitor arriving cold from search or an
+     AI citation never gets there, and "trust the number" is exactly what a
+     stranger should not do. So the arithmetic is stated here, in the weights
+     the evaluator actually applies, with the full list one click away. */
+  .method { max-width: 1000px; margin: 0 auto; padding: 0 40px 64px; }
+  .method-inner {
+    /* --card, not --surface. On --surface the body copy measures 4.41:1 and the
+       link 4.30:1, both under the 4.5:1 floor at this size — the same trap the
+       guide template's `code` rule fell into. On --card they are 5.58 and 5.44. */
+    background: var(--card); border: 1px solid var(--border); border-radius: 3px;
+    padding: 24px 28px;
+    display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 24px; align-items: center;
+  }
+  .method h2 {
+    font-family: 'DM Serif Display', 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif;
+    font-size: 1.2rem; margin-bottom: 8px; line-height: 1.3;
+  }
+  .method p { font-size: 0.85rem; color: var(--muted); line-height: 1.6; }
+  .method-weights { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+  .method-weights span {
+    background: var(--bg); border: 1px solid var(--border); border-radius: 3px;
+    padding: 5px 10px; font-size: 0.76rem; color: var(--ink);
+    font-variant-numeric: tabular-nums; white-space: nowrap;
+  }
+  .method-weights b { color: var(--accent-strong); font-weight: 600; }
+  .method-link { white-space: nowrap; }
+  .method-link a { font-size: 0.85rem; color: var(--accent-strong); font-weight: 600; }
+  @media (max-width: 760px) {
+    .method { padding: 0 20px 48px; }
+    .method-inner { grid-template-columns: 1fr; gap: 16px; padding: 20px 20px 22px; }
+    .method-link { white-space: normal; }
+  }
   @media (max-width: 860px) {
     .versus { padding: 0 20px 48px; }
     .versus-grid { grid-template-columns: 1fr; gap: 14px; }
@@ -912,8 +966,12 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <div id="landing" class="view active">
   <section class="hero">
     <div class="hero-copy">
-      <h1>Stop applying <span>blind.</span></h1>
-      <p class="hero-explainer">Get an ATS score, find missing keywords, and fix the lines that weaken your CV.</p>
+      <!-- The hook keeps the line. The subject line under it carries the
+           category, in the same words as the <title>, because a page whose h1
+           names neither its product nor its brand gives an answer engine
+           nothing to attach the facts to. -->
+      <h1>Stop applying <span>blind.</span><span class="h1-subject">ATS resume checker &middot; $2.99, no signup</span></h1>
+      <p class="hero-explainer">PassATS reads your resume file the way an applicant tracking system does, scores it, and names the exact lines to fix.</p>
       <p class="hero-flow">No signup. No login. Pay. Upload. Get your result. Then leave.</p>
       <div class="cta-row">
         <button class="btn-primary" onclick="ctaClick(this)" id="heroCtaBtn">Check My Resume. $2.99</button>
@@ -1067,11 +1125,32 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     </div>
   </section>
 
+  <!-- Methodology -->
+  <section class="method">
+    <div class="method-inner">
+      <div>
+        <h2>The score is arithmetic, not an opinion</h2>
+        <p>Four components, fixed weights, and a published list of every penalty and bonus. The evaluator quotes your own lines and is instructed never to invent a metric you did not write.</p>
+        <div class="method-weights">
+          <span>Keywords <b>35%</b></span>
+          <span>Formatting <b>30%</b></span>
+          <span>Contact info <b>20%</b></span>
+          <span>Readability <b>15%</b></span>
+        </div>
+      </div>
+      <p class="method-link"><a href="/about">How the score is calculated &rarr;</a></p>
+    </div>
+  </section>
+
   <!-- FAQ -->
   <section class="faq" id="faq">
     <h2 class="section-label">Before you put your name on it</h2>
     <div class="faq-list">
       <details class="faq-item" open>
+        <summary>What is PassATS?</summary>
+        <p>PassATS is an ATS resume checker. You upload a PDF or DOCX, it reads the file the way an applicant tracking system does, scores it out of 100, and names the exact lines to change. It costs $2.99 once, needs no account, and stores nothing.</p>
+      </details>
+      <details class="faq-item">
         <summary>What is an ATS score and why should I care?</summary>
         <p>It is a hard look at the text in your resume. A low score often means key terms are missing, proof is thin, or structure is unclear. It is not a hiring decision. It is a chance to tighten your case before you send it.</p>
       </details>
