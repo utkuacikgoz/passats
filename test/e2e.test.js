@@ -6,10 +6,20 @@
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
 const crypto = require('crypto');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
 
 // Boot in dev mode
 process.env.DEV_MODE = 'true';
 delete process.env.VERCEL;
+
+// multer writes uploads to os.tmpdir(), which POSIX resolves from TMPDIR at call
+// time. Give this suite its own directory so the "nothing is kept" check below
+// is exact: node --test runs suites in parallel, and scanning the shared tmp
+// would assert against files other suites are uploading at the same moment.
+const UPLOAD_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'passats-e2e-tmp-'));
+process.env.TMPDIR = UPLOAD_DIR;
 
 const app = require('../server');
 const supertest = require('supertest');
@@ -117,6 +127,31 @@ describe('Checkout flow (dev mode)', () => {
 });
 
 describe('Analyze endpoint — happy path', () => {
+  // The paid path makes the same "we store nothing" promise as the free preview,
+  // and it used to keep it from a finally that runs after the response is
+  // flushed. On Vercel the instance can be frozen at exactly that point, so the
+  // unlink was racing the freeze rather than being guaranteed by it. The file is
+  // now discarded as soon as its bytes are in memory, which is strictly before
+  // the response — so by the time this assertion runs, the directory is empty or
+  // the ordering regressed.
+  it('keeps nothing on disk after a paid analysis', async () => {
+    assert.deepEqual(fs.readdirSync(UPLOAD_DIR), [], 'the suite started with a dirty upload directory');
+    const token = await getDevToken();
+    const res = await request
+      .post('/api/analyze')
+      // Own rate-limit bucket: this suite shares the default IP and the analyze
+      // limiter is 10/min, so an extra request here would 429 a later test.
+      .set('x-forwarded-for', '198.51.100.44')
+      .set('x-passats-token', token)
+      .attach('cv', makePdf(), 'resume.pdf');
+
+    assert.equal(res.status, 200);
+    assert.deepEqual(
+      fs.readdirSync(UPLOAD_DIR), [],
+      'the uploaded file was left on disk after the response',
+    );
+  });
+
   it('POST /api/analyze with valid token + file returns ATS report', async () => {
     const token = await getDevToken();
     const pdf = makePdf();
