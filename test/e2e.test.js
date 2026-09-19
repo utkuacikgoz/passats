@@ -549,18 +549,25 @@ describe('Routing', () => {
     assert.equal(contact.headers.location, '/about#contact');
   });
 
-  it('states the scoring weights on /about, and they match the prompt', async () => {
-    // The page exists to make the score reproducible. If the weights in the
-    // system prompt are retuned and this page is not, it becomes a lie that
-    // nothing else would catch.
-    const page = (await request.get('/about')).text;
+  it('states the scoring weights wherever they appear, and they match the prompt', async () => {
+    // The pages exist to make the score reproducible. If the weights in the
+    // system prompt are retuned and these are not, they become a lie that
+    // nothing else would catch. The landing page repeats them in its
+    // methodology strip, so it drifts the same way and is checked the same way.
+    const aboutHtml = (await request.get('/about')).text;
+    const homeHtml = (await request.get('/')).text;
+    const page = aboutHtml;
     const prompt = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
     const formula = /overallScore = round\(keywords\*([\d.]+) \+ formatting\*([\d.]+) \+ readability\*([\d.]+) \+ contactInfo\*([\d.]+)\)/.exec(prompt);
     assert.ok(formula, 'the scoring formula is no longer in the system prompt in the expected shape');
     const [, keywords, formatting, readability, contactInfo] = formula;
     for (const [label, weight] of [['keywords', keywords], ['formatting', formatting], ['readability', readability], ['contactInfo', contactInfo]]) {
       const percent = `${Math.round(parseFloat(weight) * 100)}%`;
-      assert.ok(page.includes(percent), `/about does not state the ${label} weight (${percent})`);
+      // Both pages must carry it: `includes` over the concatenation would pass
+      // on one alone, which is exactly the drift this is meant to catch.
+      for (const [name, html] of [['/about', aboutHtml], ['/', homeHtml]]) {
+        assert.ok(html.includes(percent), `${name} does not state the ${label} weight (${percent})`);
+      }
       assert.match(page, new RegExp(`${label}\\s*x\\s*${weight.replace('.', '\\.')}`), `/about's formula does not show ${label} at ${weight}`);
     }
   });
