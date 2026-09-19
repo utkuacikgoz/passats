@@ -169,7 +169,7 @@ ${related}
   </div>
 </main>
 <footer>
-  <p class="footer-legal"><span>&copy; 2026 PassATS</span> <a href="/">Home</a> <a href="/privacy">Privacy</a> <a href="/terms">Terms</a></p>
+  <p class="footer-legal"><span>&copy; 2026 PassATS</span> <a href="/">Home</a> <a href="/about">About</a> <a href="/privacy">Privacy</a> <a href="/terms">Terms</a></p>
 </footer>
 </body>
 </html>

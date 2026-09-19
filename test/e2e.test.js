@@ -526,10 +526,42 @@ describe('Routing', () => {
   });
 
   it('301s the .html variants to their canonical clean paths', async () => {
-    for (const [from, to] of [['/privacy.html', '/privacy'], ['/terms.html', '/terms'], ['/index.html', '/']]) {
+    for (const [from, to] of [['/privacy.html', '/privacy'], ['/terms.html', '/terms'], ['/about.html', '/about'], ['/index.html', '/']]) {
       const res = await request.get(from);
       assert.equal(res.status, 301, `${from} should redirect`);
       assert.equal(res.headers.location, to);
+    }
+  });
+
+  it('serves /about, and points /contact at its contact section', async () => {
+    // An audit of the live page found only two important internal links,
+    // /privacy and /terms, and no methodology or proof signal anywhere. /about
+    // is the answer to both, so it has to stay reachable.
+    const res = await request.get('/about');
+    assert.equal(res.status, 200);
+    assert.match(res.headers['content-type'], /text\/html/);
+    assert.match(res.text, /id="contact"/, '/about lost its contact section');
+
+    // /contact is a URL people and crawlers try. It redirects rather than
+    // renders, because serving the same HTML at two URLs is duplicate content.
+    const contact = await request.get('/contact');
+    assert.equal(contact.status, 301);
+    assert.equal(contact.headers.location, '/about#contact');
+  });
+
+  it('states the scoring weights on /about, and they match the prompt', async () => {
+    // The page exists to make the score reproducible. If the weights in the
+    // system prompt are retuned and this page is not, it becomes a lie that
+    // nothing else would catch.
+    const page = (await request.get('/about')).text;
+    const prompt = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
+    const formula = /overallScore = round\(keywords\*([\d.]+) \+ formatting\*([\d.]+) \+ readability\*([\d.]+) \+ contactInfo\*([\d.]+)\)/.exec(prompt);
+    assert.ok(formula, 'the scoring formula is no longer in the system prompt in the expected shape');
+    const [, keywords, formatting, readability, contactInfo] = formula;
+    for (const [label, weight] of [['keywords', keywords], ['formatting', formatting], ['readability', readability], ['contactInfo', contactInfo]]) {
+      const percent = `${Math.round(parseFloat(weight) * 100)}%`;
+      assert.ok(page.includes(percent), `/about does not state the ${label} weight (${percent})`);
+      assert.match(page, new RegExp(`${label}\\s*x\\s*${weight.replace('.', '\\.')}`), `/about's formula does not show ${label} at ${weight}`);
     }
   });
 

@@ -31,6 +31,10 @@ const PAGES = [
   { url: '/resume-file-format', source: 'views/guides/resume-file-format.html', changefreq: 'monthly', priority: '0.7' },
   { url: '/ats-parsing-errors', source: 'views/guides/ats-parsing-errors.html', changefreq: 'monthly', priority: '0.7' },
   { url: '/ats-resume-template', source: 'views/guides/ats-resume-template.html', changefreq: 'monthly', priority: '0.7' },
+  // Who runs this, how the score is computed, and what the report will not
+  // claim. Higher priority than the legal pages: it is the page a cautious
+  // buyer and an AI answer engine both reach for before trusting a number.
+  { url: '/about', source: 'views/about.html', changefreq: 'monthly', priority: '0.6' },
   { url: '/privacy', source: 'views/privacy.html', changefreq: 'monthly', priority: '0.3' },
   { url: '/terms',   source: 'views/terms.html',   changefreq: 'monthly', priority: '0.3' },
 ];
