@@ -14,6 +14,7 @@
  */
 const fs = require('fs');
 const path = require('path');
+const { CANONICAL_ORIGIN } = require('../config/site');
 
 const INDEX_PATH = path.join(__dirname, '..', 'views', 'index.html');
 
@@ -50,6 +51,12 @@ function buildFaqLd(items) {
   return {
     '@context': 'https://schema.org',
     '@type': 'FAQPage',
+    // Identity and the one edge back into the graph. The other blocks carry
+    // their @id in the HTML, but this one is rewritten from scratch on every
+    // sync, so it has to come from here or it is lost on the next run. The
+    // origin comes from config/site.js for the same reason the canonicals do.
+    '@id': `${CANONICAL_ORIGIN}/#faq`,
+    isPartOf: { '@id': `${CANONICAL_ORIGIN}/#website` },
     mainEntity: items.map(item => ({
       '@type': 'Question',
       name: item.question,
