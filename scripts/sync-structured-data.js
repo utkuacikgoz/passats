@@ -21,7 +21,6 @@ const INDEX_PATH = path.join(__dirname, '..', 'views', 'index.html');
 // Matches the visible FAQ accordion entries in document order.
 const FAQ_ITEM = /<details class="faq-item"[^>]*>\s*<summary>([\s\S]*?)<\/summary>\s*<p>([\s\S]*?)<\/p>\s*<\/details>/g;
 const FAQ_LD_BLOCK = /(<!-- Structured Data: FAQPage[^>]*-->\s*<script type="application\/ld\+json">\s*)([\s\S]*?)(\s*<\/script>)/;
-
 function decodeEntities(html) {
   return html
     .replace(/<[^>]+>/g, '')
