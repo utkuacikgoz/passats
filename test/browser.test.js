@@ -479,6 +479,30 @@ describe('the phone layout', () => {
     }
   });
 
+  it('relabels every landing CTA once a token is held, not just the ones it was written for', async () => {
+    // syncCtas named its two buttons individually. Adding a third to the
+    // free-versus-paid section would have left it reading "Check My Resume.
+    // $2.99" to somebody who had already paid, and clicking it would have gone
+    // to the upload view under a label promising a purchase. The function now
+    // drives off CTA_IDS, and this asserts the outcome rather than the list,
+    // so a fourth CTA added without wiring fails here.
+    const page = await newPage();
+    try {
+      await page.goto(`${origin}/?dev=1`);
+      await page.waitForSelector('#upload.active', { timeout: 15000 });
+
+      const stale = await page.evaluate(() =>
+        [...document.querySelectorAll('button')]
+          .filter(button => /^(nav|hero|versus)CtaBtn$/.test(button.id))
+          .filter(button => button.textContent.trim() !== 'Continue to upload')
+          .map(button => `${button.id}: "${button.textContent.trim()}"`)
+      );
+      assert.deepEqual(stale, [], 'a CTA still offers to sell to a customer who has paid');
+    } finally {
+      await page.close();
+    }
+  });
+
   it('keeps the coupon field closed until it is asked for', async () => {
     // Same failure mode as the nav CTA: .coupon-form carries `display: flex`.
     const { context, page } = await phonePage();
