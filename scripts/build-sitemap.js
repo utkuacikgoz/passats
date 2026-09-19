@@ -25,6 +25,11 @@ const PAGES = [
   { url: '/resume-summary-examples', source: 'views/guides/resume-summary-examples.html', changefreq: 'monthly', priority: '0.7' },
   { url: '/tailor-resume-to-job-description', source: 'views/guides/tailor-resume-to-job-description.html', changefreq: 'monthly', priority: '0.7' },
   { url: '/resume-length', source: 'views/guides/resume-length.html', changefreq: 'monthly', priority: '0.7' },
+  // The two chat-assistant pages answer the question a visitor asks before
+  // they consider paying for anything: why not just use the free thing I
+  // already have open. Slightly higher priority than the rest of the set.
+  { url: '/chatgpt-resume-ats-check', source: 'views/guides/chatgpt-resume-ats-check.html', changefreq: 'monthly', priority: '0.8' },
+  { url: '/ai-resume-prompts', source: 'views/guides/ai-resume-prompts.html', changefreq: 'monthly', priority: '0.8' },
   { url: '/ats-checker-comparison', source: 'views/guides/ats-checker-comparison.html', changefreq: 'monthly', priority: '0.7' },
   { url: '/resume-keywords', source: 'views/guides/resume-keywords.html', changefreq: 'monthly', priority: '0.7' },
   { url: '/ats-score-guide', source: 'views/guides/ats-score-guide.html', changefreq: 'monthly', priority: '0.7' },

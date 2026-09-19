@@ -87,7 +87,12 @@ ${s.body.map(p => `  <p>${p}</p>`).join('\n')}`).join('\n');
   ul { padding-left: 22px; }
   a { color: var(--accent-strong); }
   strong { color: var(--ink); font-weight: 600; }
-  code { background: var(--surface); border: 1px solid var(--border); border-radius: 3px; padding: 1px 5px; font-size: 0.88em; }
+  /* --ink, not the inherited --muted. Body copy is --muted, which is 4.41:1 on
+     --surface, and code shrinks to 0.88em, so it lands at about 13px where the
+     bar is 4.5:1. It shipped that way and the token-pair contrast tests did not
+     catch it, because a pair only fails once one is rendered on the other. --ink
+     is 13.2:1, and code being the darker run reads correctly anyway. */
+  code { background: var(--surface); color: var(--ink); border: 1px solid var(--border); border-radius: 3px; padding: 1px 5px; font-size: 0.88em; }
   .cta { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 28px 26px; margin: 48px 0 0; text-align: center; }
   .cta h2 { margin-top: 0; font-size: 1.35rem; }
   .cta p { margin-bottom: 18px; }
