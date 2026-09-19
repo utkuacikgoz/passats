@@ -30,11 +30,11 @@
     "test:node": "node --test test/unit.test.js test/e2e.test.js test/payment.test.js test/contract.test.js test/eval.test.js test/quality-benchmark.test.js test/domain.test.js test/injection.test.js test/hidden-text.test.js test/parse-preview.test.js test/devmode.test.js"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.125.0",
+    "@anthropic-ai/sdk": "^0.126.0",
     "@napi-rs/canvas": "1.0.9",
     "@upstash/redis": "^1.38.4",
     "@vercel/analytics": "^2.0.1",
-    "compression": "^1.8.1",
+    "compression": "^1.8.2",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "jsonwebtoken": "^9.0.3",
