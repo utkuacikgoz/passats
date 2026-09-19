@@ -567,9 +567,27 @@ describe('the JSON-LD blocks form one connected graph', () => {
     }
   });
 
-  it('claims no authorship, dates or ratings that the page cannot support', () => {
+  it('claims no authorship or ratings that the page cannot support', () => {
+    // dateModified is back on this list. views/ is drift-gated by CI while the
+    // sitemap is deliberately not, because git-derived dates differ between a
+    // committer's checkout and refs/pull/N/merge. Freshness belongs in the
+    // sitemap's <lastmod>; a date in this file fails the gate.
     const invented = /"(author|datePublished|dateModified|aggregateRating|review|reviewCount|ratingValue)"/;
     assert.doesNotMatch(JSON.stringify(blocks), invented,
       'a schema fact the page does not state is worse than a low audit score');
+  });
+
+  it('states every Organization fact somewhere a reader can check it', () => {
+    // The point of legalName and sameAs is that they are verifiable. If the
+    // page stops saying them, the schema is asserting something unbacked.
+    const org = blocks.find(block => block['@type'] === 'Organization');
+    const published = index + read('views/about.html') + read('views/terms.html');
+    assert.ok(published.includes(org.legalName),
+      `schema claims legalName "${org.legalName}" but no page states it`);
+    for (const url of org.sameAs || []) {
+      assert.ok(published.includes(url), `schema claims sameAs ${url} but no page links it`);
+    }
+    assert.ok(published.includes(org.contactPoint.email),
+      'schema publishes a support address no page shows');
   });
 });

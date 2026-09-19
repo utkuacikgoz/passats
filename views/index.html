@@ -38,8 +38,19 @@
   "@type": "Organization",
   "@id": "https://passats.pro/#organization",
   "name": "PassATS",
+  "legalName": "Bosphorus Elevate LLC",
   "url": "https://passats.pro",
-  "logo": "https://passats.pro/logo.png"
+  "logo": "https://passats.pro/logo.png",
+  "sameAs": [
+    "https://www.producthunt.com/products/passats"
+  ],
+  "contactPoint": {
+    "@type": "ContactPoint",
+    "contactType": "customer support",
+    "email": "support@passats.pro",
+    "url": "https://passats.pro/about#contact",
+    "availableLanguage": "en"
+  }
 }
 </script>
 
@@ -142,6 +153,26 @@
 }
 </script>
 
+<!-- Structured Data: WebPage — the home page itself, bound to the graph.
+     No dateModified here on purpose. The freshness signal is the sitemap's
+     <lastmod>, which is derived from git history; ci.yml excludes the sitemap
+     from the drift gate for that reason, while views/ is gated. A git-derived
+     date in this file fails that gate on any checkout whose git view differs
+     from the committer's, which is what refs/pull/N/merge is. -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebPage",
+  "@id": "https://passats.pro/#webpage",
+  "url": "https://passats.pro/",
+  "name": "ATS Resume Checker. No Signup. $2.99 | PassATS",
+  "isPartOf": { "@id": "https://passats.pro/#website" },
+  "about": { "@id": "https://passats.pro/#software" },
+  "primaryImageOfPage": "https://passats.pro/og-image.png",
+  "inLanguage": "en"
+}
+</script>
+
 <!-- Structured Data: WebSite -->
 <script type="application/ld+json">
 {
@@ -230,6 +261,7 @@
     font-size: 1.4rem;
     letter-spacing: -0.02em;
     cursor: pointer;
+      text-decoration: none; color: var(--ink);
   }
   .logo span { color: var(--accent-strong); }
   .nav-pill {
@@ -237,7 +269,7 @@
     color: #fff;
     padding: 8px 20px;
     border-radius: 100px;
-    font-size: 0.85rem;
+    font-size: 0.9rem;
     font-weight: 500;
     cursor: pointer;
     border: none;
@@ -274,7 +306,7 @@
   .h1-subject {
     display: block; margin-top: 14px;
     font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-    font-size: 0.82rem; font-weight: 600; letter-spacing: 0.1em;
+    font-size: 0.9rem; font-weight: 600; letter-spacing: 0.1em;
     text-transform: uppercase; color: var(--muted);
     line-height: 1.5;
   }
@@ -300,7 +332,7 @@
     display: flex; flex-wrap: wrap; justify-content: center;
     gap: 10px 22px; margin-bottom: 18px;
   }
-  .footer-guides a { font-size: 0.84rem; }
+  .footer-guides a { font-size: 0.9rem; }
   /* The heading is for the phone layout, where the guides become a list and
      need to read as one section rather than a wall of underlined text. */
   .footer-guides-label { display: none; }
@@ -336,7 +368,7 @@
   .coupon-row { margin-top: 18px; }
   .coupon-toggle {
     background: none; border: none; padding: 0;
-    font-family: inherit; font-size: 0.84rem; color: var(--muted);
+    font-family: inherit; font-size: 0.9rem; color: var(--muted);
     text-decoration: underline; text-underline-offset: 3px; cursor: pointer;
   }
   .coupon-toggle:hover { color: var(--ink); }
@@ -398,7 +430,7 @@
     margin: -22px -22px 18px;
   }
   .versus-price {
-    font-size: 0.68rem; letter-spacing: 0.13em; text-transform: uppercase;
+    font-size: 0.78rem; letter-spacing: 0.13em; text-transform: uppercase;
     color: var(--muted); font-weight: 600; margin-bottom: 6px;
   }
   .versus-card.is-ours .versus-price { color: var(--accent-strong); }
@@ -409,7 +441,7 @@
   .versus-list { list-style: none; padding: 0; margin: 0 0 16px; }
   .versus-list li {
     display: grid; grid-template-columns: 15px 1fr; gap: 9px;
-    font-size: 0.82rem; line-height: 1.5; color: var(--muted);
+    font-size: 0.9rem; line-height: 1.55; color: var(--muted);
     padding: 5px 0;
   }
   .versus-list .mark { font-weight: 600; line-height: 1.35; }
@@ -417,10 +449,10 @@
   .versus-list .no { color: var(--danger-strong); }
   .versus-list b { color: var(--ink); font-weight: 600; }
   .versus-foot { margin-top: auto; }
-  .versus-foot a { font-size: 0.82rem; color: var(--accent-strong); font-weight: 600; }
+  .versus-foot a { font-size: 0.9rem; color: var(--accent-strong); font-weight: 600; }
   .versus-cta { width: 100%; padding: 13px 18px; font-size: 0.92rem; min-height: 44px; }
   .versus-note {
-    text-align: center; font-size: 0.82rem; color: var(--muted);
+    text-align: center; font-size: 0.9rem; color: var(--muted);
     margin-top: 26px; line-height: 1.6;
   }
   .versus-note a { color: var(--accent-strong); }
@@ -444,16 +476,44 @@
     font-family: 'DM Serif Display', 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif;
     font-size: 1.2rem; margin-bottom: 8px; line-height: 1.3;
   }
-  .method p { font-size: 0.85rem; color: var(--muted); line-height: 1.6; }
+  .method p { font-size: 0.9rem; color: var(--muted); line-height: 1.6; }
   .method-weights { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
   .method-weights span {
     background: var(--bg); border: 1px solid var(--border); border-radius: 3px;
-    padding: 5px 10px; font-size: 0.76rem; color: var(--ink);
+    padding: 6px 11px; font-size: 0.875rem; color: var(--ink);
     font-variant-numeric: tabular-nums; white-space: nowrap;
   }
   .method-weights b { color: var(--accent-strong); font-weight: 600; }
   .method-link { white-space: nowrap; }
-  .method-link a { font-size: 0.85rem; color: var(--accent-strong); font-weight: 600; }
+  .method-link a { font-size: 0.9rem; color: var(--accent-strong); font-weight: 600; }
+
+  /* ── PROOF ROW ────────────────────────────────────────────────────────────
+     The scan reported zero commercial proof signals for this page. We have no
+     customers to quote yet and inventing some is not an option, so this states
+     only what can be checked: who the company is, what happens to the money,
+     what happens to the file, and what happens if it goes wrong. Every claim
+     links to the page that substantiates it, which is what makes it proof
+     rather than assertion. */
+  .proof { max-width: 1000px; margin: 0 auto; padding: 0 40px 56px; }
+  .proof-grid {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px;
+    background: var(--border); border: 1px solid var(--border); border-radius: 3px;
+    overflow: hidden;
+  }
+  .proof-item { background: var(--card); padding: 18px 18px 20px; }
+  .proof-item h3 {
+    font-size: 0.875rem; font-weight: 600; color: var(--ink);
+    margin-bottom: 5px; line-height: 1.35;
+  }
+  .proof-item p { font-size: 0.875rem; color: var(--muted); line-height: 1.5; }
+  .proof-item a { color: var(--accent-strong); font-weight: 600; }
+  @media (max-width: 860px) {
+    .proof { padding: 0 20px 44px; }
+    .proof-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+  @media (max-width: 480px) {
+    .proof-grid { grid-template-columns: 1fr; }
+  }
   @media (max-width: 760px) {
     .method { padding: 0 20px 48px; }
     .method-inner { grid-template-columns: 1fr; gap: 16px; padding: 20px 20px 22px; }
@@ -462,7 +522,7 @@
   @media (max-width: 860px) {
     .versus { padding: 0 20px 48px; }
     .versus-grid { grid-template-columns: 1fr; gap: 14px; }
-    .versus-list li { font-size: 0.86rem; }
+    .versus-list li { font-size: 0.9rem; }
   }
 
   /* ── HERO: WHAT THE PARSER READS ──────────────────────────────────────────
@@ -493,7 +553,7 @@
     gap: 14px; padding: 22px 30px 14px;
   }
   .parse-label {
-    font-size: 0.66rem; letter-spacing: 0.13em; text-transform: uppercase;
+    font-size: 0.78rem; letter-spacing: 0.13em; text-transform: uppercase;
     color: var(--muted);
   }
 
@@ -526,14 +586,14 @@
   .parse-seam { display: flex; align-items: center; gap: 12px; padding: 0 30px; }
   .parse-seam .rule { flex: 1; height: 1px; background: var(--ink); }
   .parse-seam .label {
-    font-size: 0.66rem; letter-spacing: 0.12em; text-transform: uppercase;
+    font-size: 0.78rem; letter-spacing: 0.12em; text-transform: uppercase;
     color: var(--accent-strong); font-weight: 600; white-space: nowrap;
   }
 
   .parse-stream {
     margin: 15px 30px 0;
     font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    font-size: 0.74rem; line-height: 1.75; color: var(--ink);
+    font-size: 0.82rem; line-height: 1.75; color: var(--ink);
     background: var(--bg); border: 1px solid var(--border);
     padding: 12px 14px; white-space: pre-wrap; word-break: break-word;
   }
@@ -547,19 +607,19 @@
     font-family: 'DM Serif Display', 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif;
     font-size: 0.95rem;
   }
-  .parse-damage p { font-size: 0.8rem; line-height: 1.5; color: var(--muted); }
+  .parse-damage p { font-size: 0.9rem; line-height: 1.55; color: var(--muted); }
   .parse-damage p strong { color: var(--ink); font-weight: 600; }
 
   .parse-foot {
     border-top: 1px solid var(--ink); margin: 0 30px; padding: 14px 0 20px;
   }
-  .parse-foot p { font-size: 0.8rem; color: var(--muted); line-height: 1.5; }
+  .parse-foot p { font-size: 0.9rem; color: var(--muted); line-height: 1.55; }
   .parse-foot strong { color: var(--ink); font-weight: 600; }
 
   /* ── HOW IT WORKS ── */
   .how { padding: 60px 40px 80px; max-width: 860px; margin: 0 auto; }
   .section-label {
-    font-size: 0.75rem; font-weight: 600; letter-spacing: 0.08em;
+    font-size: 0.82rem; font-weight: 600; letter-spacing: 0.08em;
     text-transform: uppercase; color: var(--muted);
     margin-bottom: 40px; text-align: center;
     font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
@@ -581,7 +641,7 @@
     max-width: 860px; margin: 0 auto;
     padding: 20px 40px 40px;
     text-align: center;
-    font-size: 0.78rem;
+    font-size: 0.875rem;
     color: var(--muted);
     border-top: 1px solid var(--border);
   }
@@ -918,7 +978,7 @@
     .parse-head, .cv-mini, .parse-seam, .parse-damage { padding-left: 20px; padding-right: 20px; }
     .parse-stream, .parse-foot { margin-left: 20px; margin-right: 20px; }
     .cv-cols { gap: 11px; }
-    .parse-stream { font-size: 0.72rem; }
+    .parse-stream { font-size: 0.78rem; }
 
     /* The verdict is a sentence, not a headline. Centred at 1.5rem it ran to
        five tight lines on a phone and read as shouting rather than as the
@@ -943,7 +1003,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <header>
 <!-- NAV -->
 <nav>
-  <div class="logo" onclick="showView('landing')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();showView('landing')}" role="link" tabindex="0" aria-label="PassATS home">Pass<span>ATS</span></div>
+  <a class="logo" href="/" onclick="event.preventDefault();showView('landing')" aria-label="PassATS home">Pass<span>ATS</span></a>
   <button class="nav-pill" id="navCtaBtn" onclick="ctaClick(this)" aria-label="Score your resume for ATS compatibility">Check My Resume. $2.99</button>
 </nav>
 </header>
@@ -1047,10 +1107,10 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <div class="versus-price">Free checkers</div>
         <h3>A score, and your email on a list</h3>
         <ul class="versus-list">
-          <li><span class="mark yes">&check;</span><span>Tells you roughly how you rank</span></li>
-          <li><span class="mark no">&times;</span><span>Generic advice, not <b>your</b> lines</span></li>
-          <li><span class="mark no">&times;</span><span>The specifics sit behind an upgrade</span></li>
-          <li><span class="mark no">&times;</span><span>Usually keeps your resume</span></li>
+          <li><span class="mark yes" aria-hidden="true">&check;</span><span class="sr-only">Included: </span><span>Tells you roughly how you rank</span></li>
+          <li><span class="mark no" aria-hidden="true">&times;</span><span class="sr-only">Not included: </span><span>Generic advice, not <b>your</b> lines</span></li>
+          <li><span class="mark no" aria-hidden="true">&times;</span><span class="sr-only">Not included: </span><span>The specifics sit behind an upgrade</span></li>
+          <li><span class="mark no" aria-hidden="true">&times;</span><span class="sr-only">Not included: </span><span>Usually keeps your resume</span></li>
         </ul>
       </div>
 
@@ -1058,10 +1118,10 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <div class="versus-price">Free, from us</div>
         <h3>See what a parser pulls out of your file</h3>
         <ul class="versus-list">
-          <li><span class="mark yes">&check;</span><span>Opens the <b>file</b>, not pasted text</span></li>
-          <li><span class="mark yes">&check;</span><span>No signup, no email, nothing stored</span></li>
-          <li><span class="mark no">&times;</span><span>Shows the text, does not score it</span></li>
-          <li><span class="mark no">&times;</span><span>Does not tell you what to change</span></li>
+          <li><span class="mark yes" aria-hidden="true">&check;</span><span class="sr-only">Included: </span><span>Opens the <b>file</b>, not pasted text</span></li>
+          <li><span class="mark yes" aria-hidden="true">&check;</span><span class="sr-only">Included: </span><span>No signup, no email, nothing stored</span></li>
+          <li><span class="mark no" aria-hidden="true">&times;</span><span class="sr-only">Not included: </span><span>Shows the text, does not score it</span></li>
+          <li><span class="mark no" aria-hidden="true">&times;</span><span class="sr-only">Not included: </span><span>Does not tell you what to change</span></li>
         </ul>
         <div class="versus-foot"><a href="/ats-parse-preview">Try the free preview &rarr;</a></div>
       </div>
@@ -1070,11 +1130,11 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <div class="versus-price">$2.99 once</div>
         <h3>The score, and the exact lines to change</h3>
         <ul class="versus-list">
-          <li><span class="mark yes">&check;</span><span>Everything the free preview shows</span></li>
-          <li><span class="mark yes">&check;</span><span>Quotes <b>your</b> bullets and rewrites them</span></li>
-          <li><span class="mark yes">&check;</span><span>What each fix is worth, in points</span></li>
-          <li><span class="mark yes">&check;</span><span>Finds text set to be invisible</span></li>
-          <li><span class="mark yes">&check;</span><span>No account. No subscription. Nothing kept.</span></li>
+          <li><span class="mark yes" aria-hidden="true">&check;</span><span class="sr-only">Included: </span><span>Everything the free preview shows</span></li>
+          <li><span class="mark yes" aria-hidden="true">&check;</span><span class="sr-only">Included: </span><span>Quotes <b>your</b> bullets and rewrites them</span></li>
+          <li><span class="mark yes" aria-hidden="true">&check;</span><span class="sr-only">Included: </span><span>What each fix is worth, in points</span></li>
+          <li><span class="mark yes" aria-hidden="true">&check;</span><span class="sr-only">Included: </span><span>Finds text set to be invisible</span></li>
+          <li><span class="mark yes" aria-hidden="true">&check;</span><span class="sr-only">Included: </span><span>No account. No subscription. Nothing kept.</span></li>
         </ul>
         <div class="versus-foot">
           <button class="btn-primary versus-cta" onclick="ctaClick(this)" id="versusCtaBtn">Check My Resume. $2.99</button>
@@ -1098,11 +1158,34 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     </div>
   </section>
 
+  <!-- Proof -->
+  <section class="proof" aria-labelledby="proof-heading">
+    <h2 id="proof-heading" class="sr-only">Why you can trust this</h2>
+    <div class="proof-grid">
+      <div class="proof-item">
+        <h3>A real company</h3>
+        <p>Run by Bosphorus Elevate LLC, registered in Delaware. <a href="/about">Who we are</a>.</p>
+      </div>
+      <div class="proof-item">
+        <h3>Refunded, no argument</h3>
+        <p>If it fails or is not what was described, email us and we refund in full. <a href="/about#contact">Contact</a>.</p>
+      </div>
+      <div class="proof-item">
+        <h3>Your card stays with Stripe</h3>
+        <p>Payment happens on Stripe&rsquo;s own domain. We never see your card details. <a href="/privacy">Privacy</a>.</p>
+      </div>
+      <div class="proof-item">
+        <h3>Your file is deleted</h3>
+        <p>Removed from disk before your report is returned. No account, no archive. <a href="/privacy">Privacy</a>.</p>
+      </div>
+    </div>
+  </section>
+
   <!-- Methodology -->
   <section class="method">
     <div class="method-inner">
       <div>
-        <h2>The score is arithmetic, not an opinion</h2>
+        <h2>Our methodology: the score is arithmetic, not an opinion</h2>
         <p>Four components, fixed weights, and a published list of every penalty and bonus. The evaluator quotes your own lines and is instructed never to invent a metric you did not write.</p>
         <div class="method-weights">
           <span>Keywords <b>35%</b></span>
@@ -1111,7 +1194,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <span>Readability <b>15%</b></span>
         </div>
       </div>
-      <p class="method-link"><a href="/about">How the score is calculated &rarr;</a></p>
+      <p class="method-link"><a href="/about">Read the full methodology &rarr;</a></p>
     </div>
   </section>
 

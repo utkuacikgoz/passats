@@ -100,8 +100,7 @@ const APP_SCRIPT_CSP_HASH = "'sha256-wwKE4+6zFfXXZGwxm9bQa1KOtJF+5anrKCLTNq5YqMk
 const VERCEL_ANALYTICS_CSP_HASH = "'sha256-rbTaSdDD+Sd+K8IZ66VS79bdI78bN8AwXXyN0/lD5fY='";
 // Hashes of individual onclick handler bodies (required for 'unsafe-hashes' to allow them)
 const APP_HANDLER_CSP_HASHES = [
-  "'sha256-PNSBC4eKT981jWU7VUWY1rrkVVj0fQGd8duewJsZptY='", // showView('landing')
-  "'sha256-pZxCg0aN1aHaHQ1BG9oYaJobxEoXaUIZRu3Sm8pT2YQ='", // if(event.key==='Enter'||event.key===' '){event…
+  "'sha256-lEj6fldbdebDRm0RR5//ltBXZuYRtFcsTsbXWtB24F8='", // event.preventDefault();showView('landing')
   "'sha256-Op416lafelF6r46K41qci4UFbdmOE4RaU5LYTxaRdzM='", // ctaClick(this)
   "'sha256-tePsZXoEwTNBIHxIZYIxwQPETKoqTgoaVtdqhey1Wg0='", // toggleCoupon()
   "'sha256-S6u6PMHFZMWTTwy8L9dqZ5pIk4IXTTGeQwd3v9bQSGs='", // redeemCoupon()
