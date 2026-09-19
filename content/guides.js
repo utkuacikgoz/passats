@@ -294,6 +294,92 @@ module.exports = [
   },
 
   {
+    slug: 'chatgpt-resume-ats-check',
+    title: 'Can ChatGPT or Claude Check Your Resume for ATS?',
+    description: 'What a chat assistant can genuinely do for your resume, what it structurally cannot see, and how to tell which kind of problem you have.',
+    h1: 'Can ChatGPT or Claude Check Your Resume for ATS?',
+    standfirst: 'Partly, and the part it cannot do is not about how clever the model is. It is about what the model is handed. We sell a paid checker, so the case for using a free chat assistant instead is set out first and in full.',
+    sections: [
+      { h2: 'The short answer', body: [
+        'A chat assistant is <strong>good at your writing</strong> and <strong>blind to your file</strong>.',
+        'Paste your resume into ChatGPT or Claude and ask it to sharpen your bullets, and you will get useful work back: weak verbs replaced, vague claims challenged, a summary rewritten to lead with the thing that matters. That is a genuine editing job and it costs nothing.',
+        'Ask the same assistant whether your resume will parse, and it is answering about text you gave it. It never opened your document. Those are different questions, and only one of them is about the file you are actually sending.',
+      ]},
+      { h2: 'What it does well, and you should just use it for', body: [
+        '<strong>Rewriting bullets.</strong> Paste one bullet, give it the outcome, and ask for three versions that lead with the result. This works well and it is free.',
+        '<strong>Finding the vague sentence.</strong> Ask it which bullets say nothing measurable. It is unsentimental about your prose in a way that is hard to be about your own.',
+        '<strong>Comparing against a posting.</strong> Paste the job description and your resume text, and ask which requirements are unaddressed. For content gaps, this is real analysis.',
+        '<strong>Drafting a summary.</strong> Give it your last three roles and ask for a four-line profile. Then cut a line, because it will write five.',
+        'If your problem is that your resume reads weakly, stop here. A chat assistant will fix that, and you do not need us for it.',
+      ]},
+      { h2: 'What it structurally cannot do', body: [
+        'When you paste, you paste <strong>the text you could select</strong>. That is not the same object an applicant tracking system receives, and the gap is where most parsing failures live.',
+        '<strong>It cannot see what failed to extract.</strong> Contact details placed in a page header are a common casualty: they look fine on screen and can be absent from the extracted text entirely. Pasting cannot reveal this, because you paste what you can see, and the missing thing is by definition not there to notice.',
+        '<strong>It cannot see reading order.</strong> Content arranged in separate places on the page can come out interleaved on a single line, in an order no reader would choose. Your pasted version has none of that, because copying often tidies it up.',
+        '<strong>It cannot see text you cannot see.</strong> Some resumes carry keywords set in 2pt type, or white on a white background, added by a template or a "free ATS optimiser" without telling the candidate. You cannot paste text you do not know is there.',
+        'None of this improves when the model does. A better model given the same pasted text still has not seen the file.',
+      ]},
+      { h2: 'How to tell which problem you have', body: [
+        'Open your resume, select all, copy, and paste it into a plain text editor. Not a document editor: something with no formatting at all.',
+        'Now read what appears. Is your email address there? Your phone number? Do the sections come out in the order you wrote them, or has a sidebar landed in the middle of a job? Is anything present that you did not intend to write?',
+        'If that text reads cleanly and your problem is that the writing is flat, a chat assistant is the right tool and it is free.',
+        'If things are missing or scrambled, no amount of rewriting will help, because the words you are improving are not the words being read. That is a file problem, and it needs something that opens the file.',
+        'Our <a href="/ats-parse-preview">free parse preview</a> does that step properly and costs nothing. So does the copy-paste test above, which is why we just told you how to do it.',
+      ]},
+      { h2: 'The honest comparison', body: [
+        '<strong>Use a chat assistant when</strong> your content needs work: weak bullets, no metrics, a summary that states your job title back at you. It is free, it is fast, and it is good at this.',
+        '<strong>Use a parser-based checker when</strong> you want to know what actually comes out of your file. That is the question pasting cannot answer, and it is the one that decides whether a human ever reads your writing at all.',
+        '<strong>Use both</strong> in that order, honestly. Fix the file first, because a beautifully written resume that extracts into scrambled text is a beautifully written resume nobody reads.',
+        'We charge $2.99 once for the file half of that. The writing half is free and we would rather you spent nothing on it.',
+      ]},
+      { h2: 'One thing to avoid', body: [
+        'Do not ask a chat assistant to generate a keyword block to paste into your resume. It will oblige, and the result reads as a keyword block, because that is what it is.',
+        'Terms belong in the bullets where you actually did the work. A Skills list of twelve to twenty things that are genuinely yours is useful. A wall of role-adjacent nouns is visible to every human who opens the document.',
+        'And never accept an offer to hide them. Hidden text is trivially visible to anyone who selects the page, and it ends an application on integrity rather than on fit.',
+      ]},
+    ],
+  },
+
+  {
+    slug: 'ai-resume-prompts',
+    title: 'AI Resume Prompts That Work, and Where They Stop',
+    description: 'Specific prompts for rewriting resume bullets, summaries and role matching with a chat assistant, plus the one job no prompt can do.',
+    h1: 'AI Resume Prompts That Work',
+    standfirst: 'Most resume prompts fail the same way: they ask for a rewrite without giving the model anything to write about. These give it something. The last section is the job no prompt will do, whatever you type.',
+    sections: [
+      { h2: 'Why most prompts produce filler', body: [
+        '"Make my resume better" gives the model nothing, so it returns the average of every resume it has ever seen: confident verbs, no facts, "spearheaded cross-functional initiatives".',
+        'A model cannot invent what you achieved. It can only sharpen what you tell it. Every prompt below therefore makes you supply one fact first, which is the actual work.',
+        'If you have no number for a bullet, go and find it before prompting. Your analytics, your old tickets, your manager\'s review. The number is the bullet.',
+      ]},
+      { h2: 'Rewriting a weak bullet', body: [
+        'Paste one bullet at a time, not the whole resume. Whole-resume rewrites come back uniformly bland.',
+        '<code>Here is one bullet from my resume: "[BULLET]". The real outcome was [NUMBER or RESULT]. Rewrite it three ways, each leading with the outcome. Keep it under 25 words. No buzzwords, no "spearheaded", no "leveraged". Do not invent any figure I have not given you.</code>',
+        'That last sentence matters. Without it you will get plausible invented percentages, and a fabricated metric on a resume is a problem you carry into the interview.',
+      ]},
+      { h2: 'Finding your own vague lines', body: [
+        '<code>Here is my experience section: [PASTE]. List every bullet that contains no measurable outcome. Do not rewrite them. Just list them, worst first, and say what fact is missing from each.</code>',
+        'Asking for the diagnosis before the cure is the trick. If you ask for rewrites straight away, the model papers over the gaps with stronger verbs, and a stronger verb attached to nothing is still nothing.',
+      ]},
+      { h2: 'Matching a job description', body: [
+        '<code>Job description: [PASTE]. My resume: [PASTE]. List the hard requirements in the posting that my resume does not address at all. Separate the ones I could address with better wording from the ones I genuinely do not have. Do not suggest I claim anything I have not done.</code>',
+        'The split is the useful part. Half of what looks like a gap is usually something you did and did not mention. The other half is a real gap, and knowing which is which tells you whether to rewrite or to move on to a better-fitting posting.',
+      ]},
+      { h2: 'Writing the summary last', body: [
+        '<code>These are my last three roles and the strongest outcome from each: [LIST]. Write a four-line professional summary that leads with total years of experience and the domain. No adjectives about my character. No "passionate", no "results-driven".</code>',
+        'Write the summary after the bullets, never before. It is a distillation of the evidence, and you cannot distil what you have not written yet.',
+      ]},
+      { h2: 'The job no prompt can do', body: [
+        'Every prompt above operates on text you pasted. That is the right tool for content, and it is free.',
+        'It is not the tool for the file. When you paste, you paste what you could select, which is not what an applicant tracking system receives. Contact details can fail to survive extraction. Content from separate places on the page can come out interleaved in an order nobody would choose. Text set to be invisible does not arrive in your clipboard at all.',
+        'No prompt reaches any of that, because the information is not in the conversation. It is in the document.',
+        'The cheap way to check is the one we describe in <a href="/chatgpt-resume-ats-check">the chat assistant comparison</a>: copy your resume into a plain text editor and read what appears. Our <a href="/ats-parse-preview">free parse preview</a> does the same job more precisely, and also costs nothing.',
+        'Fix the file first. Then use every prompt on this page, because at that point the words you sharpen are the words being read.',
+      ]},
+    ],
+  },
+
+  {
     slug: 'ats-checker-comparison',
     title: 'Which Kind of ATS Checker Should You Use?',
     description: 'An honest comparison of the three ways resume checkers are sold, what each is really charging for, and when each one is the right choice.',
