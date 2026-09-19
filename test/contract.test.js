@@ -446,8 +446,14 @@ describe('text contrast meets WCAG AA wherever the brand coral is used', () => {
         /\.logo span \{ color: var\(--accent-strong\); \}/,
         /\.btn-primary \{[\s\S]*?background: var\(--accent-strong\)/,
         /\.analyze-btn \{[\s\S]*?background: var\(--accent-strong\)/,
-        /\.report-fix-num \{ color: var\(--accent-strong\)/,
-        /\.report-impact \{\s*color: var\(--accent-strong\)/,
+        // The hero panel replaced the example report, so these are its coral
+        // runs. All three are well under 24px.
+        /\.cv-h \{[\s\S]*?color: var\(--accent-strong\)/,
+        /\.parse-seam \.label \{[\s\S]*?color: var\(--accent-strong\)/,
+        /\.parse-damage \.n \{[\s\S]*?color: var\(--accent-strong\)/,
+        // The dropped line is a fault, not an action, so it takes the danger
+        // ramp. Plain --danger is 3.93:1 and would fail at this size.
+        /\.parse-stream \.dropped \{ color: var\(--danger-strong\)/,
       ],
       'views/404.html': [
         /\.logo span \{ color: var\(--accent-strong\); \}/,
