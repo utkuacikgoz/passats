@@ -28,13 +28,30 @@
 <meta name="twitter:image" content="https://passats.pro/og-image.png">
 <meta name="twitter:image:alt" content="PassATS ATS resume score checker">
 
+<!-- Structured Data: Organization — the hub the other blocks reference.
+     The three blocks below were disconnected islands, which is why the graph
+     scored zero for connectivity. Every fact here is one the site already
+     states; nothing is invented to fill a slot. -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  "@id": "https://passats.pro/#organization",
+  "name": "PassATS",
+  "url": "https://passats.pro",
+  "logo": "https://passats.pro/logo.png"
+}
+</script>
+
 <!-- Structured Data: SoftwareApplication -->
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
   "@type": "SoftwareApplication",
+  "@id": "https://passats.pro/#software",
   "name": "PassATS",
   "url": "https://passats.pro",
+  "provider": { "@id": "https://passats.pro/#organization" },
   "applicationCategory": "BusinessApplication",
   "description": "Scores the text of a resume for ATS compatibility, reports keyword gaps against a detected role or a pasted job description, and returns prioritised fixes that quote the resume's own lines.",
   "operatingSystem": "Web",
@@ -52,6 +69,10 @@
 {
   "@context": "https://schema.org",
   "@type": "FAQPage",
+  "@id": "https://passats.pro/#faq",
+  "isPartOf": {
+    "@id": "https://passats.pro/#website"
+  },
   "mainEntity": [
     {
       "@type": "Question",
@@ -118,8 +139,10 @@
 {
   "@context": "https://schema.org",
   "@type": "WebSite",
+  "@id": "https://passats.pro/#website",
   "name": "PassATS",
   "url": "https://passats.pro",
+  "publisher": { "@id": "https://passats.pro/#organization" },
   "description": "ATS resume checker for job seekers. Score your CV text for applicant tracking system compatibility and get specific, prioritised fixes."
 }
 </script>
@@ -200,7 +223,7 @@
     letter-spacing: -0.02em;
     cursor: pointer;
   }
-  .logo span { color: var(--accent); }
+  .logo span { color: var(--accent-strong); }
   .nav-pill {
     background: var(--ink);
     color: #fff;
@@ -275,16 +298,16 @@
   .ph-badge img { display: block; width: 250px; height: 54px; }
 
   .btn-primary {
-    background: var(--accent-warm); color: #fff; border: none;
+    background: var(--accent-strong); color: #fff; border: none;
     border-radius: 12px; padding: 16px 36px;
     font-size: 1rem; font-weight: 600;
     font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; cursor: pointer;
     transition: transform .15s, box-shadow .15s;
-    box-shadow: 0 8px 24px rgba(216,93,67,0.22);
+    box-shadow: 0 8px 24px rgba(185,62,36,0.22);
   }
   .btn-primary:hover {
     transform: translateY(-2px);
-    box-shadow: 0 12px 32px rgba(216,93,67,0.28);
+    box-shadow: 0 12px 32px rgba(185,62,36,0.28);
   }
   .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; transform: none; box-shadow: none; }
 
@@ -357,7 +380,7 @@
        that failed to line up. */
     align-items: baseline; justify-content: space-between; gap: 20px;
   }
-  .report-summary h3 {
+  .report-summary h2 {
     font-family: 'DM Serif Display', 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif;
     font-size: 1.5rem; line-height: 1.1;
   }
@@ -385,11 +408,11 @@
     align-items: start; padding: 15px 0; border-top: 1px solid var(--border);
   }
   .report-fix:first-of-type { border-top: 1px solid var(--ink); }
-  .report-fix-num { color: var(--accent); font-family: 'DM Serif Display', 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif; font-size: 1.15rem; padding-top: 1px; }
+  .report-fix-num { color: var(--accent-strong); font-family: 'DM Serif Display', 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif; font-size: 1.15rem; padding-top: 1px; }
   .report-fix strong { display: block; font-size: 0.88rem; margin-bottom: 4px; }
   .report-fix p { font-size: 0.78rem; color: var(--muted); line-height: 1.4; }
   .report-impact {
-    color: var(--accent); padding-top: 2px; font-size: 0.76rem; font-weight: 600;
+    color: var(--accent-strong); padding-top: 2px; font-size: 0.76rem; font-weight: 600;
     white-space: nowrap; font-variant-numeric: tabular-nums;
   }
   /* The sum of the three rows above. It is the number the reader actually
@@ -404,7 +427,7 @@
   }
   .report-total strong {
     font-family: 'DM Serif Display', 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif; font-size: 1.5rem;
-    color: var(--accent); letter-spacing: -0.02em;
+    color: var(--accent-strong); letter-spacing: -0.02em;
     font-variant-numeric: tabular-nums;
   }
 
@@ -423,7 +446,7 @@
   }
   .step-num {
     font-family: 'DM Serif Display', 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif; font-size: 2rem;
-    color: var(--accent-warm); margin-bottom: 14px; opacity: 0.6;
+    color: var(--accent-warm); margin-bottom: 14px;
   }
   .step h3 { font-size: 1rem; font-weight: 600; margin-bottom: 8px; }
   .step p { font-size: 0.875rem; color: var(--muted); line-height: 1.6; }
@@ -469,19 +492,19 @@
   .file-selected {
     background: var(--accent-light); border-radius: 10px;
     padding: 12px 16px; font-size: 0.85rem;
-    color: var(--accent); font-weight: 500;
+    color: var(--ink); font-weight: 500;
     margin-bottom: 20px; display: none;
   }
 
   .analyze-btn {
-    width: 100%; background: var(--accent-warm); color: #fff;
+    width: 100%; background: var(--accent-strong); color: #fff;
     border: none; border-radius: 12px; padding: 16px;
     font-size: 1rem; font-weight: 600;
     font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; cursor: pointer;
     transition: transform .15s, box-shadow .15s;
-    box-shadow: 0 8px 24px rgba(216,93,67,0.22);
+    box-shadow: 0 8px 24px rgba(185,62,36,0.22);
   }
-  .analyze-btn:hover { transform: translateY(-2px); box-shadow: 0 12px 32px rgba(216,93,67,0.28); }
+  .analyze-btn:hover { transform: translateY(-2px); box-shadow: 0 12px 32px rgba(185,62,36,0.28); }
   .analyze-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
 
   .error-msg {
@@ -505,7 +528,9 @@
   .field-counter.over { color: var(--danger); font-weight: 600; }
 
   /* The five-step loading sequence is decorative pacing, not information —
-     collapse it for anyone who has asked for less motion. */
+     collapse it for anyone who has asked for less motion. The steps no longer
+     need an opacity override here: every step is legible in both states, so
+     killing the transition is enough. */
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {
       animation-duration: 0.001ms !important;
@@ -513,7 +538,6 @@
       transition-duration: 0.001ms !important;
       scroll-behavior: auto !important;
     }
-    .loading-step { opacity: 1 !important; }
   }
 
   /* ── Print: the report is what the customer paid for, so it has to leave
@@ -558,8 +582,14 @@
   }
   @keyframes spin { to { transform: rotate(360deg); } }
   .loading-steps { font-size: 0.9rem; color: var(--muted); line-height: 2; }
-  .loading-step { opacity: 0.3; transition: opacity .5s; }
-  .loading-step.done { opacity: 1; }
+  /* A pending step used to sit at opacity 0.3, which dimmed --muted to
+     1.48:1 against the page — the worst ratio anywhere on the site, on the one
+     screen where the text is the only thing telling a paying customer their
+     upload is still alive. The list dims with colour now instead of alpha, so
+     every state is a token with a contrast we can assert: --muted at 4.95:1
+     for pending, --ink at 14.8:1 for done. */
+  .loading-step { color: var(--muted); transition: color .5s; }
+  .loading-step.done { color: var(--ink); font-weight: 500; }
   .loading-joke {
     margin: 28px auto 0; max-width: 30rem; min-height: 3.2em;
     font-size: 0.95rem; line-height: 1.6; color: var(--muted);
@@ -819,7 +849,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <aside class="hero-report" aria-label="Example of a PassATS report">
       <p class="report-eyebrow">Example report</p>
       <div class="report-summary">
-        <h3>Your ATS score</h3>
+        <h2>Your ATS score</h2>
         <div class="report-score"><strong>72</strong><span>/ 100</span></div>
       </div>
       <div class="report-section">
@@ -944,7 +974,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <div class="file-selected" id="fileSelectedEl"></div>
 
       <div style="text-align:left;margin-bottom:20px;">
-        <label for="jobDescInput" style="display:block;font-size:0.82rem;font-weight:600;color:var(--ink);margin-bottom:6px;">Paste the job description <span style="color:var(--muted);font-weight:400;">(optional)</span> <span style="color:var(--accent);font-weight:700;white-space:nowrap;">5&times; better results</span></label>
+        <label for="jobDescInput" style="display:block;font-size:0.82rem;font-weight:600;color:var(--ink);margin-bottom:6px;">Paste the job description <span style="color:var(--muted);font-weight:400;">(optional)</span> <span style="color:var(--accent-strong);font-weight:700;white-space:nowrap;">5&times; better results</span></label>
         <textarea id="jobDescInput" maxlength="12000" placeholder="Paste the job posting here. The more specific, the more accurate your keyword gaps will be.…" style="width:100%;min-height:90px;padding:12px;border:1px solid var(--border);border-radius:10px;font-family:'DM Sans',sans-serif;font-size:0.85rem;resize:vertical;background:var(--bg);outline:none;transition:border-color .2s;" onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'"></textarea>
         <div class="field-counter" id="jobDescCounter" aria-live="polite">0 / 12,000 characters</div>
       </div>

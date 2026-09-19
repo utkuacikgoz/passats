@@ -373,6 +373,33 @@ describe('client-side guards', () => {
     assert.notEqual(outline.width, '0px');
     await page.close();
   });
+
+  it('never skips a heading level, so the outline is navigable', async () => {
+    // axe reported 1, 3, 2, 2, 3, 3, 3, 2 — the h1 was followed straight by the
+    // example report's h3. A screen reader user navigating by heading reads
+    // that jump as a missing section. Only rendered levels count: the noscript
+    // fallback carries an h2 that no sighted-or-not visitor with JS ever meets,
+    // so this has to run in a browser rather than over the source.
+    const page = await newPage();
+    await page.goto(`${origin}/`);
+    await page.waitForSelector('#landing.active', { timeout: 10000 });
+
+    const levels = await page.evaluate(() =>
+      [...document.querySelectorAll('h1, h2, h3, h4, h5, h6')]
+        .filter(heading => heading.getClientRects().length > 0)
+        .map(heading => Number(heading.tagName[1]))
+    );
+
+    assert.ok(levels.length > 3, 'the page still has an outline to check');
+    assert.equal(levels[0], 1, 'the outline starts at h1');
+    for (let i = 1; i < levels.length; i++) {
+      assert.ok(
+        levels[i] <= levels[i - 1] + 1,
+        `heading level jumps from h${levels[i - 1]} to h${levels[i]} — sequence was ${levels.join(', ')}`
+      );
+    }
+    await page.close();
+  });
 });
 
 describe('the phone layout', () => {

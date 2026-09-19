@@ -504,7 +504,31 @@ async function readUploadedFileBuffer(file) {
 async function cleanupUploadedFile(file) {
   if (!file?.path) return;
   await fs.unlink(file.path).catch(() => {});
+  // Clearing the path makes this idempotent, so the handler's finally is a
+  // no-op once readAndDiscardUpload has already run.
+  file.path = null;
   delete file._cachedBuffer;
+}
+
+/**
+ * Read the upload into memory and delete it from disk in the same step.
+ *
+ * Cleanup used to live only in each handler's finally, which runs *after* the
+ * response has been flushed. On a serverless platform that is not a guarantee:
+ * the instance can be frozen the moment the response goes out, so the unlink
+ * that keeps the "we store nothing" promise was racing the freeze. It surfaced
+ * as an intermittently failing test, which is the cheap version of the same bug.
+ *
+ * Nothing downstream needs the path — extraction and the hidden-text scan both
+ * work off the buffer — so the file can go as soon as it is in memory. The
+ * bytes move to file.buffer, which readUploadedFileBuffer returns first, and
+ * the finally stays as the net for the paths that return before reaching here.
+ */
+async function readAndDiscardUpload(file) {
+  const buffer = await readUploadedFileBuffer(file);
+  file.buffer = buffer;
+  await cleanupUploadedFile(file);
+  return buffer;
 }
 
 // Magic-byte validation — don't trust client mimetype alone
@@ -1035,7 +1059,7 @@ app.post('/api/analyze', analyzeAuth, upload.single('cv'), async (req, res) => {
       return res.status(400).json({ error: 'No file uploaded' });
     }
 
-    const uploadedBuffer = await readUploadedFileBuffer(req.file);
+    const uploadedBuffer = await readAndDiscardUpload(req.file);
 
     // Magic byte validation — reject before claiming token so user isn't burned on bad file
     if (!validateMagicBytes(uploadedBuffer, req.file.mimetype)) {
@@ -1627,7 +1651,7 @@ app.post('/api/parse-preview', parsePreviewGuard, upload.single('cv'), async (re
     }
     if (!req.file) return res.status(400).json({ error: 'No file uploaded.' });
 
-    const buffer = await readUploadedFileBuffer(req.file);
+    const buffer = await readAndDiscardUpload(req.file);
     if (!validateMagicBytes(buffer, req.file.mimetype)) {
       return res.status(400).json({ error: 'File content does not match its type. Upload a valid PDF or DOCX.' });
     }
