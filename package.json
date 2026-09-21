@@ -42,7 +42,7 @@
     "mammoth": "^1.12.2",
     "multer": "^2.3.0",
     "pdf-parse": "^2.4.5",
-    "pdfjs-dist": "5.4.296",
+    "pdfjs-dist": "6.3.289",
     "posthog-node": "^5.52.1",
     "stripe": "^22.6.2"
   },
