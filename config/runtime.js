@@ -30,6 +30,10 @@ const LLM_TIMEOUT_MS = 55_000;
 // Left for request parsing, the upload write, Redis round trips, the JSON
 // response and PostHog's bounded flush.
 const REQUEST_RESERVE_MS = 5_000;
+// Owner alerts are sent from inside that reserve, after the claim is released,
+// so a slow webhook can never cost a customer their analysis. runtime:check
+// asserts this stays smaller than the reserve.
+const ALERT_TIMEOUT_MS = 2_500;
 
 // What the two phases may consume between them.
 const ANALYSIS_BUDGET_MS = FUNCTION_DURATION_SECONDS * 1000 - REQUEST_RESERVE_MS;
@@ -41,5 +45,6 @@ module.exports = {
   HIDDEN_TEXT_MIN_BUDGET_MS,
   LLM_TIMEOUT_MS,
   REQUEST_RESERVE_MS,
+  ALERT_TIMEOUT_MS,
   ANALYSIS_BUDGET_MS,
 };

@@ -48,6 +48,7 @@ Required in production:
 Recommended optional variables:
 
 - `HEALTH_SECRET` for `/api/health`
+- `ALERT_WEBHOOK_URL` for owner alerts (see [Owner alerts](#owner-alerts))
 - `POSTHOG_API_KEY` for server-side error tracing
 - `POSTHOG_HOST` for US/EU/self-hosted PostHog
 - `TEST_SECRET` for `/api/test-token`
@@ -248,7 +249,8 @@ Before go-live, verify the following:
 - `TEST_SECRET` is either unset or rotated to an owner-only secret if you want smoke-test access.
 - `TEST_ALLOWED_IPS` is set to your public IP if `/api/test-token` is enabled. Without it, the endpoint stays disabled.
 - `COUPON_CODES` is unset unless you are actively running testers, and every code in it is long and random. Codes grant the paid product for free.
-- Anthropic billing and rate limits are confirmed for your traffic profile.
+- Anthropic billing and rate limits are confirmed for your traffic profile, auto-reload is on, and a low-balance alert is set in the Anthropic Console.
+- `ALERT_WEBHOOK_URL` is set and a test alert has reached your phone.
 - `LLM_MODEL` is pinned to `claude-sonnet-5` (or `claude-haiku-4-5`), an explicitly chosen stable model, not a dated snapshot alias.
 - A real payment-to-analysis smoke test is completed in production before opening traffic.
 
@@ -319,6 +321,39 @@ COUPON_EXPIRES_AT=2026-10-01T00:00:00Z
 
 Remove it from `COUPON_CODES` and redeploy. To reuse a code name later, also
 delete its Redis key, since the redemption count persists deliberately.
+
+## Owner alerts
+
+There is no API for the remaining Anthropic credit balance, so the server
+watches for the failure instead. When a paid analysis fails with an error that
+retrying cannot fix (402 `billing_error` or the older 400 "credit balance is
+too low", 401/403 key problems, 404 retired model):
+
+- the customer's analysis is released, not consumed, and the retry ladder is
+  left alone, so they can come back after you fix it with the same link;
+- for account-level faults, checkout returns 503 "you have not been charged"
+  for ten minutes at a time (`passats:degraded` in Redis) rather than selling
+  analyses that cannot run;
+- one alert goes to `ALERT_WEBHOOK_URL`, at most once per 30 minutes per kind,
+  shared across instances through Redis.
+
+A separate alert fires when a customer's analysis is consumed after three
+ordinary failures, because that customer will be emailing for a refund.
+
+Alerts carry the request id and the API's error message, never résumé text,
+emails or payment ids. They are bounded at `ALERT_TIMEOUT_MS` inside the
+serverless reserve and sent after the claim is released, so a dead webhook can
+never cost a customer their analysis.
+
+Fastest setup, phone push with ntfy:
+
+1. Install the ntfy app and subscribe to a long random topic name.
+2. Set `ALERT_WEBHOOK_URL=https://ntfy.sh/<that-topic>` in Vercel and redeploy.
+3. Test it: `curl -d "test" https://ntfy.sh/<that-topic>`.
+
+Slack and Discord incoming-webhook URLs work too; the payload is shaped for
+each by host. Pair this with auto-reload and a low-balance email in the
+Anthropic Console (Settings, Billing), which warns you before anything fails.
 
 ## Suggested Pre-Launch Smoke Tests
 

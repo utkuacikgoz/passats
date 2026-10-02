@@ -70,6 +70,7 @@ const LLM_MAX_TOKENS = 3000;
 // always reach a mailbox that exists. Verify the mailbox before opening traffic.
 const { SUPPORT_EMAIL } = require('./config/site');
 const { stripHiddenText } = require('./lib/hidden-text');
+const { notifyOwner } = require('./lib/alerts');
 // Upload limits live here so the multer ceiling, the textarea maxlength rendered
 // into the page, the error copy, and the prompt slice can never drift apart.
 const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
@@ -94,9 +95,15 @@ const PARSE_PREVIEW_WINDOW_MS = 10 * 60 * 1000;
 // copy so the wording cannot drift from the matching clause in the terms page.
 const CHECKOUT_CONSENT_MESSAGE =
   `You are asking us to start your analysis immediately, so you lose the 14-day right of withdrawal once your report is delivered. If anything fails, email ${SUPPORT_EMAIL} for a full refund.`;
+// Shown when the failure is ours to fix (credit, key, model) rather than a blip.
+// The claim has already been released, so the analysis is genuinely unused.
+const operatorFaultMessage = reqId =>
+  `Our analysis service is temporarily unavailable. Your payment is safe and your analysis has not been used: try again later, or email ${SUPPORT_EMAIL} with reference ${reqId}.`;
+const SERVICE_DEGRADED_MESSAGE =
+  'Analysis is temporarily unavailable. You have not been charged; please try again shortly.';
 const analysisSupportMessage = reqId =>
   `We couldn't complete your analysis. Email ${SUPPORT_EMAIL} with reference ${reqId} and we'll refund or fix it.`;
-const APP_SCRIPT_CSP_HASH = "'sha256-wwKE4+6zFfXXZGwxm9bQa1KOtJF+5anrKCLTNq5YqMk='";
+const APP_SCRIPT_CSP_HASH = "'sha256-Jr87a+V0SSIhzFwU3PqHZ1rHxLntIQLmLQsokl36+04='";
 const VERCEL_ANALYTICS_CSP_HASH = "'sha256-rbTaSdDD+Sd+K8IZ66VS79bdI78bN8AwXXyN0/lD5fY='";
 // Hashes of individual onclick handler bodies (required for 'unsafe-hashes' to allow them)
 const APP_HANDLER_CSP_HASHES = [
@@ -605,6 +612,41 @@ const ANALYSIS_CLAIM_TTL_SECONDS = 7 * 24 * 60 * 60;
 const analysisClaimKey = sessionId => `passats:analysis:${sessionId}`;
 const analysisRetryKey = sessionId => `passats:retry:${sessionId}`;
 
+// ── Operator faults ───────────────────────────────────────────────────────────
+// Some model failures are nobody's fault but ours: the credit balance ran out,
+// the key was revoked, the model was retired. Retrying cannot fix them, so the
+// retry ladder would burn the customer's analysis three attempts later for a
+// problem they had no part in. They are classified here and handled apart from
+// the ladder: the claim is released, the retry counter is left alone, and the
+// owner is alerted.
+//
+// 408, 409 and 429 are transient by definition and stay on the ladder, as does
+// every 5xx (including 529 overloaded) and every network error.
+const SERVICE_DEGRADED_KEY = 'passats:degraded';
+// Long enough that a run of buyers is not sold an analysis that cannot run,
+// short enough that a topped-up account is selling again within minutes.
+const SERVICE_DEGRADED_TTL_SECONDS = 10 * 60;
+
+function classifyOperatorFault(err) {
+  const status = Number(err?.status);
+  if (!Number.isInteger(status) || status < 400 || status >= 500) return null;
+  if (status === 408 || status === 409 || status === 429) return null;
+  const type = String(err?.type || err?.error?.error?.type || '');
+  const message = String(err?.message || '');
+  // Account-level: every request fails the same way until a human acts, so
+  // checkout stops selling as well.
+  if (status === 402 || type === 'billing_error') return { kind: 'billing', account: true };
+  if (status === 401 || status === 403) return { kind: 'auth', account: true };
+  if (status === 404) return { kind: 'model_not_found', account: true };
+  // Exhausted credit has historically come back as a 400 invalid_request_error
+  // with this wording rather than as a 402. Matched narrowly, on the message the
+  // API itself writes, so a 400 caused by one odd résumé cannot stop sales.
+  if (status === 400 && /credit balance/i.test(message)) return { kind: 'billing', account: true };
+  // Any other 4xx is a request we built wrongly. It is still not the customer's
+  // fault, but it may be specific to this input, so only this request fails.
+  return { kind: `request_${status}`, account: false };
+}
+
 async function claimAnalysis(sessionId, store = redis) {
   if (DEV_MODE) return true; // dev mode uses in-memory Map
   const result = await store.set(analysisClaimKey(sessionId), '1', {
@@ -752,6 +794,20 @@ app.post('/api/checkout', async (req, res) => {
     const token = jwt.sign({ sessionId: fakeSessionId, jti: crypto.randomUUID() }, JWT_SECRET, { expiresIn: UPLOAD_TOKEN_EXPIRES_IN });
     if (devSessions) devSessions.set(fakeSessionId, { token, used: false });
     return res.json({ url: `${BASE_URL}/success?session_id=${fakeSessionId}` });
+  }
+
+  // Stop selling while an account-level fault is known. Fails open: an
+  // unreadable flag must not take checkout down, and the analyze path still
+  // releases the claim if the fault turns out to be real.
+  if (redis) {
+    const degraded = await redis.get(SERVICE_DEGRADED_KEY).catch(err => {
+      logError('redis.degraded_read_failed', err, { requestId: req.requestId });
+      return null;
+    });
+    if (degraded) {
+      log('warn', 'checkout.refused_degraded', { requestId: req.requestId, reason: String(degraded) });
+      return res.status(503).json({ error: SERVICE_DEGRADED_MESSAGE });
+    }
   }
 
   const baseParams = {
@@ -1143,6 +1199,41 @@ app.post('/api/analyze', analyzeAuth, upload.single('cv'), async (req, res) => {
       return res.status(422).json({ error: `This PDF is password-protected. Please remove the password and re-upload. Quote ref ${reqId}.` });
     }
 
+    // Our fault and not transient: release the claim without touching the retry
+    // counter, so the customer keeps their analysis however many times they try.
+    const fault = classifyOperatorFault(err);
+    if (fault) {
+      if (redis && tokenPayload.sessionId) {
+        await releaseAnalysisClaim(tokenPayload.sessionId).catch(delErr => {
+          logError('redis.release_token_failed', delErr, { requestId: reqId, sessionId: tokenPayload.sessionId });
+        });
+      }
+      if (redis && fault.account) {
+        await redis.set(SERVICE_DEGRADED_KEY, fault.kind, { ex: SERVICE_DEGRADED_TTL_SECONDS }).catch(setErr => {
+          logError('redis.degraded_write_failed', setErr, { requestId: reqId });
+        });
+      }
+      logError('analyze.operator_fault', err, { requestId: reqId, kind: fault.kind, status: err.status, model: LLM_MODEL });
+      capturePosthog('cv_analysis_failed', { requestId: reqId, operator_fault: fault.kind }, analyticsId(tokenPayload.sessionId));
+      if (posthog && !DEV_MODE) posthog.captureException(err, analyticsId(tokenPayload.sessionId), { requestId: reqId, kind: fault.kind });
+      const alert = await notifyOwner({
+        kind: `operator_${fault.kind}`,
+        title: `PassATS: analyses failing (${fault.kind})`,
+        body: [
+          `The model API returned ${err.status}${err.type ? ` ${err.type}` : ''}: ${String(err.message || '').slice(0, 300)}`,
+          fault.kind === 'billing' ? 'Most likely the Anthropic credit balance is exhausted. Top up at console.anthropic.com > Billing.' : '',
+          fault.account ? `Checkout is paused for ${SERVICE_DEGRADED_TTL_SECONDS / 60} minutes at a time while this continues. The customer's analysis was not consumed.` : 'Only this request failed. The customer\'s analysis was not consumed.',
+          `Model: ${LLM_MODEL}. Reference: ${reqId}.`,
+        ].filter(Boolean).join('\n'),
+        redis,
+      });
+      log('info', 'alert.operator_fault', { requestId: reqId, kind: fault.kind, alert });
+      await flushPosthog();
+      // userFacing: written for the customer, unlike most 5xx bodies, so the
+      // page shows it instead of its generic "try again in a moment".
+      return res.status(503).json({ error: operatorFaultMessage(reqId), userFacing: true });
+    }
+
     // Track retries per payment session — burn permanently after 3 to prevent
     // multiple JWTs for one payment from resetting the retry allowance.
     if (redis && tokenPayload.sessionId) {
@@ -1169,8 +1260,21 @@ app.post('/api/analyze', analyzeAuth, upload.single('cv'), async (req, res) => {
       logError('analyze.retries_exhausted', err, { requestId: reqId, retries, sessionId: tokenPayload.sessionId, model: LLM_MODEL });
       capturePosthog('cv_analysis_failed', { requestId: reqId, retries, retryable: false }, analyticsId(tokenPayload.sessionId));
       if (posthog && !DEV_MODE) posthog.captureException(err, analyticsId(tokenPayload.sessionId), { requestId: reqId, retries });
+      // A paying customer now holds no analysis and has been told to email for
+      // a refund. That is worth a notification every time it starts happening.
+      const alert = await notifyOwner({
+        kind: 'customer_burned',
+        title: 'PassATS: a paid analysis failed for good',
+        body: [
+          `A customer's analysis failed ${retries} times and has been consumed. Expect a support email quoting ${reqId}.`,
+          `Last error: ${String(err?.name || 'Error')}: ${String(err?.message || '').slice(0, 300)}`,
+          `Model: ${LLM_MODEL}.`,
+        ].join('\n'),
+        redis,
+      });
+      log('info', 'alert.customer_burned', { requestId: reqId, alert });
       await flushPosthog();
-      return res.status(500).json({ error: analysisSupportMessage(reqId) });
+      return res.status(500).json({ error: analysisSupportMessage(reqId), userFacing: true });
     }
     logError('analyze.error', err, { requestId: reqId, model: LLM_MODEL });
     res.status(500).json({ error: ANALYSIS_RETRY_MESSAGE });
@@ -1864,6 +1968,9 @@ app.__test = {
   // The DEV_MODE report, so its copy can be held to the same rules as the prompt.
   devReport,
   analysisSupportMessage,
+  operatorFaultMessage,
+  classifyOperatorFault,
+  SERVICE_DEGRADED_KEY,
   SUPPORT_EMAIL,
   MAX_UPLOAD_BYTES,
   MAX_JOB_DESCRIPTION_CHARS,
