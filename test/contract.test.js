@@ -618,3 +618,14 @@ describe('the JSON-LD blocks form one connected graph', () => {
       'schema publishes a support address no page shows');
   });
 });
+
+describe('the footer guide list', () => {
+  it('stays sorted A to Z, so a new guide is easy to find and to place', () => {
+    const html = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'views', 'index.html'), 'utf8');
+    const nav = html.match(/<nav class="footer-guides"[^>]*>([\s\S]*?)<\/nav>/)[1];
+    const titles = [...nav.matchAll(/<a [^>]*>([^<]+)<\/a>/g)].map(m => m[1].trim());
+    assert.ok(titles.length > 10);
+    const sorted = [...titles].sort((a, b) => a.localeCompare(b, 'en', { sensitivity: 'base' }));
+    assert.deepEqual(titles, sorted);
+  });
+});
