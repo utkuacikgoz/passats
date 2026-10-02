@@ -526,6 +526,33 @@ describe('text contrast meets WCAG AA wherever the brand coral is used', () => {
   });
 });
 
+describe('the sample report on the landing page is honest arithmetic', () => {
+  // The sample shows four component scores and an overall. A reader who checks
+  // the overall against the weights published beside it should get the same
+  // number, so this reads the weights out of the system prompt, recomputes, and
+  // fails if either side is edited without the other.
+  it('states an overall that is the weighted sum of its own components', () => {
+    const prompt = read('server.js');
+    const formula = /overallScore = round\(keywords\*([\d.]+) \+ formatting\*([\d.]+) \+ readability\*([\d.]+) \+ contactInfo\*([\d.]+)\)/.exec(prompt);
+    assert.ok(formula, 'scoring formula not found in the system prompt');
+    const [, wK, wF, wR, wC] = formula.map(Number);
+
+    const sample = index.slice(index.indexOf('id="sample-report"'), index.indexOf('<!-- Why not the free option -->'));
+    assert.ok(sample.length > 200, 'sample report section not found');
+    const component = label => {
+      const m = new RegExp(`<div class="label">${label}</div><div class="score-val">(\\d+)</div>`).exec(sample);
+      assert.ok(m, `sample is missing the ${label} component`);
+      return Number(m[1]);
+    };
+    const expected = Math.round(
+      component('Keywords') * wK + component('Formatting') * wF +
+      component('Readability') * wR + component('Contact info') * wC,
+    );
+    const shown = Number(/<div class="num">(\d+)<small>/.exec(sample)[1]);
+    assert.equal(shown, expected, `sample overall is ${shown} but its components weigh to ${expected}`);
+  });
+});
+
 describe('the JSON-LD blocks form one connected graph', () => {
   // The blocks were three disconnected islands, which is what an AEO audit
   // reads as zero graph connectivity. They now hang off one Organization node.
