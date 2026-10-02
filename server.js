@@ -60,6 +60,7 @@ const {
   HIDDEN_TEXT_MIN_BUDGET_MS,
   LLM_TIMEOUT_MS,
   ANALYSIS_BUDGET_MS,
+  POSTHOG_FLUSH_TIMEOUT_MS,
 } = require('./config/runtime');
 // A full report runs about 1,200 output tokens; this leaves generous headroom.
 // Hitting the cap truncates the JSON mid-object, so a max_tokens stop reason is
@@ -266,7 +267,8 @@ function capturePosthog(event, properties = {}, distinctId = 'server') {
 // paths whose telemetry we actually rely on — payment, analysis outcome, replay.
 // Telemetry must never fail a request, so every error is swallowed, and the
 // flush is bounded so a slow PostHog can't eat the invocation budget.
-const POSTHOG_FLUSH_TIMEOUT_MS = 2000;
+// POSTHOG_FLUSH_TIMEOUT_MS lives in config/runtime.js, where runtime:check can
+// hold it against the reserve.
 async function flushPosthog() {
   if (!posthog || DEV_MODE) return;
   try {
@@ -1216,7 +1218,9 @@ app.post('/api/analyze', analyzeAuth, upload.single('cv'), async (req, res) => {
       logError('analyze.operator_fault', err, { requestId: reqId, kind: fault.kind, status: err.status, model: LLM_MODEL });
       capturePosthog('cv_analysis_failed', { requestId: reqId, operator_fault: fault.kind }, analyticsId(tokenPayload.sessionId));
       if (posthog && !DEV_MODE) posthog.captureException(err, analyticsId(tokenPayload.sessionId), { requestId: reqId, kind: fault.kind });
-      const alert = await notifyOwner({
+      // Concurrent with the flush, not after it: both come out of the reserve,
+      // and in sequence they could outlast it when the model used its budget.
+      const [alert] = await Promise.all([notifyOwner({
         kind: `operator_${fault.kind}`,
         title: `PassATS: analyses failing (${fault.kind})`,
         body: [
@@ -1226,9 +1230,8 @@ app.post('/api/analyze', analyzeAuth, upload.single('cv'), async (req, res) => {
           `Model: ${LLM_MODEL}. Reference: ${reqId}.`,
         ].filter(Boolean).join('\n'),
         redis,
-      });
+      }), flushPosthog()]);
       log('info', 'alert.operator_fault', { requestId: reqId, kind: fault.kind, alert });
-      await flushPosthog();
       // userFacing: written for the customer, unlike most 5xx bodies, so the
       // page shows it instead of its generic "try again in a moment".
       return res.status(503).json({ error: operatorFaultMessage(reqId), userFacing: true });
@@ -1262,7 +1265,9 @@ app.post('/api/analyze', analyzeAuth, upload.single('cv'), async (req, res) => {
       if (posthog && !DEV_MODE) posthog.captureException(err, analyticsId(tokenPayload.sessionId), { requestId: reqId, retries });
       // A paying customer now holds no analysis and has been told to email for
       // a refund. That is worth a notification every time it starts happening.
-      const alert = await notifyOwner({
+      // Concurrent with the flush for the same reason as above. This path follows
+      // a model call that may have run to the deadline.
+      const [alert] = await Promise.all([notifyOwner({
         kind: 'customer_burned',
         title: 'PassATS: a paid analysis failed for good',
         body: [
@@ -1271,9 +1276,8 @@ app.post('/api/analyze', analyzeAuth, upload.single('cv'), async (req, res) => {
           `Model: ${LLM_MODEL}.`,
         ].join('\n'),
         redis,
-      });
+      }), flushPosthog()]);
       log('info', 'alert.customer_burned', { requestId: reqId, alert });
-      await flushPosthog();
       return res.status(500).json({ error: analysisSupportMessage(reqId), userFacing: true });
     }
     logError('analyze.error', err, { requestId: reqId, model: LLM_MODEL });

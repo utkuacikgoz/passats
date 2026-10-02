@@ -34,6 +34,13 @@ const REQUEST_RESERVE_MS = 5_000;
 // so a slow webhook can never cost a customer their analysis. runtime:check
 // asserts this stays smaller than the reserve.
 const ALERT_TIMEOUT_MS = 2_500;
+// PostHog's bounded flush, which also runs inside the reserve. On the failure
+// paths it runs concurrently with an alert, so the reserve pays for the slower
+// of the two, not their sum.
+const POSTHOG_FLUSH_TIMEOUT_MS = 2_000;
+// What the reserve must still hold after that: Redis round trips in the catch
+// block, the JSON response and upload cleanup.
+const RESERVE_TAIL_MS = 1_000;
 
 // What the two phases may consume between them.
 const ANALYSIS_BUDGET_MS = FUNCTION_DURATION_SECONDS * 1000 - REQUEST_RESERVE_MS;
@@ -46,5 +53,7 @@ module.exports = {
   LLM_TIMEOUT_MS,
   REQUEST_RESERVE_MS,
   ALERT_TIMEOUT_MS,
+  POSTHOG_FLUSH_TIMEOUT_MS,
+  RESERVE_TAIL_MS,
   ANALYSIS_BUDGET_MS,
 };
