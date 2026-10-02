@@ -398,6 +398,125 @@
 
   /* ── REPORT PREVIEW ── */
 
+  /* ── SAMPLE REPORT ────────────────────────────────────────────────────────
+     When the hero became the parse view, the example report it replaced was the
+     only picture of the deliverable on the page, and it went with it. The page
+     then showed the problem well and never showed what $2.99 buys, which is the
+     "does not look complete" a reader reported.
+
+     This puts it back, built from the report's own components (.metric-card,
+     .mini-bar, .kw-tag, .tip-item) rather than a lookalike, so it is literally
+     what a customer receives. It continues the resume in the hero: Contact Info
+     scores 40 because that is the field the hero shows failing to extract.
+
+     The overall is the weighted sum of the four components under the published
+     weights, so a reader who checks the arithmetic gets the same number.
+
+     Every size inside is lifted to the 14px floor, labels included. The report's
+     own labels run at 0.78rem, which is fine inside the report and would undo
+     the spacing check here, where the scanner measures the landing page. */
+  .sample { max-width: 1000px; margin: 0 auto; padding: 8px 40px 72px; }
+  .sample-head { text-align: center; max-width: 620px; margin: 0 auto 28px; }
+  .sample-head h2 {
+    font-family: 'DM Serif Display', 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif;
+    font-size: 1.5rem; line-height: 1.3; margin-bottom: 8px;
+  }
+  .sample-head p { font-size: 0.92rem; color: var(--muted); line-height: 1.6; }
+  .sample-tag {
+    display: inline-block; font-size: 0.875rem; font-weight: 600; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--muted); margin-bottom: 10px;
+  }
+  .sample-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+  .sample-score {
+    background: var(--card); border: 1px solid var(--border); border-radius: 16px;
+    padding: 22px 24px; margin-bottom: 16px;
+    display: flex; align-items: center; gap: 20px;
+  }
+  .sample-score .num {
+    font-family: 'DM Serif Display', 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif;
+    font-size: 3.2rem; line-height: 1; letter-spacing: -0.03em; font-variant-numeric: tabular-nums;
+  }
+  .sample-score .num small { font-size: 0.95rem; color: var(--muted); font-family: 'DM Sans', sans-serif; letter-spacing: 0; }
+  .sample-score .role { font-size: 0.9rem; color: var(--muted); margin-bottom: 8px; }
+  .sample .verdict-badge { font-size: 0.875rem; }
+  .sample .metrics-grid { gap: 12px; }
+  .sample .metric-card { padding: 16px 18px; border-radius: 14px; }
+  .sample .metric-card .label { font-size: 0.875rem; letter-spacing: 0.04em; margin-bottom: 8px; }
+  .sample .metric-card .score-val { font-size: 1.6rem; margin-bottom: 6px; }
+  .sample .metric-note { font-size: 0.875rem; }
+  .sample .kw-wrap {
+    background: var(--card); border: 1px solid var(--border); border-radius: 16px;
+    padding: 18px 20px; margin-top: 16px;
+  }
+  .sample .kw-wrap h3 { font-size: 0.9rem; font-weight: 600; margin-bottom: 10px; }
+  .sample .kw-tag { font-size: 0.875rem; }
+  .sample .kw-missing { color: var(--danger-strong); }
+  .sample .tips-section { padding: 26px 26px 22px; }
+  .sample .tips-section h3 { font-size: 1.2rem; margin-bottom: 16px; }
+  .sample .tip-item { font-size: 0.9rem; color: rgba(255,255,255,0.86); }
+  .sample .tip-pts {
+    display: block; margin-top: 3px; font-size: 0.875rem; font-weight: 600;
+    color: var(--accent-warm); font-variant-numeric: tabular-nums;
+  }
+  .sample-foot { text-align: center; margin-top: 22px; font-size: 0.9rem; color: var(--muted); }
+  .sample-foot a { color: var(--accent-strong); font-weight: 600; }
+  @media (max-width: 860px) {
+    .sample { padding: 0 20px 52px; }
+    .sample-grid { grid-template-columns: 1fr; }
+  }
+
+  /* ── HIDDEN TEXT ──────────────────────────────────────────────────────────
+     lib/hidden-text.js was the most unusual thing this product does and the
+     page never mentioned it. Every claim here is what the scanner actually
+     does: three hiding methods, in PDF and DOCX, removed before scoring and
+     flagged. It does not say "the only checker", because we cannot verify that.
+     The false-accusation rule is stated because it is the reason to trust the
+     flag: white text on a dark sidebar is normal and is never reported. */
+  .hidden-text { max-width: 1000px; margin: 0 auto; padding: 0 40px 72px; }
+  .hidden-inner {
+    background: var(--card); border: 1px solid var(--border); border-radius: 16px;
+    padding: 30px 32px; display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+    gap: 32px; align-items: center;
+  }
+  .hidden-text h2 {
+    font-family: 'DM Serif Display', 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif;
+    font-size: 1.45rem; line-height: 1.25; margin-bottom: 12px;
+  }
+  .hidden-text p { font-size: 0.92rem; color: var(--muted); line-height: 1.65; margin-bottom: 12px; }
+  .hidden-text p:last-child { margin-bottom: 0; }
+  .hidden-text p strong { color: var(--ink); font-weight: 600; }
+  .hidden-ways { list-style: none; padding: 0; margin: 4px 0 14px; display: grid; gap: 6px; }
+  .hidden-ways li { font-size: 0.9rem; color: var(--ink); padding-left: 18px; position: relative; }
+  .hidden-ways li::before {
+    content: ''; position: absolute; left: 0; top: 0.55em; width: 7px; height: 7px;
+    border-radius: 50%; background: var(--accent-strong);
+  }
+  .hidden-doc {
+    border: 1px solid var(--border); background: #fff; border-radius: 3px; padding: 18px 20px;
+  }
+  .hidden-doc .name {
+    font-family: 'DM Serif Display', 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif;
+    font-size: 1.05rem; margin-bottom: 2px;
+  }
+  .hidden-doc .sub { font-size: 0.875rem; color: var(--muted); margin-bottom: 12px; }
+  .hidden-doc .rule { height: 4px; background: var(--surface); border-radius: 2px; margin-bottom: 6px; }
+  .hidden-doc .rule.s { width: 64%; }
+  .hidden-found {
+    margin-top: 14px; padding: 11px 13px; background: var(--accent-light);
+    border-left: 3px solid var(--accent-strong); border-radius: 2px;
+  }
+  .hidden-found .tag {
+    display: block; font-size: 0.875rem; font-weight: 600; color: var(--danger-strong); margin-bottom: 4px;
+  }
+  .hidden-found code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.875rem; color: var(--danger-strong); line-height: 1.6; word-break: break-word;
+  }
+  @media (max-width: 860px) {
+    .hidden-text { padding: 0 20px 52px; }
+    .hidden-inner { grid-template-columns: 1fr; gap: 22px; padding: 24px 22px; }
+  }
+
   /* ── WHY NOT THE FREE OPTION ──────────────────────────────────────────────
      Two separate readers said the same thing: the free-alternative answer was
      buried in the FAQ, and at this price the objection has to be met before
@@ -1093,6 +1212,90 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <p>A chat assistant reads the text you paste it. <strong>This reads your file.</strong></p>
       </div>
     </aside>
+  </section>
+
+  <!-- Sample report -->
+  <section class="sample" id="sample-report" aria-labelledby="sample-heading">
+    <div class="sample-head">
+      <span class="sample-tag">Sample report</span>
+      <h2 id="sample-heading">This is what $2.99 gets you</h2>
+      <p>The report for the resume above. Every fix names a line in the file and what changing it is worth.</p>
+    </div>
+
+    <div class="sample-grid">
+      <div>
+        <div class="sample-score">
+          <div class="num">63<small>&nbsp;/ 100</small></div>
+          <div>
+            <p class="role">Detected role: Senior Data Analyst</p>
+            <span class="verdict-badge verdict-mid">Needs Work. Material gaps remain.</span>
+          </div>
+        </div>
+
+        <div class="metrics-grid">
+          <div class="metric-card"><div class="label">Keywords</div><div class="score-val">74</div>
+            <div class="mini-bar"><div class="mini-bar-fill" style="width:74%;background:var(--score-mid)"></div></div>
+            <div class="metric-note">A/B testing and ETL are absent.</div></div>
+          <div class="metric-card"><div class="label">Formatting</div><div class="score-val">58</div>
+            <div class="mini-bar"><div class="mini-bar-fill" style="width:58%;background:var(--score-mid)"></div></div>
+            <div class="metric-note">Job title and skills extract onto one line.</div></div>
+          <div class="metric-card"><div class="label">Readability</div><div class="score-val">81</div>
+            <div class="mini-bar"><div class="mini-bar-fill" style="width:81%;background:var(--score-high)"></div></div>
+            <div class="metric-note">Bullets mostly lead with an outcome.</div></div>
+          <div class="metric-card"><div class="label">Contact info</div><div class="score-val">40</div>
+            <div class="mini-bar"><div class="mini-bar-fill" style="width:40%;background:var(--score-low)"></div></div>
+            <div class="metric-note">Email and phone did not survive extraction.</div></div>
+        </div>
+      </div>
+
+      <div>
+        <div class="tips-section">
+          <h3>Fix these. In this order.</h3>
+          <div class="tip-item"><div class="tip-num">1.</div><div>Move your email and phone out of the page header. They sit there now and never reach the parser.<span class="tip-pts">+9 points</span></div></div>
+          <div class="tip-item"><div class="tip-num">2.</div><div>In your Revolut entry, rewrite &ldquo;Built dashboards for the team&rdquo; to lead with what changed and for how many people.<span class="tip-pts">+6 points</span></div></div>
+          <div class="tip-item"><div class="tip-num">3.</div><div>Add A/B testing and ETL to your Skills section, and name them in the bullets where you used them.<span class="tip-pts">+5 points</span></div></div>
+        </div>
+
+        <div class="kw-wrap">
+          <h3>Keywords for this role</h3>
+          <div class="kw-grid">
+            <span class="kw-tag kw-found"><span class="sr-only">Found: </span>SQL</span>
+            <span class="kw-tag kw-found"><span class="sr-only">Found: </span>Python</span>
+            <span class="kw-tag kw-found"><span class="sr-only">Found: </span>Tableau</span>
+            <span class="kw-tag kw-missing"><span class="sr-only">Missing: </span>A/B Testing</span>
+            <span class="kw-tag kw-missing"><span class="sr-only">Missing: </span>ETL</span>
+            <span class="kw-tag kw-missing"><span class="sr-only">Missing: </span>Regression</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <p class="sample-foot">Apply all three and this resume moves from 63 toward 83. <a href="/about">How the score is calculated</a>.</p>
+  </section>
+
+  <!-- Hidden text -->
+  <section class="hidden-text" aria-labelledby="hidden-heading">
+    <div class="hidden-inner">
+      <div>
+        <h2 id="hidden-heading">It also finds the text you can&rsquo;t see</h2>
+        <p>Templates and &ldquo;free ATS optimisers&rdquo; sometimes bury keywords where no reader will notice them. A recruiter who selects the page does notice, and that ends the application on integrity rather than fit.</p>
+        <ul class="hidden-ways">
+          <li>Text set to render invisibly</li>
+          <li>White text on a white page</li>
+          <li>Text set too small to read</li>
+        </ul>
+        <p>We check PDF and Word files for all three, <strong>remove what we find before scoring</strong> so it cannot inflate your result, and tell you where it is. White text on a dark sidebar is normal design and is never flagged.</p>
+      </div>
+      <div class="hidden-doc" aria-hidden="true">
+        <div class="name">Jordan Reyes</div>
+        <div class="sub">Product Manager &middot; Berlin</div>
+        <div class="rule"></div><div class="rule"></div><div class="rule s"></div>
+        <div class="hidden-found">
+          <span class="tag">Found: white text, 2pt</span>
+          <code>project manager scrum agile kubernetes salesforce sap oracle devops</code>
+        </div>
+      </div>
+    </div>
   </section>
 
   <!-- Why not the free option -->
