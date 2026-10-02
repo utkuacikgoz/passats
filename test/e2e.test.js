@@ -408,12 +408,13 @@ describe('Removed email capture', () => {
 });
 
 describe('Customer-facing analysis failures', () => {
-  it('shows the server message only for 4xx, and stays generic for 5xx', async () => {
+  it('shows the server message for 4xx and marked 5xx, and stays generic otherwise', async () => {
     const res = await request.get('/');
     // 4xx bodies are written for the customer ("remove the PDF password") and are
     // the difference between a fixable problem and a dead end. 5xx bodies can
-    // carry internals, so those are replaced with the generic line.
-    assert.match(res.text, /err\.userFacing = res\.status >= 400 && res\.status < 500/);
+    // carry internals, so those are replaced with the generic line unless the
+    // server marks one userFacing (the refund reference, "your payment is safe").
+    assert.match(res.text, /err\.userFacing = !!data\.error && \(\(res\.status >= 400 && res\.status < 500\) \|\| data\.userFacing === true\)/);
     assert.match(res.text, /err && err\.userFacing/);
     assert.match(res.text, /We couldn\\'t complete your analysis just now\. Please try again in a moment\./);
     assert.doesNotMatch(res.text, /Analysis failed: ' \+ err\.message/);

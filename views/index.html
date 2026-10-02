@@ -1891,9 +1891,10 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       if (!res.ok) {
         // 4xx messages are written by us for the customer and are the difference
         // between "re-save the PDF without a password" and a dead end. 5xx
-        // messages can carry internals, so those stay generic.
+        // messages can carry internals, so those stay generic unless the server
+        // marks one as written for the customer (a refund reference, say).
         const err = new Error(data.error || 'Analysis failed');
-        err.userFacing = res.status >= 400 && res.status < 500 && !!data.error;
+        err.userFacing = !!data.error && ((res.status >= 400 && res.status < 500) || data.userFacing === true);
         throw err;
       }
 
