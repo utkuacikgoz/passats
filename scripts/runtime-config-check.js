@@ -103,6 +103,16 @@ if (!(runtime.ALERT_TIMEOUT_MS > 0 && runtime.ALERT_TIMEOUT_MS < runtime.REQUEST
     `REQUEST_RESERVE_MS (${runtime.REQUEST_RESERVE_MS}ms)`,
   );
 }
+// The alert and the PostHog flush run together, so the slower of them plus the
+// tail (Redis, response, cleanup) is what a failure costs after the deadline.
+// Checking the alert alone missed that the flush follows it.
+const afterDeadlineMs = Math.max(runtime.ALERT_TIMEOUT_MS, runtime.POSTHOG_FLUSH_TIMEOUT_MS) + runtime.RESERVE_TAIL_MS;
+if (afterDeadlineMs > runtime.REQUEST_RESERVE_MS) {
+  failures.push(
+    `alert/flush (${Math.max(runtime.ALERT_TIMEOUT_MS, runtime.POSTHOG_FLUSH_TIMEOUT_MS)}ms) plus tail ` +
+    `(${runtime.RESERVE_TAIL_MS}ms) exceeds REQUEST_RESERVE_MS (${runtime.REQUEST_RESERVE_MS}ms)`,
+  );
+}
 
 if (failures.length) {
   console.error(failures.map(message => `runtime_config_error: ${message}`).join('\n'));
@@ -120,6 +130,8 @@ if (failures.length) {
       modelCeiling: runtime.LLM_TIMEOUT_MS,
       reserve: runtime.REQUEST_RESERVE_MS,
       alertCeiling: runtime.ALERT_TIMEOUT_MS,
+      posthogFlushCeiling: runtime.POSTHOG_FLUSH_TIMEOUT_MS,
+      reserveTail: runtime.RESERVE_TAIL_MS,
     },
   }, null, 2));
 }
