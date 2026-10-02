@@ -11,7 +11,7 @@
  *
  * Usage: node --test test/payment.test.js
  */
-const { describe, it, before, beforeEach } = require('node:test');
+const { describe, it, before, beforeEach, afterEach } = require('node:test');
 const assert = require('node:assert/strict');
 
 // ── Fakes ────────────────────────────────────────────────────────────────────
@@ -102,7 +102,18 @@ class FakeStripe {
   }
 }
 
-const llmState = { calls: 0, failures: 0, response: null };
+// `error`, when set, is thrown on every call: an SDK-shaped API error for the
+// failures retrying cannot fix (no credit, revoked key, retired model).
+const llmState = { calls: 0, failures: 0, response: null, error: null };
+
+// What the real SDK throws: an Error carrying the HTTP status and error type.
+function apiError(status, type, message) {
+  const err = new Error(`${status} ${JSON.stringify({ type: 'error', error: { type, message } })}`);
+  err.name = 'APIError';
+  err.status = status;
+  err.type = type;
+  return err;
+}
 
 function validReport() {
   return {
@@ -128,6 +139,7 @@ class FakeAnthropic {
     this.messages = {
       create: async () => {
         llmState.calls += 1;
+        if (llmState.error) throw llmState.error;
         if (llmState.failures > 0) {
           llmState.failures -= 1;
           const err = new Error('upstream exploded');
@@ -167,6 +179,8 @@ Object.assign(process.env, {
 });
 delete process.env.POSTHOG_API_KEY;
 delete process.env.TEST_SECRET;
+// Alerts are opted into per test, against a stubbed fetch, never the network.
+delete process.env.ALERT_WEBHOOK_URL;
 // Two codes: one with headroom, one single-use, so the cap can be exhausted.
 // One code per test: a shared code makes these order-dependent, and a cap is
 // exactly the kind of state that leaks between them.
@@ -177,6 +191,7 @@ stub('@upstash/redis', { Redis: FakeRedis });
 stub('@anthropic-ai/sdk', FakeAnthropic);
 
 const app = require('../server');
+const alerts = require('../lib/alerts');
 const supertest = require('supertest');
 const request = supertest(app);
 const redis = () => redisInstances.at(-1);
@@ -284,6 +299,7 @@ describe('analyze — the real path', () => {
     llmState.calls = 0;
     llmState.failures = 0;
     llmState.response = null;
+    llmState.error = null;
     redis().store.clear();
   });
 
@@ -346,6 +362,7 @@ describe('analyze — the real path', () => {
     assert.equal(exhausted.status, 500);
     assert.match(exhausted.body.error, new RegExp(app.__test.SUPPORT_EMAIL.replace('.', '\\.')));
     assert.match(exhausted.body.error, /reference [0-9a-f-]{36}/i, 'quotes a request id support can search for');
+    assert.equal(exhausted.body.userFacing, true, 'the reference is useless if the page hides it');
   });
 
   it('does not burn the payment when the retry counter itself is unreadable', async () => {
@@ -438,6 +455,126 @@ describe('analyze — the real path', () => {
       .set('x-vercel-forwarded-for', nextIp())
       .attach('cv', makePdf(), { filename: 'cv.pdf', contentType: 'application/pdf' });
     assert.equal(res.status, 403);
+  });
+});
+
+describe('operator faults — failures that are ours, not the customer\'s', () => {
+  const sent = [];
+  const realFetch = globalThis.fetch;
+  const WEBHOOK = 'https://ntfy.test/passats-alerts';
+
+  beforeEach(() => {
+    llmState.calls = 0;
+    llmState.failures = 0;
+    llmState.response = null;
+    llmState.error = null;
+    redis().store.clear();
+    alerts._resetForTests();
+    sent.length = 0;
+    process.env.ALERT_WEBHOOK_URL = WEBHOOK;
+    globalThis.fetch = async (url, init) => { sent.push({ url, ...init }); return { ok: true, status: 200 }; };
+  });
+  // The breaker and the fault outlive a test by design; later suites must not
+  // inherit a paused checkout.
+  afterEach(async () => {
+    globalThis.fetch = realFetch;
+    delete process.env.ALERT_WEBHOOK_URL;
+    llmState.error = null;
+    await redis().del(app.__test.SERVICE_DEGRADED_KEY);
+    alerts._resetForTests();
+  });
+
+  it('keeps the analysis when the credit balance runs out, pauses checkout, and alerts once', async () => {
+    stripeState.session = paidSession({ id: 'cs_no_credit', metadata: {} });
+    const ip = nextIp();
+    const token = await getToken(ip);
+    llmState.error = apiError(402, 'billing_error', 'Your credit balance is too low to access the Anthropic API.');
+
+    // Well past the three-attempt ladder: none of these may consume the payment.
+    for (let attempt = 1; attempt <= 5; attempt++) {
+      const res = await analyze(token, ip);
+      assert.equal(res.status, 503, `attempt ${attempt}`);
+      assert.match(res.body.error, /payment is safe/i);
+      assert.match(res.body.error, /reference [0-9a-f-]{36}/i);
+      assert.equal(res.body.userFacing, true, 'the page must show this, not its generic 5xx copy');
+    }
+    assert.equal(await app.__test.hasAnalysisClaim('cs_no_credit', redis()), false, 'claim released');
+    assert.equal(await redis().get(app.__test.analysisRetryKey('cs_no_credit')), null, 'retry ladder untouched');
+
+    assert.equal(sent.length, 1, 'one alert for the outage, not one per request');
+    assert.equal(sent[0].url, WEBHOOK);
+    assert.match(sent[0].headers.Title, /billing/);
+    assert.match(sent[0].body, /credit balance/i);
+    assert.doesNotMatch(sent[0].body, /cs_no_credit/, 'no payment session id leaves the server');
+
+    const checkout = await request.post('/api/checkout').set('Origin', BASE_URL).set('x-vercel-forwarded-for', nextIp());
+    assert.equal(checkout.status, 503, 'stop selling an analysis that cannot run');
+    assert.match(checkout.body.error, /not been charged/i);
+
+    // Topped up: the same token works, because nothing was consumed.
+    llmState.error = null;
+    await redis().del(app.__test.SERVICE_DEGRADED_KEY);
+    const recovered = await analyze(token, ip);
+    assert.equal(recovered.status, 200);
+  });
+
+  it('treats the legacy 400 "credit balance" shape as billing too', () => {
+    const fault = app.__test.classifyOperatorFault(apiError(400, 'invalid_request_error', 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'));
+    assert.deepEqual(fault, { kind: 'billing', account: true });
+  });
+
+  it('classifies only what retrying cannot fix', () => {
+    const classify = app.__test.classifyOperatorFault;
+    assert.equal(classify(apiError(401, 'authentication_error', 'invalid x-api-key')).kind, 'auth');
+    assert.equal(classify(apiError(404, 'not_found_error', 'model: nope')).kind, 'model_not_found');
+    assert.deepEqual(classify(apiError(400, 'invalid_request_error', 'messages: too long')), { kind: 'request_400', account: false });
+    for (const [status, type] of [[408, 'timeout_error'], [409, 'conflict'], [429, 'rate_limit_error'], [500, 'api_error'], [529, 'overloaded_error']]) {
+      assert.equal(classify(apiError(status, type, 'x')), null, `${status} stays on the retry ladder`);
+    }
+    assert.equal(classify(new Error('LLM_TIMEOUT')), null);
+    const network = new Error('fetch failed'); network.name = 'APIConnectionError';
+    assert.equal(classify(network), null);
+  });
+
+  it('a request-specific 400 releases the claim but leaves checkout open', async () => {
+    stripeState.session = paidSession({ id: 'cs_bad_request', metadata: {} });
+    const ip = nextIp();
+    const token = await getToken(ip);
+    llmState.error = apiError(400, 'invalid_request_error', 'something about this input');
+
+    const res = await analyze(token, ip);
+    assert.equal(res.status, 503);
+    assert.equal(await app.__test.hasAnalysisClaim('cs_bad_request', redis()), false);
+    assert.equal(await redis().get(app.__test.SERVICE_DEGRADED_KEY), null);
+    const checkout = await request.post('/api/checkout').set('Origin', BASE_URL).set('x-vercel-forwarded-for', nextIp());
+    assert.equal(checkout.status, 200);
+    assert.equal(sent.length, 1);
+  });
+
+  it('alerts when a paid analysis is consumed by the retry ladder', async () => {
+    stripeState.session = paidSession({ id: 'cs_burn_alert', metadata: {} });
+    const ip = nextIp();
+    const token = await getToken(ip);
+    llmState.failures = 5;
+    for (let attempt = 1; attempt <= 3; attempt++) await analyze(token, ip);
+    assert.equal(sent.length, 0, 'retryable failures alone do not page anyone');
+
+    const exhausted = await analyze(token, ip);
+    assert.equal(exhausted.status, 500);
+    assert.equal(sent.length, 1);
+    assert.match(sent[0].headers.Title, /failed for good/);
+  });
+
+  it('an unreachable webhook never changes the customer\'s response', async () => {
+    stripeState.session = paidSession({ id: 'cs_dead_hook', metadata: {} });
+    const ip = nextIp();
+    const token = await getToken(ip);
+    globalThis.fetch = async () => { throw new TypeError('fetch failed'); };
+    llmState.error = apiError(402, 'billing_error', 'Your credit balance is too low.');
+
+    const res = await analyze(token, ip);
+    assert.equal(res.status, 503);
+    assert.equal(await app.__test.hasAnalysisClaim('cs_dead_hook', redis()), false);
   });
 });
 

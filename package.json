@@ -27,7 +27,7 @@
     "sync:sitemap": "node scripts/build-sitemap.js",
     "test": "npm run test:node && npm run test:browser",
     "test:browser": "node --test test/browser.test.js",
-    "test:node": "node --test test/unit.test.js test/e2e.test.js test/payment.test.js test/contract.test.js test/eval.test.js test/quality-benchmark.test.js test/domain.test.js test/injection.test.js test/hidden-text.test.js test/parse-preview.test.js test/devmode.test.js"
+    "test:node": "node --test test/unit.test.js test/e2e.test.js test/payment.test.js test/contract.test.js test/eval.test.js test/quality-benchmark.test.js test/domain.test.js test/injection.test.js test/hidden-text.test.js test/alerts.test.js test/parse-preview.test.js test/devmode.test.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.126.0",

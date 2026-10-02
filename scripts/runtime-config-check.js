@@ -94,6 +94,16 @@ if (runtime.HIDDEN_TEXT_MIN_BUDGET_MS > runtime.HIDDEN_TEXT_TIMEOUT_MS) {
   failures.push('HIDDEN_TEXT_MIN_BUDGET_MS must not exceed HIDDEN_TEXT_TIMEOUT_MS');
 }
 
+// Alerts go out of the reserve after the model phase has already used its share.
+// If one could outlast the reserve, a dead webhook would push the invocation
+// past maxDuration.
+if (!(runtime.ALERT_TIMEOUT_MS > 0 && runtime.ALERT_TIMEOUT_MS < runtime.REQUEST_RESERVE_MS)) {
+  failures.push(
+    `ALERT_TIMEOUT_MS (${runtime.ALERT_TIMEOUT_MS}ms) must be positive and smaller than ` +
+    `REQUEST_RESERVE_MS (${runtime.REQUEST_RESERVE_MS}ms)`,
+  );
+}
+
 if (failures.length) {
   console.error(failures.map(message => `runtime_config_error: ${message}`).join('\n'));
   process.exitCode = 1;
@@ -109,6 +119,7 @@ if (failures.length) {
       hiddenTextCeiling: runtime.HIDDEN_TEXT_TIMEOUT_MS,
       modelCeiling: runtime.LLM_TIMEOUT_MS,
       reserve: runtime.REQUEST_RESERVE_MS,
+      alertCeiling: runtime.ALERT_TIMEOUT_MS,
     },
   }, null, 2));
 }
