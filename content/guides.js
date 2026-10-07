@@ -582,7 +582,7 @@ module.exports = [
       { h2: 'You may have it without knowing', body: [
         'Some downloadable templates and "ATS optimiser" tools insert hidden keyword blocks for you. Others leave placeholder text set in white from the original design. Either way it is in the file under your name.',
         'Check before you send anything: open the PDF, select all, and look for highlighted areas where you see no words. Or paste the text into a plain editor and read the end of it.',
-        '<a href="/ats-parse-preview">The free parse preview</a> shows you every word a parser extracts, including the ones you cannot see on the page.',
+        '<a href="/ats-parse-preview">The free parse preview</a> tells you if a file contains hidden text, how much there is, and how it was hidden. It leaves those words out of the text it shows you, so to find and delete them, use the select-all test in your own editor.',
       ]},
       { h2: 'What PassATS does with it', body: [
         'The paid report looks for text a reader cannot see, using three tells: text set to render invisibly, text the same colour as what is behind it, and text too small to read. White text on a dark sidebar is normal design and is not flagged.',
