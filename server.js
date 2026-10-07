@@ -73,6 +73,7 @@ const LLM_MAX_TOKENS = 3000;
 const { SUPPORT_EMAIL } = require('./config/site');
 const { stripHiddenText } = require('./lib/hidden-text');
 const { notifyOwner } = require('./lib/alerts');
+const { checkContact } = require('./lib/contact');
 // Upload limits live here so the multer ceiling, the textarea maxlength rendered
 // into the page, the error copy, and the prompt slice can never drift apart.
 const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
@@ -1862,16 +1863,24 @@ app.post('/api/parse-preview', parsePreviewGuard, upload.single('cv'), async (re
       else log('info', 'preview.render_skipped', { requestId: reqId, reason: rendered.skipped });
     }
 
+    // Whether the email, phone and LinkedIn made it through, read from the text
+    // after hidden text was removed: the same text the analysis would score.
+    // Statuses only, never the values.
+    const contact = checkContact(text);
+
     log('info', 'preview.completed', {
       requestId: reqId,
       fileType: req.file.mimetype,
       chars: text.length,
       hiddenText: !!hidden.flagged,
       rendered: !!page,
+      email: contact.email.status,
+      phone: contact.phone.status,
     });
 
     res.json({
       page,
+      contact,
       text: text.slice(0, PARSE_PREVIEW_MAX_CHARS),
       chars: text.length,
       truncated: text.length > PARSE_PREVIEW_MAX_CHARS,
