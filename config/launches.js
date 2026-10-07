@@ -17,6 +17,7 @@
 const LAUNCHES = [
   { name: 'Product Hunt', url: 'https://www.producthunt.com/products/passats' },
   { name: 'Fazier', url: 'https://fazier.com/launches/passats.pro', label: 'Launched on' },
+  { name: 'BuildHop', url: 'https://buildhop.io/discover/passats-ba021024-5631-41cc-bf99-de9205bf7741', label: 'Launched on' },
 ];
 
 module.exports = { LAUNCHES };

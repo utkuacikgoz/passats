@@ -394,13 +394,13 @@ app.use((req, res, next) => {
     `script-src 'self' 'unsafe-hashes' https://analytics.ahrefs.com https://www.googletagmanager.com https://googleads.g.doubleclick.net https://www.googleadservices.com https://www.google-analytics.com ${APP_SCRIPT_CSP_HASH} ${VERCEL_ANALYTICS_CSP_HASH} ${APP_HANDLER_CSP_HASHES}`,
     "style-src 'self' 'unsafe-inline' fonts.googleapis.com",
     "font-src fonts.gstatic.com",
-    // api.producthunt.com and fazier.com serve the launch badges in the footer.
+    // api.producthunt.com, fazier.com and buildhop.io serve the launch badges in the footer.
     // Without them the badges are blocked and render as empty boxes.
     // Google Ads fires conversion and remarketing pixels as images. Country-code
     // Google domains (google.de, google.co.uk, …) are deliberately not listed:
     // there is no wildcard that covers them and enumerating every ccTLD is not
     // worth it. If Ads reporting shows gaps, add the specific ones that matter.
-    "img-src 'self' data: https://api.producthunt.com https://fazier.com https://www.google.com https://www.googletagmanager.com https://www.googleadservices.com https://www.google-analytics.com https://googleads.g.doubleclick.net https://stats.g.doubleclick.net",
+    "img-src 'self' data: https://api.producthunt.com https://fazier.com https://buildhop.io https://www.google.com https://www.googletagmanager.com https://www.googleadservices.com https://www.google-analytics.com https://googleads.g.doubleclick.net https://stats.g.doubleclick.net",
     // Each tag beacons back to its own origin, and Google's is several origins.
     "connect-src 'self' https://analytics.ahrefs.com https://www.googletagmanager.com https://www.google-analytics.com https://analytics.google.com https://googleads.g.doubleclick.net https://ad.doubleclick.net https://stats.g.doubleclick.net https://www.google.com",
     "object-src 'none'",
