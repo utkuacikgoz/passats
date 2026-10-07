@@ -38,6 +38,11 @@ const PAGES = [
   { url: '/resume-file-format', source: 'views/guides/resume-file-format.html', changefreq: 'monthly', priority: '0.7' },
   { url: '/ats-parsing-errors', source: 'views/guides/ats-parsing-errors.html', changefreq: 'monthly', priority: '0.7' },
   { url: '/ats-resume-template', source: 'views/guides/ats-resume-template.html', changefreq: 'monthly', priority: '0.7' },
+  { url: '/canva-resume-ats', source: 'views/guides/canva-resume-ats.html', changefreq: 'monthly', priority: '0.7' },
+  { url: '/two-column-resume-ats', source: 'views/guides/two-column-resume-ats.html', changefreq: 'monthly', priority: '0.7' },
+  { url: '/white-text-resume-keywords', source: 'views/guides/white-text-resume-keywords.html', changefreq: 'monthly', priority: '0.7' },
+  { url: '/resume-contact-information', source: 'views/guides/resume-contact-information.html', changefreq: 'monthly', priority: '0.7' },
+  { url: '/resume-skills-section', source: 'views/guides/resume-skills-section.html', changefreq: 'monthly', priority: '0.7' },
   // Who runs this, how the score is computed, and what the report will not
   // claim. Higher priority than the legal pages: it is the page a cautious
   // buyer and an AI answer engine both reach for before trusting a number.
