@@ -25,6 +25,11 @@ const HIDDEN_TEXT_TIMEOUT_MS = 5_000;
 // Below this there is no point starting: the scan would be killed mid-page and
 // the text would go to the model unexamined either way.
 const HIDDEN_TEXT_MIN_BUDGET_MS = 1_500;
+// The free preview renders page one of a PDF beside the extracted text. It runs
+// after the document phase and only on /api/parse-preview, which never calls
+// the model, so it needs its own slice rather than a share of the model's. It
+// is best-effort: a render that runs out of time is dropped, not retried.
+const PREVIEW_RENDER_TIMEOUT_MS = 4_000;
 // Hard ceiling on the model call, applied only when the parse left room for it.
 const LLM_TIMEOUT_MS = 55_000;
 // Left for request parsing, the upload write, Redis round trips, the JSON
@@ -50,6 +55,7 @@ module.exports = {
   DOCUMENT_PARSE_TIMEOUT_MS,
   HIDDEN_TEXT_TIMEOUT_MS,
   HIDDEN_TEXT_MIN_BUDGET_MS,
+  PREVIEW_RENDER_TIMEOUT_MS,
   LLM_TIMEOUT_MS,
   REQUEST_RESERVE_MS,
   ALERT_TIMEOUT_MS,

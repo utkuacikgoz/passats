@@ -58,6 +58,7 @@ const {
   DOCUMENT_PARSE_TIMEOUT_MS,
   HIDDEN_TEXT_TIMEOUT_MS,
   HIDDEN_TEXT_MIN_BUDGET_MS,
+  PREVIEW_RENDER_TIMEOUT_MS,
   LLM_TIMEOUT_MS,
   ANALYSIS_BUDGET_MS,
   POSTHOG_FLUSH_TIMEOUT_MS,
@@ -1360,6 +1361,62 @@ async function extractDocument(file, budgetMs = DOCUMENT_PARSE_TIMEOUT_MS) {
   return { text: result.text, hidden: result.hidden };
 }
 
+// ── Page one, as it looks ─────────────────────────────────────────────────────
+// The free preview shows the first page of a PDF beside the text the parser got
+// out of it. Side by side, a missing email or a sidebar spliced into a job title
+// is visible at a glance instead of something to hunt for in a text box.
+//
+// Best-effort in every direction. It never fails the preview: any error, a
+// timeout, an odd page or an oversized image returns { skipped } and the
+// visitor gets the text alone, exactly as before. It renders only page one,
+// only for PDFs, through the same pdfjs that extracted the text.
+const PREVIEW_RENDER_WIDTH = 640;
+// A canvas is allocated at the rendered size before anything is drawn. A page
+// declared 100pt wide and 14,400pt tall would ask for a 640 x 92,160 canvas,
+// hundreds of megabytes, so the page's shape is checked before rendering.
+// A4 and US Letter are about 1.3 to 1.4; anything past 2 is not a resume page.
+const PREVIEW_RENDER_MAX_ASPECT = 2;
+// Base64 PNG of one ordinary resume page is roughly 100 to 250KB. Past this the
+// page is mostly photograph, and the response is not worth the bytes.
+const PREVIEW_RENDER_MAX_CHARS = 800 * 1024;
+
+async function renderFirstPage(buffer, budgetMs = PREVIEW_RENDER_TIMEOUT_MS) {
+  const { CanvasFactory, getData } = require('pdf-parse/worker');
+  const { PDFParse } = require('pdf-parse');
+  PDFParse.setWorker(getData());
+  // A copy: the extraction and the hidden-text scan already read this buffer,
+  // and nothing here should depend on pdfjs leaving it attached.
+  const parser = new PDFParse({ data: new Uint8Array(buffer), CanvasFactory });
+  let timeoutId;
+  const timeout = new Promise(resolve => {
+    timeoutId = setTimeout(() => resolve({ skipped: 'timeout' }), Math.max(1, Math.min(PREVIEW_RENDER_TIMEOUT_MS, budgetMs)));
+  });
+  const render = (async () => {
+    const info = await parser.getInfo({ parsePageInfo: true, partial: [1] });
+    const page = (info.pages || []).find(p => p.pageNumber === 1);
+    if (!page || !(page.width > 0) || !(page.height > 0)) return { skipped: 'no_page' };
+    const ratio = page.height / page.width;
+    if (ratio > PREVIEW_RENDER_MAX_ASPECT || ratio < 1 / PREVIEW_RENDER_MAX_ASPECT) return { skipped: 'page_shape' };
+    const shot = await parser.getScreenshot({ partial: [1], desiredWidth: PREVIEW_RENDER_WIDTH, imageDataUrl: true, imageBuffer: false });
+    const image = shot.pages?.[0];
+    if (!image || typeof image.dataUrl !== 'string' || !image.dataUrl.startsWith('data:image/png;base64,')) return { skipped: 'no_image' };
+    if (image.dataUrl.length > PREVIEW_RENDER_MAX_CHARS) return { skipped: 'too_large' };
+    return { image: image.dataUrl, width: Math.round(image.width), height: Math.round(image.height) };
+  })();
+  // The losing side of the race still settles later. Without a handler its
+  // rejection would be unhandled and, in Node, fatal to the process.
+  render.catch(() => {});
+  try {
+    return await Promise.race([render, timeout]);
+  } catch (err) {
+    return { skipped: 'failed', error: err };
+  } finally {
+    clearTimeout(timeoutId);
+    // Also what stops a render that lost the race from running on.
+    await parser.destroy().catch(() => {});
+  }
+}
+
 async function extractText(file, budgetMs = DOCUMENT_PARSE_TIMEOUT_MS, preloaded) {
   let timeoutId;
   // Never longer than the hard parse ceiling, and never longer than what is
@@ -1792,14 +1849,29 @@ app.post('/api/parse-preview', parsePreviewGuard, upload.single('cv'), async (re
       });
     }
 
+    // The page as it looks, for the side-by-side view. PDF only: a DOCX has no
+    // fixed layout to render, and Word's own view of it is already the reader's.
+    // Hidden text needs no special handling here. The render shows what the
+    // page paints, so white-on-white text renders as white and invisible text
+    // as nothing, exactly as a reader would see it.
+    let page = null;
+    if (req.file.mimetype === 'application/pdf') {
+      const rendered = await renderFirstPage(buffer, PREVIEW_RENDER_TIMEOUT_MS);
+      if (rendered.image) page = { image: rendered.image, width: rendered.width, height: rendered.height };
+      else if (rendered.skipped === 'failed') logError('preview.render_failed', rendered.error, { requestId: reqId });
+      else log('info', 'preview.render_skipped', { requestId: reqId, reason: rendered.skipped });
+    }
+
     log('info', 'preview.completed', {
       requestId: reqId,
       fileType: req.file.mimetype,
       chars: text.length,
       hiddenText: !!hidden.flagged,
+      rendered: !!page,
     });
 
     res.json({
+      page,
       text: text.slice(0, PARSE_PREVIEW_MAX_CHARS),
       chars: text.length,
       truncated: text.length > PARSE_PREVIEW_MAX_CHARS,
@@ -1974,6 +2046,7 @@ app.__test = {
   analysisSupportMessage,
   operatorFaultMessage,
   classifyOperatorFault,
+  renderFirstPage,
   SERVICE_DEGRADED_KEY,
   SUPPORT_EMAIL,
   MAX_UPLOAD_BYTES,
