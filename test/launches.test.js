@@ -65,3 +65,16 @@ describe('launch strip', () => {
     assert.match(html, /\.launch-strip:focus-within \.marquee-reel \{ animation-play-state: paused; \}/);
   });
 });
+
+describe('launch strip edge cases', () => {
+  it('writes a URL containing replacement tokens literally into sameAs', () => {
+    const url = 'https://x.test/a$&b$1c';
+    const next = sync(html, [{ name: 'Odd', url }]);
+    const sameAs = JSON.parse(next.match(/"sameAs":\s*(\[[\s\S]*?\])/)[1]);
+    assert.deepEqual(sameAs, [url]);
+  });
+
+  it('makes each track at least as wide as the screen', () => {
+    assert.match(html, /\.marquee-track \{[^}]*min-width: 100vw;/);
+  });
+});

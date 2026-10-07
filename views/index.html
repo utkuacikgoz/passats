@@ -360,7 +360,13 @@
   }
   .launch-strip:hover .marquee-reel,
   .launch-strip:focus-within .marquee-reel { animation-play-state: paused; }
-  .marquee-track { display: flex; list-style: none; margin: 0; padding: 0; }
+  /* Each track is at least as wide as the screen, so the loop never shows a
+     gap on a wide display however few launches there are. The two tracks stay
+     identical, so the seam still lands exactly on itself. */
+  .marquee-track {
+    display: flex; flex-shrink: 0; min-width: 100vw; justify-content: space-around;
+    list-style: none; margin: 0; padding: 0;
+  }
   .launch-item {
     display: inline-flex; align-items: center; gap: 8px;
     padding: 16px 28px; min-height: 44px;
@@ -374,7 +380,7 @@
   @media (prefers-reduced-motion: reduce) {
     .marquee { -webkit-mask-image: none; mask-image: none; }
     .marquee-reel { animation: none; width: auto; justify-content: center; }
-    .marquee-track { flex-wrap: wrap; justify-content: center; }
+    .marquee-track { flex-wrap: wrap; justify-content: center; min-width: 0; }
     .marquee-track[aria-hidden="true"], .marquee-track > li[aria-hidden="true"] { display: none; }
   }
 

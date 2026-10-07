@@ -77,7 +77,9 @@ function syncSameAs(html, launches) {
   const block = /("sameAs":\s*\[)([\s\S]*?)(\])/;
   if (!block.test(html)) throw new Error('Organization sameAs not found in views/index.html');
   const urls = launches.map(l => `    ${JSON.stringify(l.url)}`).join(',\n');
-  return html.replace(block, `$1\n${urls}\n  $3`);
+  // A callback, not a replacement string: a URL containing `$&` or `$1` would
+  // otherwise be expanded by String.replace and corrupt the JSON-LD.
+  return html.replace(block, (_, open, _old, close) => `${open}\n${urls}\n  ${close}`);
 }
 
 function sync(html, launches = LAUNCHES) {
