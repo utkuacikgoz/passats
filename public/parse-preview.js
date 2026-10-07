@@ -20,6 +20,8 @@
   var output = document.getElementById('output');
   var stats = document.getElementById('stats');
   var flag = document.getElementById('hiddenFlag');
+  var pagePane = document.getElementById('pagePane');
+  var pageImage = document.getElementById('pageImage');
   var busy = false;
 
   function say(message, kind) {
@@ -30,6 +32,9 @@
 
   function reset() {
     result.hidden = true;
+    result.classList.remove('has-page');
+    pagePane.hidden = true;
+    pageImage.removeAttribute('src');
     flag.hidden = true;
     say('');
   }
@@ -80,6 +85,17 @@
       stats.textContent = data.chars.toLocaleString() + ' characters'
         + (data.truncated ? ' (showing the first 20,000)' : '')
         + ' · ' + file.name;
+      // Only ever a PNG data URL that the server rendered. Anything else is
+      // ignored and the text shows alone, which is also what happens for a
+      // DOCX or when the render was skipped.
+      var page = data.page;
+      if (page && typeof page.image === 'string' && page.image.indexOf('data:image/png;base64,') === 0) {
+        pageImage.width = page.width;
+        pageImage.height = page.height;
+        pageImage.src = page.image;
+        pagePane.hidden = false;
+        result.classList.add('has-page');
+      }
       if (data.hidden && data.hidden.flagged) {
         flag.textContent = describe(data.hidden);
         flag.hidden = false;

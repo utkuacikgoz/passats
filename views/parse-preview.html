@@ -49,7 +49,7 @@
   ul { padding-left: 22px; }
   a { color: var(--accent-strong); }
   strong { color: var(--ink); font-weight: 600; }
-  code { background: var(--surface); border: 1px solid var(--border); border-radius: 3px; padding: 1px 5px; font-size: 0.88em; }
+  code { background: var(--surface); color: var(--ink); border: 1px solid var(--border); border-radius: 3px; padding: 1px 5px; font-size: 0.88em; }
   .cta { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 28px 26px; margin: 48px 0 0; text-align: center; }
   .cta h2 { margin-top: 0; font-size: 1.35rem; }
   .cta p { margin-bottom: 18px; }
@@ -111,6 +111,29 @@
     font-size: 0.8rem; line-height: 1.7; color: var(--ink);
     white-space: pre-wrap; overflow-wrap: anywhere;
   }
+  /* Side by side for a PDF: the page as it looks, and the text as it came out.
+     The pair needs more room than the prose column, so on a wide screen the
+     result breaks out of it, centred on the same axis. A DOCX has no fixed
+     layout to render and keeps the single column. */
+  .pane { margin: 0; min-width: 0; }
+  .page-image {
+    display: block; width: 100%; height: auto;
+    background: #fff; border: 1px solid var(--border); border-radius: 12px;
+  }
+  @media (min-width: 900px) {
+    .result.has-page {
+      width: min(1100px, calc(100vw - 80px));
+      margin-left: calc((100% - min(1100px, calc(100vw - 80px))) / 2);
+    }
+    .result.has-page .compare {
+      display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: 28px; align-items: start;
+    }
+    .result.has-page .output { max-height: 720px; }
+  }
+  @media (max-width: 899px) {
+    .result.has-page .pane-page { margin-bottom: 24px; }
+  }
   .hidden-flag {
     margin-top: 12px; padding: 12px 14px; border-radius: 10px;
     background: var(--warning-light); color: #6B4E12;
@@ -150,7 +173,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
 <main>
   <h1>See what an ATS reads from your resume</h1>
-  <p class="standfirst">Upload your CV. This shows you the plain text an applicant tracking system pulls out of the file, which is the only version of your resume most employers ever process. Free, no signup, and the file is discarded as soon as it has been read.</p>
+  <p class="standfirst">Upload your CV. This shows you the plain text an applicant tracking system pulls out of the file, which is the only version of your resume most employers ever process. For a PDF, it puts your first page beside it, so you can see what went missing. Free, no signup, and the file is discarded as soon as it has been read.</p>
 
   <div class="tool">
     <div class="drop" id="dropZone">
@@ -161,15 +184,24 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <p class="status" id="status" role="status" aria-live="polite" hidden></p>
 
     <section class="result" id="result" hidden>
-      <h2>What the parser got</h2>
-      <p class="stats" id="stats"></p>
-      <pre class="output" id="output"></pre>
+      <div class="compare">
+        <figure class="pane pane-page" id="pagePane" hidden>
+          <h2>What a person sees</h2>
+          <p class="stats">Page 1, as it prints</p>
+          <img class="page-image" id="pageImage" alt="Page 1 of your file, as it looks on screen">
+        </figure>
+        <div class="pane pane-text">
+          <h2>What the parser got</h2>
+          <p class="stats" id="stats"></p>
+          <pre class="output" id="output"></pre>
+        </div>
+      </div>
       <p class="hidden-flag" id="hiddenFlag" hidden></p>
     </section>
   </div>
 
   <h2>How to read the result</h2>
-  <p>The text above is what your resume becomes once the formatting is gone. Read it the way a parser does, with no idea what the layout was meant to convey.</p>
+  <p>The text above is what your resume becomes once the formatting is gone. Read it the way a parser does, with no idea what the layout was meant to convey. If you uploaded a PDF, go down your page line by line and find each line in the text beside it.</p>
   <ul>
     <li><strong>Is anything missing?</strong> Text inside a header, a footer, a text box or an image does not always survive. If your phone number lives in the header, look for it above. If it is not there, it is not in the application either.</li>
     <li><strong>Is the order right?</strong> A two-column layout can interleave, so a job title from the left column lands between two skills from the right. If the reading order is scrambled here, the parser scrambled it.</li>
