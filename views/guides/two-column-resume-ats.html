@@ -3,19 +3,19 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>How Long Should a Resume Be? | PassATS</title>
-<meta name="description" content="When one page is right, when two is expected, and why the page count matters far less than what is in the first third.">
-<link rel="canonical" href="https://passats.pro/resume-length">
+<title>Are Two-Column Resumes ATS Friendly? | PassATS</title>
+<meta name="description" content="Why two-column resume layouts can scramble in applicant tracking systems, how to tell whether yours does, and how to keep a sidebar without the risk.">
+<link rel="canonical" href="https://passats.pro/two-column-resume-ats">
 
 <meta property="og:type" content="article">
-<meta property="og:url" content="https://passats.pro/resume-length">
-<meta property="og:title" content="How Long Should a Resume Be?">
-<meta property="og:description" content="When one page is right, when two is expected, and why the page count matters far less than what is in the first third.">
+<meta property="og:url" content="https://passats.pro/two-column-resume-ats">
+<meta property="og:title" content="Are Two-Column Resumes ATS Friendly?">
+<meta property="og:description" content="Why two-column resume layouts can scramble in applicant tracking systems, how to tell whether yours does, and how to keep a sidebar without the risk.">
 <meta property="og:image" content="https://passats.pro/og-image.png">
 <meta property="og:site_name" content="PassATS">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="How Long Should a Resume Be?">
-<meta name="twitter:description" content="When one page is right, when two is expected, and why the page count matters far less than what is in the first third.">
+<meta name="twitter:title" content="Are Two-Column Resumes ATS Friendly?">
+<meta name="twitter:description" content="Why two-column resume layouts can scramble in applicant tracking systems, how to tell whether yours does, and how to keep a sidebar without the risk.">
 <meta name="twitter:image" content="https://passats.pro/og-image.png">
 <meta name="robots" content="index, follow">
 
@@ -97,8 +97,8 @@
 {
   "@context": "https://schema.org",
   "@type": "Article",
-  "headline": "How Long Should a Resume Be?",
-  "description": "When one page is right, when two is expected, and why the page count matters far less than what is in the first third.",
+  "headline": "Are Two-Column Resumes ATS Friendly?",
+  "description": "Why two-column resume layouts can scramble in applicant tracking systems, how to tell whether yours does, and how to keep a sidebar without the risk.",
   "image": "https://passats.pro/og-image.png",
   "author": {
     "@type": "Organization",
@@ -112,7 +112,7 @@
   },
   "mainEntityOfPage": {
     "@type": "WebPage",
-    "@id": "https://passats.pro/resume-length"
+    "@id": "https://passats.pro/two-column-resume-ats"
   }
 }
 </script>
@@ -126,33 +126,32 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   <a class="nav-cta" href="/">Check My Resume. $2.99</a>
 </nav>
 <main>
-  <h1>How Long Should a Resume Be?</h1>
-  <p class="standfirst">One page is advice, not a rule. The real constraint is that almost nobody reads past the first third, whatever the length.</p>
+  <h1>Are Two-Column Resumes ATS Friendly?</h1>
+  <p class="standfirst">It depends on how the columns are built, which you cannot see by looking at the page. You can find out in a minute, and you should before you send it anywhere.</p>
   <p class="meta">From the team behind PassATS. Free to read, no email required.</p>
 
-  <h2>The short answer</h2>
-  <p><strong>Under five years of experience:</strong> one page. You will not have enough evidence to fill two without padding, and padding is visible.</p>
-  <p><strong>Five to fifteen years:</strong> two pages is normal and expected. Compressing fifteen years onto one page means cutting the evidence that makes you credible.</p>
-  <p><strong>Academic, research or senior technical:</strong> longer is conventional, and a publication list is not a resume anyway.</p>
+  <h2>Why columns are a risk</h2>
+  <p>A person reads a two-column page column by column. A text extractor reads whatever order the file stores the text in, and that order can run straight across both columns, line by line.</p>
+  <p>When that happens, a job title from the right column and a skill from the left end up on the same line: <code>Senior Data Analyst SQL</code>. Repeat that down the page and the history the parser builds is not yours.</p>
+  <p>Some systems handle columns well. Some do not. You will not know which one a given employer runs, so the safe question is not "do columns work" but "does my file come out in order".</p>
 
-  <h2>Why the rule exists</h2>
-  <p>The one-page rule is a proxy for a real problem: most resumes are too long because they list duties rather than outcomes.</p>
-  <p>Cutting to one page usually forces the right edit. That is why the advice works even though the rule itself is arbitrary.</p>
+  <h2>Not all columns are the same</h2>
+  <p><strong>Real document columns</strong>, set with the column feature in Word or Google Docs, usually extract in column order. They are the least risky way to do it.</p>
+  <p><strong>Tables</strong> are read cell by cell, row by row. A two-cell table with your whole sidebar in one cell often reads acceptably. A grid of small cells does not.</p>
+  <p><strong>Text boxes and free-floating frames</strong>, which is how most design templates build a sidebar, are the riskiest. Their order is whatever order they were created in, and some parsers skip text boxes entirely.</p>
 
-  <h2>What actually gets read</h2>
-  <p>The top third of the first page. Your name, your summary, and your most recent role.</p>
-  <p>This is why page count matters less than order. A strong second page nobody reaches is worth less than one line moved higher.</p>
+  <h2>How to check yours</h2>
+  <p>Select all the text in the file, copy it, and paste it into a plain text editor. If your sections come out whole and in a sensible order, the layout is not your problem.</p>
+  <p>If lines from the sidebar are interleaved with your experience, a parser can do the same. Our <a href="/ats-parse-preview">free parse preview</a> shows the extracted text from a real parser if you would rather not rely on copy and paste.</p>
 
-  <h2>What to cut first</h2>
-  <p>Roles more than fifteen years old, unless they are the reason you are qualified. A single line each is enough.</p>
-  <p>Duties that any holder of that job title would have had.</p>
-  <p>"References available on request." Everyone knows.</p>
-  <p>A skills rating out of five. Nobody agrees what four means, including you.</p>
-  <p>Anything you would not want to be asked about in detail.</p>
+  <h2>If you want to keep the sidebar</h2>
+  <p>Keep <strong>the things that must survive</strong> in the main column: your name, email, phone and every job title with its dates. If the sidebar scrambles, you lose decoration, not your history.</p>
+  <p>Put only short, self-contained items in the sidebar, like a skills list or languages, each under a plain heading.</p>
+  <p>Build the sidebar as a real column or a single table cell, not a stack of text boxes.</p>
 
-  <h2>What length does to parsing</h2>
-  <p>Length itself is not scored. A parser reads two pages as happily as one.</p>
-  <p>What does hurt is the compression people apply to hit one page: shrinking margins to nothing, dropping to eight point type, or moving content into a sidebar to save vertical space. That last one is a genuine parsing failure, and it is caused by the page count rule rather than by the length.</p>
+  <h2>The simplest fix</h2>
+  <p>One column. Contact details, a short summary, skills, experience, education, in that order. It is less striking on screen and it removes the question entirely.</p>
+  <p>Most of what a sidebar holds fits on two or three lines under a Skills heading. The <a href="/ats-resume-template">ATS-friendly structure</a> shows the order.</p>
 
   <div class="cta">
     <h2>See which of these apply to your resume</h2>
@@ -171,13 +170,13 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <li><a href="/ats-resume-template">An ATS-Friendly Resume Structure</a></li>
         <li><a href="/resume-summary-examples">How to Write a Resume Summary</a></li>
         <li><a href="/tailor-resume-to-job-description">How to Tailor a Resume to a Job Description</a></li>
+        <li><a href="/resume-length">How Long Should a Resume Be?</a></li>
         <li><a href="/chatgpt-resume-ats-check">Can ChatGPT or Claude Check Your Resume for ATS?</a></li>
         <li><a href="/ai-resume-prompts">AI Resume Prompts That Work</a></li>
         <li><a href="/free-vs-paid-ats-checker">Free vs Paid ATS Checker</a></li>
         <li><a href="/ats-checker-vs-chatgpt-vs-recruiter">ATS Checker vs ChatGPT vs a Recruiter Friend</a></li>
         <li><a href="/ats-checker-comparison">Which Kind of ATS Checker Should You Use?</a></li>
         <li><a href="/canva-resume-ats">Are Canva Resumes ATS Friendly?</a></li>
-        <li><a href="/two-column-resume-ats">Are Two-Column Resumes ATS Friendly?</a></li>
         <li><a href="/white-text-resume-keywords">The White Text Resume Trick, and Why It Backfires</a></li>
         <li><a href="/resume-contact-information">What Contact Information to Put on a Resume</a></li>
         <li><a href="/resume-skills-section">How to Write a Resume Skills Section</a></li>
