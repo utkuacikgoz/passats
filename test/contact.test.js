@@ -69,3 +69,33 @@ describe('checkContact', () => {
     }
   });
 });
+
+describe('untrusted input', () => {
+  // These run synchronously on an anonymous upload. Each of these shapes made a
+  // regex-based version backtrack; a linear walk handles all of them at once.
+  const budget = 200;
+  for (const [label, text] of [
+    ['an @ followed by a long dotted run', 'a@' + 'a.'.repeat(100_000)],
+    ['thousands of @ signs', '@'.repeat(150_000)],
+    ['a long run of digits and spaces', '1 '.repeat(100_000)],
+    ['a long run of date fragments', '2019 - '.repeat(30_000)],
+  ]) {
+    it(`stays linear on ${label}`, () => {
+      const started = Date.now();
+      checkContact(text);
+      assert.ok(Date.now() - started < budget, `took ${Date.now() - started}ms`);
+    });
+  }
+
+  it('does not let a date range and the next number pass as a phone', () => {
+    // A DOCX flattens paragraphs to single spaces: a role ending "2019 - 2024"
+    // followed by a bullet starting "100 customers" used to read as a phone.
+    assert.equal(isPhone('2019 - 2024 100'), false);
+    assert.equal(checkContact('Account Manager 2019 - 2024 100 customers onboarded').phone.status, 'missing');
+    assert.equal(checkContact('Analyst 2019–present 120 dashboards shipped').phone.status, 'missing');
+  });
+
+  it('still finds a phone that runs into the next number', () => {
+    assert.equal(checkContact('+44 7700 900100 40 product managers').phone.status, 'found');
+  });
+});
