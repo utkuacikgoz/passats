@@ -90,6 +90,15 @@ if (runtime.HIDDEN_TEXT_TIMEOUT_MS >= runtime.DOCUMENT_PARSE_TIMEOUT_MS) {
     `DOCUMENT_PARSE_TIMEOUT_MS (${runtime.DOCUMENT_PARSE_TIMEOUT_MS}ms)`,
   );
 }
+// The preview's page render follows its document phase in the same invocation.
+// Both, plus the reserve, must fit under the ceiling or a slow file gets the
+// preview killed outside its try/catch.
+if (runtime.DOCUMENT_PARSE_TIMEOUT_MS + runtime.PREVIEW_RENDER_TIMEOUT_MS + runtime.REQUEST_RESERVE_MS > ceilingMs) {
+  failures.push(
+    `preview: parse (${runtime.DOCUMENT_PARSE_TIMEOUT_MS}ms) plus render (${runtime.PREVIEW_RENDER_TIMEOUT_MS}ms) ` +
+    `plus reserve (${runtime.REQUEST_RESERVE_MS}ms) exceeds the ${ceilingMs}ms ceiling`,
+  );
+}
 if (runtime.HIDDEN_TEXT_MIN_BUDGET_MS > runtime.HIDDEN_TEXT_TIMEOUT_MS) {
   failures.push('HIDDEN_TEXT_MIN_BUDGET_MS must not exceed HIDDEN_TEXT_TIMEOUT_MS');
 }
@@ -127,6 +136,7 @@ if (failures.length) {
       shared: runtime.ANALYSIS_BUDGET_MS,
       documentParseCeiling: runtime.DOCUMENT_PARSE_TIMEOUT_MS,
       hiddenTextCeiling: runtime.HIDDEN_TEXT_TIMEOUT_MS,
+      previewRenderCeiling: runtime.PREVIEW_RENDER_TIMEOUT_MS,
       modelCeiling: runtime.LLM_TIMEOUT_MS,
       reserve: runtime.REQUEST_RESERVE_MS,
       alertCeiling: runtime.ALERT_TIMEOUT_MS,

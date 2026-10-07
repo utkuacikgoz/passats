@@ -36,12 +36,12 @@ before(async () => {
 });
 after(async () => { await new Promise(resolve => server.close(resolve)); });
 
-function pdf(body) {
+function pdf(body, mediaBox = '0 0 612 792') {
   const objs = [
     null,
     '<</Type/Catalog/Pages 2 0 R>>',
     '<</Type/Pages/Kids[3 0 R]/Count 1>>',
-    '<</Type/Page/Parent 2 0 R/MediaBox[0 0 612 792]/Contents 4 0 R/Resources<</Font<</F1 5 0 R>>>>>>',
+    `<</Type/Page/Parent 2 0 R/MediaBox[${mediaBox}]/Contents 4 0 R/Resources<</Font<</F1 5 0 R>>>>>>`,
     `<</Length ${body.length}>>\nstream\n${body}\nendstream`,
     '<</Type/Font/Subtype/Type1/BaseFont/Helvetica>>',
   ];
@@ -182,6 +182,53 @@ describe('the free parse preview', () => {
     // actually happen: they return early from several different places.
     await preview(Buffer.from('%PDF-1.4 and then nothing valid'), 'broken.pdf');
     assert.deepEqual(fs.readdirSync(UPLOAD_DIR), [], 'a rejected upload was left on disk');
+  });
+});
+
+describe('page one beside the text', () => {
+  const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+
+  it('returns page one of a PDF as a PNG, beside the text', async () => {
+    const { status, json } = await preview(pdf(lines([])));
+    assert.equal(status, 200);
+    assert.ok(json.page, 'no page image for an ordinary PDF');
+    assert.match(json.page.image, /^data:image\/png;base64,/);
+    const bytes = Buffer.from(json.page.image.split(',')[1], 'base64');
+    assert.deepEqual(bytes.subarray(0, 8), PNG, 'not actually a PNG');
+    assert.equal(json.page.width, 640);
+    assert.ok(Math.abs(json.page.height / json.page.width - 792 / 612) < 0.01, 'page aspect lost');
+    assert.ok(json.page.image.length < 800 * 1024);
+  });
+
+  it('skips a page no resume has, before allocating a canvas for it', async () => {
+    // 100 x 14,400pt at 640px wide would be a canvas of hundreds of megabytes.
+    // The text still comes back; only the picture is dropped.
+    const { status, json } = await preview(pdf(lines([]), '0 0 100 14400'));
+    assert.equal(status, 200);
+    assert.equal(json.page, null);
+    assert.ok(typeof json.text === 'string');
+    // And for the right reason: refused on shape, not rendered and then dropped.
+    const direct = await app.__test.renderFirstPage(pdf(lines([]), '0 0 100 14400'));
+    assert.equal(direct.skipped, 'page_shape');
+  });
+
+  it('renders nothing for a DOCX, which has no fixed page to show', async () => {
+    const JSZip = require('jszip');
+    const zip = new JSZip();
+    zip.file('[Content_Types].xml', '<?xml version="1.0"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>');
+    zip.file('_rels/.rels', '<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>');
+    zip.file('word/document.xml', '<?xml version="1.0"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>'
+      + CV.map(line => `<w:p><w:r><w:t>${line}</w:t></w:r></w:p>`).join('') + '</w:body></w:document>');
+    const buffer = await zip.generateAsync({ type: 'nodebuffer' });
+    const { status, json } = await preview(buffer, 'cv.docx', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+    assert.equal(status, 200);
+    assert.match(json.text, /Revolut/);
+    assert.equal(json.page, null);
+  });
+
+  it('the page script only ever shows a PNG data URL the server rendered', () => {
+    const script = fs.readFileSync(path.join(__dirname, '..', 'public', 'parse-preview.js'), 'utf8');
+    assert.match(script, /page\.image\.indexOf\('data:image\/png;base64,'\) === 0/);
   });
 });
 
