@@ -38,6 +38,7 @@ jobs:
         run: |
           npm run build:guides
           npm run sync:domain
+          npm run sync:launches
           npm run sync:faq
           npm run sync:csp
           git diff --exit-code -- views/ public/robots.txt public/llms.txt server.js \

@@ -23,6 +23,7 @@ silently reverts it, and CI fails on the drift.
 | `views/guides/*.html` | `content/guides.js` | `npm run build:guides` |
 | `public/sitemap.xml` | `scripts/build-sitemap.js` PAGES list | `npm run sync:sitemap` |
 | FAQ JSON-LD in `views/index.html` | the visible FAQ markup | `npm run sync:faq` |
+| launch strip + Organization `sameAs` in `views/index.html` | `config/launches.js` | `npm run sync:launches` |
 | CSP hashes in `server.js` | inline scripts in `views/index.html` | `npm run sync:csp` |
 | the domain, everywhere | `config/site.js` | `npm run sync:domain` |
 
