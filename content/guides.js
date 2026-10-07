@@ -477,7 +477,7 @@ module.exports = [
       ]},
       { h2: 'What no checker can do', body: [
         'This part is true of all three and rarely said.',
-        'Every checker reads extracted text, not your rendered page. None can reliably tell you whether your two columns interleave, whether something is hidden, or whether the layout looks right. Open your file and try to select a sentence. That ten second test catches what no tool can.',
+        'Every checker reads extracted text, not your rendered page. None can tell you whether the layout looks right to a person, and most will not tell you whether something is hidden. PassATS does check for hidden text, but open your file and try to select a sentence anyway. That ten second test catches what a report can only describe.',
         'No checker knows how a specific employer has configured their system. Anyone promising a pass rate for a named company is guessing.',
         'And no checker can tell you whether you are qualified. It measures how legible your case is, not how strong it is.',
       ]},
@@ -487,6 +487,185 @@ module.exports = [
         '<strong>If your resume is an image.</strong> Run the select-a-sentence test first. If no text highlights, no tool can read it and a report will tell you only that.',
         '<strong>If you want it rewritten for you.</strong> We tell you what to change and why. We do not write it.',
         '<strong>If you already know the problem.</strong> If you know you have no Skills section and inconsistent dates, go and fix those. You do not need us to confirm it.',
+      ]},
+    ],
+  },
+
+  {
+    slug: 'canva-resume-ats',
+    title: 'Are Canva Resumes ATS Friendly?',
+    description: 'What happens when an applicant tracking system reads a Canva resume, the export settings that decide it, and how to check your own file in a minute.',
+    h1: 'Are Canva Resumes ATS Friendly?',
+    standfirst: 'Some are and some are not, and the difference is rarely the tool. It is the template you picked and one setting on the download screen.',
+    sections: [
+      { h2: 'The short answer', body: [
+        'A Canva resume is a PDF like any other. If the text in it is real, selectable text in a sensible order, a parser can read it. If it is not, no parser can, and the design is irrelevant.',
+        'The trouble is that design tools make the risky choices easy and the safe ones invisible. Most of the templates are built for how a page looks, and an applicant tracking system never looks at the page. It reads the text layer underneath.',
+      ]},
+      { h2: 'The setting that matters most', body: [
+        'When you download as PDF, Canva offers an option to <strong>flatten</strong> the file. A flattened PDF turns your text into a picture of text. It looks identical on screen and contains no readable words at all.',
+        'Leave it off. Download as a standard PDF, then open the file and try to select a sentence. If the cursor highlights words, you have text. If it draws a box around the whole page, you have an image, and a parser will read an empty resume.',
+      ]},
+      { h2: 'What the templates do to the text layer', body: [
+        '<strong>Two columns and sidebars.</strong> The most common Canva layout. The visual columns are separate text boxes, and the order those boxes come out in is decided by how the template was built, not by where they sit on the page. Your skills sidebar can land in the middle of a job. See <a href="/two-column-resume-ats">are two-column resumes ATS friendly</a> for the detail.',
+        '<strong>Icons instead of labels.</strong> A phone glyph next to a number reads fine to a person. To a parser the glyph is either nothing or a stray character, and if the number itself sits in a decorative box it may come out detached from your name.',
+        '<strong>Skill bars and rating dots.</strong> Five dots for Python is a graphic. The parser gets the word Python, if that is text, and nothing about the dots. That is no loss, because a self-rating means nothing to a recruiter either.',
+        '<strong>Letter-spaced headings.</strong> Widely tracked capitals look elegant, and some exports write each letter as its own positioned character. Extracted, <code>EXPERIENCE</code> can come out as <code>E X P E R I E N C E</code>, which is not a heading any parser recognises.',
+        '<strong>Text in graphics.</strong> A name set inside a decorative shape, or headings that are part of an image element, do not exist as text at all.',
+      ]},
+      { h2: 'How to check your file', body: [
+        'Open the downloaded PDF, select everything, copy, and paste into a plain text editor. Then read it as if you were the machine.',
+        'Is your email there, intact, near your name? Do the section headings appear as whole words? Does each job title sit next to its own dates, or has a column of skills landed between them?',
+        'Our <a href="/ats-parse-preview">free parse preview</a> does the same thing with a real parser and shows you the result. It costs nothing.',
+      ]},
+      { h2: 'If it fails', body: [
+        'You do not have to leave Canva. Pick a single-column template, or delete the sidebar and move its contents into the main column: contact details at the top, skills as a plain list under a heading that says Skills.',
+        'Replace icons with the words they stand for, set headings as normal text without wide letter spacing, and download unflattened. Then run the test again.',
+        'If you would rather start from a structure that is known to read cleanly, <a href="/ats-resume-template">this one</a> is plain enough to rebuild in any tool.',
+      ]},
+      { h2: 'What we cannot tell you', body: [
+        'Parsers differ, and no one outside a company knows exactly how theirs is configured. A file that extracts cleanly is not a guarantee. It is the removal of a reason to fail before a person has read a word, which is the part you control.',
+      ]},
+    ],
+  },
+
+  {
+    slug: 'two-column-resume-ats',
+    title: 'Are Two-Column Resumes ATS Friendly?',
+    description: 'Why two-column resume layouts can scramble in applicant tracking systems, how to tell whether yours does, and how to keep a sidebar without the risk.',
+    h1: 'Are Two-Column Resumes ATS Friendly?',
+    standfirst: 'It depends on how the columns are built, which you cannot see by looking at the page. You can find out in a minute, and you should before you send it anywhere.',
+    sections: [
+      { h2: 'Why columns are a risk', body: [
+        'A person reads a two-column page column by column. A text extractor reads whatever order the file stores the text in, and that order can run straight across both columns, line by line.',
+        'When that happens, a job title from the right column and a skill from the left end up on the same line: <code>Senior Data Analyst SQL</code>. Repeat that down the page and the history the parser builds is not yours.',
+        'Some systems handle columns well. Some do not. You will not know which one a given employer runs, so the safe question is not "do columns work" but "does my file come out in order".',
+      ]},
+      { h2: 'Not all columns are the same', body: [
+        '<strong>Real document columns</strong>, set with the column feature in Word or Google Docs, usually extract in column order. They are the least risky way to do it.',
+        '<strong>Tables</strong> are read cell by cell, row by row. A two-cell table with your whole sidebar in one cell often reads acceptably. A grid of small cells does not.',
+        '<strong>Text boxes and free-floating frames</strong>, which is how most design templates build a sidebar, are the riskiest. Their order is whatever order they were created in, and some parsers skip text boxes entirely.',
+      ]},
+      { h2: 'How to check yours', body: [
+        'Select all the text in the file, copy it, and paste it into a plain text editor. If your sections come out whole and in a sensible order, the layout is not your problem.',
+        'If lines from the sidebar are interleaved with your experience, a parser can do the same. Our <a href="/ats-parse-preview">free parse preview</a> shows the extracted text from a real parser if you would rather not rely on copy and paste.',
+      ]},
+      { h2: 'If you want to keep the sidebar', body: [
+        'Keep <strong>the things that must survive</strong> in the main column: your name, email, phone and every job title with its dates. If the sidebar scrambles, you lose decoration, not your history.',
+        'Put only short, self-contained items in the sidebar, like a skills list or languages, each under a plain heading.',
+        'Build the sidebar as a real column or a single table cell, not a stack of text boxes.',
+      ]},
+      { h2: 'The simplest fix', body: [
+        'One column. Contact details, a short summary, skills, experience, education, in that order. It is less striking on screen and it removes the question entirely.',
+        'Most of what a sidebar holds fits on two or three lines under a Skills heading. The <a href="/ats-resume-template">ATS-friendly structure</a> shows the order.',
+      ]},
+    ],
+  },
+
+  {
+    slug: 'white-text-resume-keywords',
+    title: 'The White Text Resume Trick, and Why It Backfires',
+    description: 'What hiding keywords in white or tiny text on a resume actually does, how it gets found, and how to check whether a template put hidden text in yours.',
+    h1: 'The White Text Resume Trick, and Why It Backfires',
+    standfirst: 'Pasting the job description into your resume in white text is the most repeated resume hack online. It is easy to find, it reads as dishonest when it is found, and some templates add it without telling you.',
+    sections: [
+      { h2: 'What the trick is', body: [
+        'The idea is to copy the job posting, or a list of keywords, into your resume and make it invisible: white text on a white page, type so small it disappears, or text pushed off the edge.',
+        'The reasoning is that a person will not see it and a keyword matcher will count it. The second half is sometimes true. The first half is where it falls apart.',
+      ]},
+      { h2: 'Why it gets found', body: [
+        '<strong>A parser does not see colour.</strong> It extracts the words. The hidden block comes out exactly like the rest of your resume, and in many systems the extracted text is what a recruiter reads in your candidate profile. Your invisible paragraph becomes a visible one, usually at the bottom, usually reading as a copy of their own posting.',
+        '<strong>Anyone can select it.</strong> Press select all on the PDF and every hidden word lights up. Recruiters who have seen the trick before know to try it.',
+        '<strong>Repetition looks odd when scored.</strong> A resume that mentions a term twenty times does not read as twenty times as qualified. It reads as stuffed.',
+        'When it is found, the problem is no longer fit. It is trust, and a recruiter with a hundred other applications does not need to resolve that in your favour.',
+      ]},
+      { h2: 'You may have it without knowing', body: [
+        'Some downloadable templates and "ATS optimiser" tools insert hidden keyword blocks for you. Others leave placeholder text set in white from the original design. Either way it is in the file under your name.',
+        'Check before you send anything: open the PDF, select all, and look for highlighted areas where you see no words. Or paste the text into a plain editor and read the end of it.',
+        '<a href="/ats-parse-preview">The free parse preview</a> shows you every word a parser extracts, including the ones you cannot see on the page.',
+      ]},
+      { h2: 'What PassATS does with it', body: [
+        'The paid report looks for text a reader cannot see, using three tells: text set to render invisibly, text the same colour as what is behind it, and text too small to read. White text on a dark sidebar is normal design and is not flagged.',
+        'Anything hidden is removed before the resume is scored, so it cannot raise your number, and the report tells you it was there so you can take it out.',
+      ]},
+      { h2: 'What to do instead', body: [
+        'Put the terms where you actually used them. A Skills section of twelve to twenty things that are genuinely yours, and the same terms again inside the bullets that prove them. <a href="/resume-keywords">Resume keywords by role</a> covers which ones matter.',
+        'Use the posting\'s exact wording where it is true. If they say <code>stakeholder management</code> and you wrote "worked with partners", the honest fix is to use their phrase, visibly.',
+        '<a href="/tailor-resume-to-job-description">Tailoring a resume to a job description</a> walks through doing that without rewriting the whole thing each time.',
+      ]},
+    ],
+  },
+
+  {
+    slug: 'resume-contact-information',
+    title: 'What Contact Information to Put on a Resume, and Where',
+    description: 'Which contact details belong on a resume, how to format them so a parser keeps them, and the placements that make a strong candidate unreachable.',
+    h1: 'What Contact Information to Put on a Resume',
+    standfirst: 'It is the shortest section and the one with the worst failure mode. If a parser loses your email, the rest of the resume can be perfect and nobody can reply to it.',
+    sections: [
+      { h2: 'What to include', body: [
+        '<strong>Your name</strong>, as the first line of the page, in the same form you use on LinkedIn.',
+        '<strong>One email address</strong> that you check, written out in full: <code>dani.okonkwo@example.com</code>. A personal address is fine. An old university or current-employer address is not.',
+        '<strong>One phone number</strong> with the country code if you are applying across borders: <code>+44 7700 900100</code>.',
+        '<strong>City and country</strong>, not a street address. It answers the location question without handing a stranger where you live.',
+        '<strong>A LinkedIn URL</strong>, shortened to the custom form: <code>linkedin.com/in/dani-okonkwo</code>. A portfolio or GitHub link if your work lives there.',
+      ]},
+      { h2: 'What to leave off', body: [
+        'Date of birth, marital status and a full home address are not needed in most English-speaking markets, and in some they invite exactly the bias you would rather avoid.',
+        'Photos follow local custom. They are unusual in the US and UK and more common in parts of Europe. If you are unsure, leave it out: it is never the reason someone is shortlisted.',
+        'Several phone numbers or email addresses. One of each, the one you will answer.',
+      ]},
+      { h2: 'Where it goes', body: [
+        'In the <strong>body of the first page</strong>, directly under your name. Not in the document\'s header or footer area.',
+        'Header and footer regions are where page numbers live, and some parsers skip them. Your details look perfect on screen and can be missing from the extracted text entirely. <a href="/ats-parsing-errors">Why your resume does not parse</a> covers this and the other common failures.',
+        'Not inside a text box, a sidebar or an image. Each of those is a way for the text to come out detached from your name, or not at all.',
+      ]},
+      { h2: 'How to format it', body: [
+        'Plain text on one or two lines, separated by a simple divider: <code>dani.okonkwo@example.com · +44 7700 900100 · London, UK</code>.',
+        'Write the words, not icons. An envelope symbol next to your email is decoration to a person and noise to a parser. If you want labels, write them: Email, Phone.',
+        'Write links as text you can read, not as a word with a hyperlink hidden behind it. A printed or parsed resume loses the link and keeps only the word.',
+      ]},
+      { h2: 'Check that it survived', body: [
+        'Select all the text in your file, paste it into a plain text editor, and look at the first three lines. Your name, email and phone should be there, intact, together.',
+        'The <a href="/ats-parse-preview">free parse preview</a> shows the same thing from a real parser. If your email is missing there, it is missing for the employer too.',
+      ]},
+    ],
+  },
+
+  {
+    slug: 'resume-skills-section',
+    title: 'How to Write a Resume Skills Section That Gets Read',
+    description: 'What belongs in a resume skills section, how many to list, how to word them so applicant tracking systems match them, and what to leave out.',
+    h1: 'How to Write a Resume Skills Section',
+    standfirst: 'The skills section is the one place a resume is meant to be a list. That makes it the easiest section to get right, and the easiest to fill with things that work against you.',
+    sections: [
+      { h2: 'What it is for', body: [
+        'Two readers use it. A parser uses it to match the exact terms in a posting. A person uses it to see in five seconds whether your toolset fits the job.',
+        'Both want the same thing: specific, recognisable names of things you can do, in plain text, under a heading that says Skills.',
+      ]},
+      { h2: 'What to put in it', body: [
+        '<strong>Hard skills by name.</strong> Tools, languages, methods and systems: <code>SQL</code>, <code>Python</code>, <code>Tableau</code>, <code>financial modelling</code>, <code>Salesforce</code>, <code>IFRS</code>. Names a person could test you on.',
+        '<strong>The posting\'s wording, where it is true.</strong> If they say <code>A/B testing</code> and you wrote "experimentation", use theirs. Matching is often literal. <a href="/resume-keywords">Resume keywords by role</a> lists the common ones per discipline.',
+        '<strong>Both forms of an acronym, once.</strong> <code>CI/CD (continuous integration and delivery)</code> gets the exact match and still reads normally.',
+      ]},
+      { h2: 'What to leave out', body: [
+        '<strong>Soft skills as list items.</strong> "Communication", "teamwork" and "problem solving" say nothing in a list, because everyone writes them. Show them in a bullet instead: "Presented the forecast to the board each quarter" is communication with evidence.',
+        '<strong>Ratings.</strong> Bars, stars and percentages are graphics a parser cannot read and a recruiter does not trust. "Python 80%" raises the question of what the other 20% is.',
+        '<strong>Everything you have ever opened.</strong> A tool you used once three years ago is a liability in an interview. List what you would be comfortable being asked about.',
+        '<strong>Basics nobody screens for.</strong> Email, web browsing and Microsoft Word, unless the posting specifically asks for them.',
+      ]},
+      { h2: 'How many, and how to lay it out', body: [
+        'Twelve to twenty is a useful range. Fewer can look thin against a long posting; many more reads as a dump.',
+        'Group them when the list is long, one group per line: <code>Languages: Python, SQL, R</code> then <code>Tools: Tableau, dbt, Snowflake</code>. It reads faster and it is still plain text.',
+        'Commas or simple separators, not a table or columns of small cells, which can extract out of order.',
+      ]},
+      { h2: 'Where it goes', body: [
+        'Near the top, after your summary, if your skills are the strongest part of your case, which is common when changing careers. After experience if your history speaks for itself.',
+        'Either way it needs a standard heading: Skills, or Technical Skills. A creative heading like "My Toolkit" can leave the whole list unclassified. The <a href="/ats-resume-template">ATS-friendly structure</a> shows the full order.',
+      ]},
+      { h2: 'Back every one up', body: [
+        'A skill that appears in the list and nowhere else is a claim. The same skill inside a bullet, with what you did and what changed, is evidence.',
+        'Go down your list and find where each one appears in your experience. If it appears nowhere, either add the bullet that proves it or take it off the list.',
       ]},
     ],
   },

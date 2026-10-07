@@ -3,19 +3,19 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>How Long Should a Resume Be? | PassATS</title>
-<meta name="description" content="When one page is right, when two is expected, and why the page count matters far less than what is in the first third.">
-<link rel="canonical" href="https://passats.pro/resume-length">
+<title>Are Canva Resumes ATS Friendly? | PassATS</title>
+<meta name="description" content="What happens when an applicant tracking system reads a Canva resume, the export settings that decide it, and how to check your own file in a minute.">
+<link rel="canonical" href="https://passats.pro/canva-resume-ats">
 
 <meta property="og:type" content="article">
-<meta property="og:url" content="https://passats.pro/resume-length">
-<meta property="og:title" content="How Long Should a Resume Be?">
-<meta property="og:description" content="When one page is right, when two is expected, and why the page count matters far less than what is in the first third.">
+<meta property="og:url" content="https://passats.pro/canva-resume-ats">
+<meta property="og:title" content="Are Canva Resumes ATS Friendly?">
+<meta property="og:description" content="What happens when an applicant tracking system reads a Canva resume, the export settings that decide it, and how to check your own file in a minute.">
 <meta property="og:image" content="https://passats.pro/og-image.png">
 <meta property="og:site_name" content="PassATS">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="How Long Should a Resume Be?">
-<meta name="twitter:description" content="When one page is right, when two is expected, and why the page count matters far less than what is in the first third.">
+<meta name="twitter:title" content="Are Canva Resumes ATS Friendly?">
+<meta name="twitter:description" content="What happens when an applicant tracking system reads a Canva resume, the export settings that decide it, and how to check your own file in a minute.">
 <meta name="twitter:image" content="https://passats.pro/og-image.png">
 <meta name="robots" content="index, follow">
 
@@ -97,8 +97,8 @@
 {
   "@context": "https://schema.org",
   "@type": "Article",
-  "headline": "How Long Should a Resume Be?",
-  "description": "When one page is right, when two is expected, and why the page count matters far less than what is in the first third.",
+  "headline": "Are Canva Resumes ATS Friendly?",
+  "description": "What happens when an applicant tracking system reads a Canva resume, the export settings that decide it, and how to check your own file in a minute.",
   "image": "https://passats.pro/og-image.png",
   "author": {
     "@type": "Organization",
@@ -112,7 +112,7 @@
   },
   "mainEntityOfPage": {
     "@type": "WebPage",
-    "@id": "https://passats.pro/resume-length"
+    "@id": "https://passats.pro/canva-resume-ats"
   }
 }
 </script>
@@ -126,33 +126,37 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   <a class="nav-cta" href="/">Check My Resume. $2.99</a>
 </nav>
 <main>
-  <h1>How Long Should a Resume Be?</h1>
-  <p class="standfirst">One page is advice, not a rule. The real constraint is that almost nobody reads past the first third, whatever the length.</p>
+  <h1>Are Canva Resumes ATS Friendly?</h1>
+  <p class="standfirst">Some are and some are not, and the difference is rarely the tool. It is the template you picked and one setting on the download screen.</p>
   <p class="meta">From the team behind PassATS. Free to read, no email required.</p>
 
   <h2>The short answer</h2>
-  <p><strong>Under five years of experience:</strong> one page. You will not have enough evidence to fill two without padding, and padding is visible.</p>
-  <p><strong>Five to fifteen years:</strong> two pages is normal and expected. Compressing fifteen years onto one page means cutting the evidence that makes you credible.</p>
-  <p><strong>Academic, research or senior technical:</strong> longer is conventional, and a publication list is not a resume anyway.</p>
+  <p>A Canva resume is a PDF like any other. If the text in it is real, selectable text in a sensible order, a parser can read it. If it is not, no parser can, and the design is irrelevant.</p>
+  <p>The trouble is that design tools make the risky choices easy and the safe ones invisible. Most of the templates are built for how a page looks, and an applicant tracking system never looks at the page. It reads the text layer underneath.</p>
 
-  <h2>Why the rule exists</h2>
-  <p>The one-page rule is a proxy for a real problem: most resumes are too long because they list duties rather than outcomes.</p>
-  <p>Cutting to one page usually forces the right edit. That is why the advice works even though the rule itself is arbitrary.</p>
+  <h2>The setting that matters most</h2>
+  <p>When you download as PDF, Canva offers an option to <strong>flatten</strong> the file. A flattened PDF turns your text into a picture of text. It looks identical on screen and contains no readable words at all.</p>
+  <p>Leave it off. Download as a standard PDF, then open the file and try to select a sentence. If the cursor highlights words, you have text. If it draws a box around the whole page, you have an image, and a parser will read an empty resume.</p>
 
-  <h2>What actually gets read</h2>
-  <p>The top third of the first page. Your name, your summary, and your most recent role.</p>
-  <p>This is why page count matters less than order. A strong second page nobody reaches is worth less than one line moved higher.</p>
+  <h2>What the templates do to the text layer</h2>
+  <p><strong>Two columns and sidebars.</strong> The most common Canva layout. The visual columns are separate text boxes, and the order those boxes come out in is decided by how the template was built, not by where they sit on the page. Your skills sidebar can land in the middle of a job. See <a href="/two-column-resume-ats">are two-column resumes ATS friendly</a> for the detail.</p>
+  <p><strong>Icons instead of labels.</strong> A phone glyph next to a number reads fine to a person. To a parser the glyph is either nothing or a stray character, and if the number itself sits in a decorative box it may come out detached from your name.</p>
+  <p><strong>Skill bars and rating dots.</strong> Five dots for Python is a graphic. The parser gets the word Python, if that is text, and nothing about the dots. That is no loss, because a self-rating means nothing to a recruiter either.</p>
+  <p><strong>Letter-spaced headings.</strong> Widely tracked capitals look elegant, and some exports write each letter as its own positioned character. Extracted, <code>EXPERIENCE</code> can come out as <code>E X P E R I E N C E</code>, which is not a heading any parser recognises.</p>
+  <p><strong>Text in graphics.</strong> A name set inside a decorative shape, or headings that are part of an image element, do not exist as text at all.</p>
 
-  <h2>What to cut first</h2>
-  <p>Roles more than fifteen years old, unless they are the reason you are qualified. A single line each is enough.</p>
-  <p>Duties that any holder of that job title would have had.</p>
-  <p>"References available on request." Everyone knows.</p>
-  <p>A skills rating out of five. Nobody agrees what four means, including you.</p>
-  <p>Anything you would not want to be asked about in detail.</p>
+  <h2>How to check your file</h2>
+  <p>Open the downloaded PDF, select everything, copy, and paste into a plain text editor. Then read it as if you were the machine.</p>
+  <p>Is your email there, intact, near your name? Do the section headings appear as whole words? Does each job title sit next to its own dates, or has a column of skills landed between them?</p>
+  <p>Our <a href="/ats-parse-preview">free parse preview</a> does the same thing with a real parser and shows you the result. It costs nothing.</p>
 
-  <h2>What length does to parsing</h2>
-  <p>Length itself is not scored. A parser reads two pages as happily as one.</p>
-  <p>What does hurt is the compression people apply to hit one page: shrinking margins to nothing, dropping to eight point type, or moving content into a sidebar to save vertical space. That last one is a genuine parsing failure, and it is caused by the page count rule rather than by the length.</p>
+  <h2>If it fails</h2>
+  <p>You do not have to leave Canva. Pick a single-column template, or delete the sidebar and move its contents into the main column: contact details at the top, skills as a plain list under a heading that says Skills.</p>
+  <p>Replace icons with the words they stand for, set headings as normal text without wide letter spacing, and download unflattened. Then run the test again.</p>
+  <p>If you would rather start from a structure that is known to read cleanly, <a href="/ats-resume-template">this one</a> is plain enough to rebuild in any tool.</p>
+
+  <h2>What we cannot tell you</h2>
+  <p>Parsers differ, and no one outside a company knows exactly how theirs is configured. A file that extracts cleanly is not a guarantee. It is the removal of a reason to fail before a person has read a word, which is the part you control.</p>
 
   <div class="cta">
     <h2>See which of these apply to your resume</h2>
@@ -171,12 +175,12 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <li><a href="/ats-resume-template">An ATS-Friendly Resume Structure</a></li>
         <li><a href="/resume-summary-examples">How to Write a Resume Summary</a></li>
         <li><a href="/tailor-resume-to-job-description">How to Tailor a Resume to a Job Description</a></li>
+        <li><a href="/resume-length">How Long Should a Resume Be?</a></li>
         <li><a href="/chatgpt-resume-ats-check">Can ChatGPT or Claude Check Your Resume for ATS?</a></li>
         <li><a href="/ai-resume-prompts">AI Resume Prompts That Work</a></li>
         <li><a href="/free-vs-paid-ats-checker">Free vs Paid ATS Checker</a></li>
         <li><a href="/ats-checker-vs-chatgpt-vs-recruiter">ATS Checker vs ChatGPT vs a Recruiter Friend</a></li>
         <li><a href="/ats-checker-comparison">Which Kind of ATS Checker Should You Use?</a></li>
-        <li><a href="/canva-resume-ats">Are Canva Resumes ATS Friendly?</a></li>
         <li><a href="/two-column-resume-ats">Are Two-Column Resumes ATS Friendly?</a></li>
         <li><a href="/white-text-resume-keywords">The White Text Resume Trick, and Why It Backfires</a></li>
         <li><a href="/resume-contact-information">What Contact Information to Put on a Resume</a></li>
