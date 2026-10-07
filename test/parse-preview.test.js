@@ -232,6 +232,36 @@ describe('page one beside the text', () => {
   });
 });
 
+describe('the contact check', () => {
+  it('says the email and phone survived, and where', async () => {
+    const { json } = await preview(pdf(lines([])));
+    assert.deepEqual(json.contact.email, { status: 'found', position: 'top' });
+    assert.deepEqual(json.contact.phone, { status: 'found', position: 'top' });
+    assert.equal(json.contact.linkedin.status, 'missing');
+  });
+
+  it('says so when they did not', async () => {
+    const noContact = [
+      'Software Engineer with eight years in payments and platform work',
+      ...CV.slice(1),
+    ].map((line, i) => `BT /F1 11 Tf 40 ${740 - i * 16} Td (${line}) Tj ET`).join('\n');
+    const { json } = await preview(pdf(noContact));
+    assert.equal(json.contact.email.status, 'missing');
+    assert.equal(json.contact.phone.status, 'missing');
+  });
+
+  it('reports statuses, never the details themselves', async () => {
+    const { json } = await preview(pdf(lines([])));
+    assert.doesNotMatch(JSON.stringify(json.contact), /dani|example|0100/);
+  });
+
+  it('builds its list without innerHTML', () => {
+    const script = fs.readFileSync(path.join(__dirname, '..', 'public', 'parse-preview.js'), 'utf8');
+    assert.match(script, /function showContact/);
+    assert.match(script, /createTextNode\(copy\[1\]\)/);
+  });
+});
+
 describe('the page itself', () => {
   it('is served, indexable and canonical', async () => {
     const response = await fetch(`${origin}/ats-parse-preview`);

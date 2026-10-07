@@ -134,6 +134,28 @@
   @media (max-width: 899px) {
     .result.has-page .pane-page { margin-bottom: 24px; }
   }
+  /* The contact check sits above the comparison: it is the one finding on this
+     page that can make an otherwise strong resume worthless. Colour marks the
+     edge and the icon; the words stay in ink, so contrast never depends on it. */
+  .contact { margin-bottom: 28px; }
+  .contact-list {
+    list-style: none; padding: 0; display: grid; gap: 10px;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  }
+  .contact-item {
+    margin: 0; padding: 12px 14px; border-radius: 10px;
+    background: var(--card); border: 1px solid var(--border); border-left-width: 4px;
+    font-size: 0.875rem; line-height: 1.55; color: var(--ink);
+  }
+  .contact-item strong { display: block; margin-bottom: 2px; }
+  .contact-icon { font-weight: 700; margin-right: 6px; }
+  .contact-ok { border-left-color: var(--positive); }
+  .contact-ok .contact-icon { color: var(--positive); }
+  .contact-warn { border-left-color: var(--warning); }
+  .contact-warn .contact-icon { color: #6B4E12; }
+  .contact-bad { border-left-color: var(--danger-strong); background: var(--danger-light); }
+  .contact-bad .contact-icon { color: var(--danger-strong); }
+  .contact-info .contact-icon { color: var(--muted); }
   .hidden-flag {
     margin-top: 12px; padding: 12px 14px; border-radius: 10px;
     background: var(--warning-light); color: #6B4E12;
@@ -184,6 +206,10 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <p class="status" id="status" role="status" aria-live="polite" hidden></p>
 
     <section class="result" id="result" hidden>
+      <div class="contact" id="contact" hidden>
+        <h2>Did your contact details survive?</h2>
+        <ul class="contact-list" id="contactList"></ul>
+      </div>
       <div class="compare">
         <figure class="pane pane-page" id="pagePane" hidden>
           <h2>What a person sees</h2>
@@ -201,6 +227,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   </div>
 
   <h2>How to read the result</h2>
+  <p>Start with the contact check. A resume nobody can reply to is the one failure no amount of good writing fixes, and it is usually caused by putting your details in the page header, a text box or behind icons.</p>
   <p>The text above is what your resume becomes once the formatting is gone. Read it the way a parser does, with no idea what the layout was meant to convey. If you uploaded a PDF, go down your page line by line and find each line in the text beside it.</p>
   <ul>
     <li><strong>Is anything missing?</strong> Text inside a header, a footer, a text box or an image does not always survive. If your phone number lives in the header, look for it above. If it is not there, it is not in the application either.</li>
