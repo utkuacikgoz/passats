@@ -22,6 +22,60 @@
   var flag = document.getElementById('hiddenFlag');
   var pagePane = document.getElementById('pagePane');
   var pageImage = document.getElementById('pageImage');
+  var contactBox = document.getElementById('contact');
+  var contactList = document.getElementById('contactList');
+
+  // Copy for each status. "later" is still a pass, with a warning: the detail
+  // survived, but nowhere near the name, which usually means it came from a
+  // sidebar or footer the parser read last.
+  var CONTACT = {
+    email: {
+      label: 'Email',
+      found: ['ok', 'Found near the top.'],
+      later: ['warn', 'Found, but only further down. It probably came from a sidebar or footer the parser read last.'],
+      broken: ['bad', 'Came out broken. There is an @ in the text, but the address is split apart. Check it in the text below.'],
+      missing: ['bad', 'Not found. If your resume has one, the parser lost it. A page header, a text box or an icon is the usual cause.'],
+    },
+    phone: {
+      label: 'Phone',
+      found: ['ok', 'Found near the top.'],
+      later: ['warn', 'Found, but only further down. It probably came from a sidebar or footer the parser read last.'],
+      missing: ['bad', 'Not found. If your resume has one, the parser lost it. Write it as plain text under your name.'],
+    },
+    linkedin: {
+      label: 'LinkedIn',
+      found: ['ok', 'Address found.'],
+      later: ['ok', 'Address found.'],
+      label_only: ['warn', 'The word is there but the address is not. A link set on a word does not survive; write the address out.'],
+      missing: ['info', 'Not found. Optional, but worth including as a written-out address.'],
+    },
+  };
+  var ICON = { ok: '\u2713', warn: '!', bad: '\u2715', info: '\u2013' };
+
+  function showContact(contact) {
+    contactList.textContent = '';
+    if (!contact) { contactBox.hidden = true; return; }
+    ['email', 'phone', 'linkedin'].forEach(function (key) {
+      var spec = CONTACT[key];
+      var finding = contact[key] || {};
+      var status = finding.status === 'found' && finding.position === 'later' ? 'later' : finding.status;
+      var copy = spec[status];
+      if (!copy) return;
+      var item = document.createElement('li');
+      item.className = 'contact-item contact-' + copy[0];
+      var title = document.createElement('strong');
+      var icon = document.createElement('span');
+      icon.className = 'contact-icon';
+      icon.setAttribute('aria-hidden', 'true');
+      icon.textContent = ICON[copy[0]];
+      title.appendChild(icon);
+      title.appendChild(document.createTextNode(spec.label));
+      item.appendChild(title);
+      item.appendChild(document.createTextNode(copy[1]));
+      contactList.appendChild(item);
+    });
+    contactBox.hidden = !contactList.children.length;
+  }
   var busy = false;
 
   function say(message, kind) {
@@ -35,6 +89,7 @@
     result.classList.remove('has-page');
     pagePane.hidden = true;
     pageImage.removeAttribute('src');
+    showContact(null);
     flag.hidden = true;
     say('');
   }
@@ -96,6 +151,7 @@
         pagePane.hidden = false;
         result.classList.add('has-page');
       }
+      showContact(data.contact);
       if (data.hidden && data.hidden.flagged) {
         flag.textContent = describe(data.hidden);
         flag.hidden = false;
