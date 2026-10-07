@@ -16,6 +16,7 @@
 //   label  optional lead-in, defaults to 'Featured on'
 const LAUNCHES = [
   { name: 'Product Hunt', url: 'https://www.producthunt.com/products/passats' },
+  { name: 'Fazier', url: 'https://fazier.com/launches/passats.pro', label: 'Launched on' },
 ];
 
 module.exports = { LAUNCHES };

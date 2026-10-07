@@ -78,3 +78,16 @@ describe('launch strip edge cases', () => {
     assert.match(html, /\.marquee-track \{[^}]*min-width: 100vw;/);
   });
 });
+
+describe('footer launch badges', () => {
+  it('only load images from origins the CSP allows', () => {
+    // A badge from an origin missing from img-src is blocked silently and
+    // renders as an empty box. Every badge added here has to be named there.
+    const server = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
+    const imgSrc = server.match(/"img-src ([^"]+)"/)[1].split(/\s+/);
+    const footer = html.match(/<p class="footer-badge">([\s\S]*?)<\/p>/)[1];
+    const sources = [...footer.matchAll(/<img src="([^"]+)"/g)].map(m => new URL(m[1].replace(/&amp;/g, '&')).origin);
+    assert.ok(sources.length >= 2);
+    for (const origin of sources) assert.ok(imgSrc.includes(origin), `${origin} is not in img-src`);
+  });
+});
