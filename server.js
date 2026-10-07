@@ -380,6 +380,11 @@ app.use((req, res, next) => {
   // If Stripe Elements (js.stripe.com) is ever added, update script-src + frame-src.
   res.setHeader('Content-Security-Policy', [
     "default-src 'self'",
+    // buildhop.io serves the launch feedback widget. Its script could not be read
+    // when this was added, so the origin is named in every directive a feedback
+    // widget plausibly uses (script, connect, img, frame) rather than guessed
+    // at one by one: an unnamed one is blocked silently.
+    //
     // analytics.ahrefs.com serves the backlink-monitoring tag; the Google hosts
     // serve the Ads tag and GTM. The policy has no 'unsafe-inline' and no
     // wildcard, so a third-party tag that is not named here does not degrade —
@@ -391,7 +396,7 @@ app.use((req, res, next) => {
     // ad.doubleclick.net, and naming the first host without the others is how
     // this shipped broken once: the tag loaded, looked fine, and every
     // conversion request it made was blocked.
-    `script-src 'self' 'unsafe-hashes' https://analytics.ahrefs.com https://www.googletagmanager.com https://googleads.g.doubleclick.net https://www.googleadservices.com https://www.google-analytics.com ${APP_SCRIPT_CSP_HASH} ${VERCEL_ANALYTICS_CSP_HASH} ${APP_HANDLER_CSP_HASHES}`,
+    `script-src 'self' 'unsafe-hashes' https://buildhop.io https://analytics.ahrefs.com https://www.googletagmanager.com https://googleads.g.doubleclick.net https://www.googleadservices.com https://www.google-analytics.com ${APP_SCRIPT_CSP_HASH} ${VERCEL_ANALYTICS_CSP_HASH} ${APP_HANDLER_CSP_HASHES}`,
     "style-src 'self' 'unsafe-inline' fonts.googleapis.com",
     "font-src fonts.gstatic.com",
     // api.producthunt.com and fazier.com serve the launch badges in the footer.
@@ -400,9 +405,9 @@ app.use((req, res, next) => {
     // Google domains (google.de, google.co.uk, …) are deliberately not listed:
     // there is no wildcard that covers them and enumerating every ccTLD is not
     // worth it. If Ads reporting shows gaps, add the specific ones that matter.
-    "img-src 'self' data: https://api.producthunt.com https://fazier.com https://www.google.com https://www.googletagmanager.com https://www.googleadservices.com https://www.google-analytics.com https://googleads.g.doubleclick.net https://stats.g.doubleclick.net",
+    "img-src 'self' data: https://api.producthunt.com https://fazier.com https://buildhop.io https://www.google.com https://www.googletagmanager.com https://www.googleadservices.com https://www.google-analytics.com https://googleads.g.doubleclick.net https://stats.g.doubleclick.net",
     // Each tag beacons back to its own origin, and Google's is several origins.
-    "connect-src 'self' https://analytics.ahrefs.com https://www.googletagmanager.com https://www.google-analytics.com https://analytics.google.com https://googleads.g.doubleclick.net https://ad.doubleclick.net https://stats.g.doubleclick.net https://www.google.com",
+    "connect-src 'self' https://buildhop.io https://analytics.ahrefs.com https://www.googletagmanager.com https://www.google-analytics.com https://analytics.google.com https://googleads.g.doubleclick.net https://ad.doubleclick.net https://stats.g.doubleclick.net https://www.google.com",
     "object-src 'none'",
     "base-uri 'self'",
     // Not covered by default-src: without it, injected markup could still post
@@ -410,7 +415,7 @@ app.use((req, res, next) => {
     "form-action 'self'",
     // The GTM noscript fallback is an iframe from googletagmanager.com. Without
     // this it falls to default-src 'self' and is blocked.
-    "frame-src https://www.googletagmanager.com https://td.doubleclick.net https://bid.g.doubleclick.net",
+    "frame-src https://buildhop.io https://www.googletagmanager.com https://td.doubleclick.net https://bid.g.doubleclick.net",
     // Was 'none'. BuildHop embeds the landing page in a live preview on its
     // launch listing. 'none' cannot be kept alongside an allowlist — the keyword
     // means "no origin at all" and is invalid in combination — so 'self' is

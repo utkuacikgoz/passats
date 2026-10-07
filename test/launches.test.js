@@ -91,3 +91,16 @@ describe('footer launch badges', () => {
     for (const origin of sources) assert.ok(imgSrc.includes(origin), `${origin} is not in img-src`);
   });
 });
+
+describe('the BuildHop feedback widget', () => {
+  it('loads from an origin the CSP names everywhere it can reach', () => {
+    // The widget's own script could not be inspected, so its origin is allowed
+    // in each directive a feedback widget uses. Dropping one blocks it silently.
+    const server = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
+    assert.match(html, /<script async src="https:\/\/buildhop\.io\/feedback-widget\.js"/);
+    for (const directive of ['script-src', 'connect-src', 'img-src', 'frame-src']) {
+      const line = server.match(new RegExp(`["\`]${directive} ([^"\`]+)["\`]`))[1];
+      assert.ok(line.split(/\s+/).includes('https://buildhop.io'), `${directive} is missing https://buildhop.io`);
+    }
+  });
+});
