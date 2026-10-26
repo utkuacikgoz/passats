@@ -32,24 +32,24 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.133.0",
-    "@napi-rs/canvas": "1.0.10",
+    "@napi-rs/canvas": "1.0.13",
     "@upstash/redis": "^1.39.0",
     "@vercel/analytics": "^2.0.1",
     "compression": "^1.8.2",
-    "dotenv": "^18.0.7",
+    "dotenv": "^18.0.9",
     "express": "^5.3.0",
     "jsonwebtoken": "^9.0.3",
     "jszip": "^3.10.2",
     "mammoth": "^1.12.2",
-    "multer": "^2.3.0",
+    "multer": "^2.5.0",
     "pdf-parse": "^2.4.5",
     "pdfjs-dist": "5.4.296",
-    "posthog-node": "^5.55.1",
+    "posthog-node": "^5.57.0",
     "stripe": "^22.6.2"
   },
   "devDependencies": {
     "opentype.js": "^2.0.0",
-    "playwright": "^1.64.0",
+    "playwright": "^1.64.1",
     "supertest": "^7.3.1"
   }
 }
